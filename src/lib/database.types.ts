@@ -76,7 +76,7 @@ export interface Database {
           is_active?: boolean
           plan_id?: string | null
         }
-        Relationships: [] // Removed plans_gym_id_fkey as gym_id is removed
+        Relationships: []
       }
       members: {
         Row: {
@@ -88,7 +88,6 @@ export interface Database {
           email: string
           membership_status: string // e.g., 'active', 'inactive', 'expired', 'pending'
           created_at: string // timestamp with time zone
-          // updated_at removed as per image
           age: number | null // int4
           phone_number: string | null // text
           join_date: string | null // timestamp with time zone
@@ -104,7 +103,6 @@ export interface Database {
           email: string
           membership_status?: string
           created_at?: string
-          // updated_at removed
           age?: number | null
           phone_number?: string | null
           join_date?: string | null
@@ -120,7 +118,6 @@ export interface Database {
           email?: string
           membership_status?: string
           created_at?: string
-          // updated_at removed
           age?: number | null
           phone_number?: string | null
           join_date?: string | null
@@ -142,7 +139,7 @@ export interface Database {
           }
         ]
       }
-      check_in_records: { // Corresponds to check_ins in the image
+      check_ins: { // Renamed from check_in_records
         Row: {
           id: string // uuid
           gym_id: string // uuid, foreign key to gyms.id
@@ -169,13 +166,13 @@ export interface Database {
         }
         Relationships: [
           {
-            foreignKeyName: "check_in_records_gym_id_fkey"
+            foreignKeyName: "check_ins_gym_id_fkey" // Updated relationship name
             columns: ["gym_id"]
             referencedRelation: "gyms"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "check_in_records_member_table_id_fkey"
+            foreignKeyName: "check_ins_member_table_id_fkey" // Updated relationship name
             columns: ["member_table_id"]
             referencedRelation: "members"
             referencedColumns: ["id"]
