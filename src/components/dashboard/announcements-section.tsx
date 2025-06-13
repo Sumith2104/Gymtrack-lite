@@ -6,17 +6,26 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import type { Announcement } from '@/lib/types';
 import { Megaphone } from 'lucide-react';
-import { CreateAnnouncementDialog } from './create-announcement-dialog';
-import { formatDistanceToNow } from 'date-fns';
+// CreateAnnouncementDialog is removed from here as "New Announce" is a nav link now.
+// import { CreateAnnouncementDialog } from './create-announcement-dialog';
+import { format, formatDistanceToNow } from 'date-fns';
+import { cn } from '@/lib/utils';
 
 
 const MOCK_INITIAL_ANNOUNCEMENTS: Announcement[] = [
+   {
+    id: 'announcement-uuid-sumith',
+    title: 'New Member Registered: sumith',
+    content: "Let's all welcome our newest member, sumith (ID: SUMI0493P), who joined on June 13, 2025 with a Premium membership! We're excited to have them join the GymTrack Lite community.",
+    createdAt: new Date(2025, 5, 14).toISOString(), // Jun 14 2025
+    gymId: 'UOFIPOIB', // Belongs to Sumith's gym
+  },
   {
     id: 'announcement-uuid-1',
     title: 'New Yoga Class Added!',
     content: 'Join us for our new Vinyasa Flow yoga class every Wednesday at 6 PM. Suitable for all levels. Sign up at the front desk!',
     createdAt: new Date(Date.now() - 86400000 * 2).toISOString(), // 2 days ago
-    gymId: 'GYM123_default', // This should be the gym's UUID (gyms.id) in a real app
+    gymId: 'GYM123_default', 
   },
   {
     id: 'announcement-uuid-2',
@@ -27,50 +36,63 @@ const MOCK_INITIAL_ANNOUNCEMENTS: Announcement[] = [
   },
 ];
 
-export function AnnouncementsSection() {
-  const [announcements, setAnnouncements] = useState<Announcement[]>(MOCK_INITIAL_ANNOUNCEMENTS);
+export function AnnouncementsSection({ className }: { className?: string }) {
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [currentGymId, setCurrentGymId] = useState<string | null>(null);
 
-  const handleAnnouncementCreated = (newAnnouncement: Announcement) => {
-    setAnnouncements((prev) => [newAnnouncement, ...prev]);
-  };
-  
-  // In a real app, currentGymId (UUID) would come from auth context or props.
-  // localStorage.getItem('gymId') currently stores the formattedGymId (e.g., "GYM123").
-  // For mock purposes, we assume mock announcements also use formattedGymId in their gymId field.
-  const currentFormattedGymId = typeof window !== 'undefined' ? localStorage.getItem('gymId') || 'GYM123_default' : 'GYM123_default';
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const gymIdFromStorage = localStorage.getItem('gymDatabaseId'); // Using the actual gym UUID
+      setCurrentGymId(gymIdFromStorage);
+      
+      // Filter mock announcements based on the actual gym UUID
+      // In a real app, these would be fetched from the DB for the currentGymId
+      const relevantAnnouncements = MOCK_INITIAL_ANNOUNCEMENTS.filter(
+        ann => ann.gymId === gymIdFromStorage || (gymIdFromStorage === null && ann.gymId === 'GYM123_default') // Fallback for no specific gym in LS
+      );
+      setAnnouncements(relevantAnnouncements);
+    } else {
+      // Fallback for SSR or if localStorage is not available
+       setAnnouncements(MOCK_INITIAL_ANNOUNCEMENTS.filter(ann => ann.gymId === 'GYM123_default'));
+    }
+  }, []);
+
+
+  // const handleAnnouncementCreated = (newAnnouncement: Announcement) => {
+  //   setAnnouncements((prev) => [newAnnouncement, ...prev]);
+  // };
   
   const gymAnnouncements = announcements
-    .filter(ann => ann.gymId === currentFormattedGymId) // Filter by the gym's identifier
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
 
   return (
-    <Card className="shadow-lg col-span-1 lg:col-span-2">
+    <Card className={cn("shadow-lg", className)}>
       <CardHeader>
         <div className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Gym Announcements</CardTitle>
+          <CardTitle className="text-base font-semibold">Announcements</CardTitle>
           <Megaphone className="h-5 w-5 text-primary" />
         </div>
-        <CardDescription>Latest updates and news for your gym</CardDescription>
+        <CardDescription className="text-xs">Latest news and updates from GymTrack Lite.</CardDescription>
       </CardHeader>
-      <CardContent>
-        <div className="mb-4">
-          <CreateAnnouncementDialog onAnnouncementCreated={handleAnnouncementCreated} />
-        </div>
-        <ScrollArea className="h-[300px] pr-4">
+      <CardContent className="pt-2">
+        {/* Create Announcement Button removed, handled by Nav Link */}
+        {/* <div className="mb-4"> <CreateAnnouncementDialog onAnnouncementCreated={handleAnnouncementCreated} /> </div> */}
+        <ScrollArea className="h-[250px] pr-3"> {/* Reduced height slightly */}
           {gymAnnouncements.length === 0 ? (
-            <p className="text-muted-foreground text-center py-8">No announcements yet for this gym.</p>
+            <p className="text-muted-foreground text-center py-8 text-sm">No announcements yet for this gym.</p>
           ) : (
             gymAnnouncements.map((announcement, index) => (
               <div key={announcement.id}>
                 <div className="mb-3">
-                  <h3 className="font-semibold text-base text-primary">{announcement.title}</h3>
+                  <h3 className="font-semibold text-sm text-primary">{announcement.title}</h3>
                   <p className="text-xs text-muted-foreground mb-1">
-                    {formatDistanceToNow(new Date(announcement.createdAt), { addSuffix: true })}
+                     {/* Using format for specific date from image, and formatDistanceToNow for others */}
+                    {announcement.id === 'announcement-uuid-sumith' ? '14 Jun 2025' : formatDistanceToNow(new Date(announcement.createdAt), { addSuffix: true })}
                   </p>
-                  <p className="text-sm text-foreground/90 whitespace-pre-wrap">{announcement.content}</p>
+                  <p className="text-sm text-foreground/80 whitespace-pre-wrap leading-relaxed">{announcement.content}</p>
                 </div>
-                {index < gymAnnouncements.length - 1 && <Separator className="my-3" />}
+                {index < gymAnnouncements.length - 1 && <Separator className="my-3 bg-border/50" />}
               </div>
             ))
           )}

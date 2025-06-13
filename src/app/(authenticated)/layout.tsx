@@ -2,9 +2,7 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import { AppHeader } from '@/components/layout/app-header';
-import { AppSidebar } from '@/components/layout/app-sidebar';
 
 export default function AuthenticatedLayout({
   children,
@@ -23,18 +21,15 @@ export default function AuthenticatedLayout({
 
   // Potentially show a loading state while checking auth
   if (typeof window !== 'undefined' && localStorage.getItem('isAuthenticated') !== 'true') {
-     return <div className="flex h-screen items-center justify-center"><p>Loading...</p></div>;
+     return <div className="flex h-screen items-center justify-center bg-background"><p className="text-foreground">Loading...</p></div>;
   }
 
   return (
-    <SidebarProvider defaultOpen={true}>
-      <AppSidebar />
-      <SidebarInset>
-        <AppHeader />
-        <main className="flex-1 p-4 sm:p-6 overflow-auto">
-          {children}
-        </main>
-      </SidebarInset>
-    </SidebarProvider>
+    <div className="flex min-h-screen flex-col bg-background">
+      <AppHeader />
+      <main className="flex-1 container mx-auto py-6 px-4 sm:px-6 lg:px-8">
+        {children}
+      </main>
+    </div>
   );
 }
