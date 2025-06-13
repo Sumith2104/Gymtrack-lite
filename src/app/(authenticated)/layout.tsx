@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { AppHeader } from '@/components/layout/app-header';
+// AppHeader import removed as it's now in RootLayout
 
 export default function AuthenticatedLayout({
   children,
@@ -25,11 +25,9 @@ export default function AuthenticatedLayout({
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-background">
-      <AppHeader />
-      <main className="flex-1 container mx-auto py-6 px-4 sm:px-6 lg:px-8">
-        {children}
-      </main>
+    // AppHeader removed from here
+    <div className="flex-1 container mx-auto py-6 px-4 sm:px-6 lg:px-8"> {/* Changed to flex-1 to allow main content to take space */}
+      {children}
     </div>
   );
 }
