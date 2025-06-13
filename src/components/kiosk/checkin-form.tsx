@@ -6,6 +6,8 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
 import { QrCode, LogIn, AlertTriangle, CheckCircle2, PartyPopper, Video, XCircle, ScanLine, CameraOff } from 'lucide-react';
+import { Html5QrcodeScanner, Html5QrcodeSupportedFormats, type Html5QrcodeError, type Html5QrcodeResult } from 'html5-qrcode';
+
 
 import { Button } from '@/components/ui/button';
 import {
@@ -20,7 +22,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { generateMotivationalQuote, type MotivationalQuoteInput } from '@/ai/flows/generate-motivational-quote';
-import type { Member, CheckIn } from '@/lib/types';
+import type { Member, CheckIn, FormattedCheckIn } from '@/lib/types';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 const checkinSchema = z.object({
@@ -37,83 +39,31 @@ const mockKioskMembers: Member[] = [
   { id: 'member-uuid-sumith', memberId: 'SUMITH001', name: 'Sumith Test Kiosk', email: 'sumith.kiosk@example.com', membershipStatus: 'active', createdAt: new Date().toISOString(), gymId: 'UOFIPOIB' },
 ];
 
-export function CheckinForm({ className }: { className?: string }) {
+interface CheckinFormProps {
+  className?: string;
+  onSuccessfulCheckin?: (checkinEntry: FormattedCheckIn) => void;
+}
+
+const QR_READER_ELEMENT_ID = "qr-reader-kiosk";
+
+export function CheckinForm({ className, onSuccessfulCheckin }: CheckinFormProps) {
   const { toast } = useToast();
   const [checkinStatus, setCheckinStatus] = useState<{ type: 'success' | 'error' | 'info'; message: string; quote?: string; memberName?: string } | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [currentKioskGymId, setCurrentKioskGymId] = useState<string | null>(null);
+  const [currentKioskGymName, setCurrentKioskGymName] = useState<string | null>(null);
+
 
   const [isScanning, setIsScanning] = useState(false);
-  const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
-  const [qrError, setQrError] = useState<string | null>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const streamRef = useRef<MediaStream | null>(null);
+  const [cameraError, setCameraError] = useState<string | null>(null);
+  const html5QrCodeScannerRef = useRef<Html5QrcodeScanner | null>(null);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
       setCurrentKioskGymId(localStorage.getItem('gymId') || 'GYM123_default');
+      setCurrentKioskGymName(localStorage.getItem('gymName') || 'Default Gym');
     }
   }, []);
-
-  const stopCamera = () => {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
-      streamRef.current = null;
-    }
-    if (videoRef.current) {
-      videoRef.current.srcObject = null;
-    }
-  };
-
-  useEffect(() => {
-    // Cleanup camera on component unmount
-    return () => {
-      stopCamera();
-    };
-  }, []);
-
-  const startCamera = async () => {
-    setQrError(null);
-    setHasCameraPermission(null);
-    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
-        streamRef.current = stream;
-        setHasCameraPermission(true);
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-        }
-      } catch (error) {
-        console.error('Error accessing camera:', error);
-        setHasCameraPermission(false);
-        let message = 'Could not access the camera. Please ensure permissions are granted.';
-        if (error instanceof Error) {
-            if (error.name === "NotAllowedError") {
-                message = "Camera access was denied. Please enable camera permissions in your browser settings.";
-            } else if (error.name === "NotFoundError") {
-                message = "No camera found. Please ensure a camera is connected and enabled.";
-            } else if (error.name === "NotReadableError") {
-                message = "Camera is already in use or there was an issue accessing it.";
-            }
-        }
-        setQrError(message);
-        toast({
-          variant: 'destructive',
-          title: 'Camera Access Failed',
-          description: message,
-        });
-      }
-    } else {
-      setHasCameraPermission(false);
-      setQrError('Camera access is not supported by your browser or device.');
-      toast({
-        variant: 'destructive',
-        title: 'Camera Not Supported',
-        description: 'QR scanning requires camera access, which is not supported here.',
-      });
-    }
-  };
-
 
   const form = useForm<CheckinFormValues>({
     resolver: zodResolver(checkinSchema),
@@ -132,7 +82,7 @@ export function CheckinForm({ className }: { className?: string }) {
         return;
     }
     
-    await new Promise(resolve => setTimeout(resolve, 700));
+    await new Promise(resolve => setTimeout(resolve, 700)); // Simulate network delay
 
     const member = mockKioskMembers.find(m => 
         m.memberId.toLowerCase() === data.identifier.toLowerCase() && 
@@ -167,14 +117,27 @@ export function CheckinForm({ className }: { className?: string }) {
       const quoteInput: MotivationalQuoteInput = { memberId: member.memberId, memberName: member.name };
       const motivation = await generateMotivationalQuote(quoteInput);
       
-      const newCheckIn: CheckIn = {
+      const newCheckInRecord: CheckIn = { // This is the full CheckIn type
         id: `checkin_${Date.now()}`,
         gymId: member.gymId,
         memberTableId: member.id,
         checkInTime: new Date().toISOString(),
         createdAt: new Date().toISOString(),
       };
-      console.log("Mock Check-In Record Created:", newCheckIn);
+      console.log("Mock Check-In Record Created:", newCheckInRecord);
+      console.log(`SIMULATING: Email sent to ${member.email} for successful check-in.`);
+
+
+      const formattedCheckinForDisplay: FormattedCheckIn = {
+        memberName: member.name,
+        memberId: member.memberId,
+        checkInTime: new Date(newCheckInRecord.checkInTime),
+        gymName: currentKioskGymName || member.gymId, // Use fetched gym name if available
+      };
+
+      if (onSuccessfulCheckin) {
+        onSuccessfulCheckin(formattedCheckinForDisplay);
+      }
       
       setCheckinStatus({ 
         type: 'success', 
@@ -190,80 +153,126 @@ export function CheckinForm({ className }: { className?: string }) {
 
     } catch (error) {
       console.error("Failed to generate motivational quote:", error);
+      const fallbackQuote = "Keep pushing your limits!";
+       const formattedCheckinForDisplayOnError: FormattedCheckIn = {
+        memberName: member.name,
+        memberId: member.memberId,
+        checkInTime: new Date(),
+        gymName: currentKioskGymName || member.gymId,
+      };
+       if (onSuccessfulCheckin) {
+        onSuccessfulCheckin(formattedCheckinForDisplayOnError);
+      }
+
       setCheckinStatus({ 
         type: 'success', 
         message: `Welcome back, ${member.name}! You're checked in.`,
-        quote: "Keep pushing your limits!", 
+        quote: fallbackQuote, 
         memberName: member.name,
       });
       toast({
         title: `Welcome ${member.name}!`,
-        description: `Checked in successfully. Keep pushing your limits!`,
+        description: `Checked in successfully. ${fallbackQuote}`,
       });
+      console.log(`SIMULATING: Email sent to ${member.email} for successful check-in (with fallback quote).`);
     } finally {
       form.reset(); 
       setIsLoading(false);
-      setTimeout(() => setCheckinStatus(null), 10000);
+      setTimeout(() => setCheckinStatus(null), 10000); // Clear status after 10s
     }
   }
 
+  const onScanSuccess = (decodedText: string, result: Html5QrcodeResult) => {
+    console.log(`QR Code detected: ${decodedText}`, result);
+    form.setValue('identifier', decodedText);
+    toast({
+        title: "QR Code Scanned",
+        description: `Member ID ${decodedText} captured. Processing...`,
+    });
+    handleCancelScan(); // Stop camera and hide scanning UI
+    setTimeout(() => {
+      form.handleSubmit(onSubmit)();
+    }, 200); // Short delay for user to see toast
+  };
+
+  const onScanFailure = (error: Html5QrcodeError | string) => {
+    // Handle scan failure, usually ignore if it's just "QR code not found"
+    // console.warn(`QR Scan Error: ${JSON.stringify(error)}`);
+    // Can set a mild error message if needed, but often not for continuous scanning
+  };
+
+  useEffect(() => {
+    if (isScanning && !html5QrCodeScannerRef.current) {
+      setCameraError(null);
+      try {
+        const scanner = new Html5QrcodeScanner(
+          QR_READER_ELEMENT_ID,
+          { 
+            fps: 10, 
+            qrbox: { width: 250, height: 250 },
+            supportedScanTypes: [Html5QrcodeSupportedFormats.QR_CODE],
+            rememberLastUsedCamera: true,
+          },
+          false // verbose
+        );
+        scanner.render(onScanSuccess, onScanFailure);
+        html5QrCodeScannerRef.current = scanner;
+      } catch (err: any) {
+        console.error("Failed to initialize QR Scanner:", err);
+        setCameraError(err.message || "Failed to initialize camera/scanner.");
+        setIsScanning(false); // Stop scanning mode if init fails
+      }
+    }
+
+    return () => {
+      if (html5QrCodeScannerRef.current) {
+        html5QrCodeScannerRef.current.clear().catch(error => {
+          console.error("Failed to clear html5QrCodeScanner.", error);
+        });
+        html5QrCodeScannerRef.current = null;
+      }
+    };
+  }, [isScanning]);
+
+
   const handleScanQrCodeClick = () => {
     setIsScanning(true);
-    startCamera();
   };
 
   const handleCancelScan = () => {
+    if (html5QrCodeScannerRef.current) {
+      html5QrCodeScannerRef.current.clear().catch(error => {
+        console.error("Failed to clear html5QrCodeScanner on cancel.", error);
+      });
+      html5QrCodeScannerRef.current = null;
+    }
     setIsScanning(false);
-    stopCamera();
-    setQrError(null);
-    setHasCameraPermission(null);
+    setCameraError(null);
   };
 
-  const handleSimulateScan = () => {
-    // Simulate scanning a QR code and getting member ID
-    const simulatedMemberId = 'SUMITH001'; // Use an existing mock member for successful check-in
-    form.setValue('identifier', simulatedMemberId);
-    toast({
-        title: "QR Code Scanned (Simulated)",
-        description: `Member ID ${simulatedMemberId} captured. Signing in...`,
-    });
-    handleCancelScan(); // Stop camera and hide scanning UI
-    // Timeout to allow user to see the toast before form submission visual feedback
-    setTimeout(() => {
-         form.handleSubmit(onSubmit)();
-    }, 500);
-  };
 
   if (isScanning) {
     return (
       <Card className={`w-full max-w-lg shadow-2xl ${className}`}>
         <CardHeader className="text-center">
-          <div className="mx-auto bg-primary rounded-full p-3 w-fit mb-4">
-            <Video className="h-10 w-10 text-primary-foreground" />
-          </div>
           <CardTitle className="text-3xl font-headline">Scan QR Code</CardTitle>
           <CardDescription>Point your QR code at the camera.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="aspect-video w-full bg-muted rounded-md overflow-hidden border border-border">
-            <video ref={videoRef} className="w-full h-full object-cover" autoPlay playsInline muted />
+          <div id={QR_READER_ELEMENT_ID} className="w-full aspect-video bg-muted rounded-md border border-border">
+            {/* QR Scanner will render here */}
           </div>
           
-          {hasCameraPermission === false && qrError && (
+          {cameraError && (
             <Alert variant="destructive">
               <CameraOff className="h-4 w-4" />
-              <AlertTitle>Camera Problem</AlertTitle>
-              <AlertDescription>{qrError}</AlertDescription>
+              <AlertTitle>Camera/Scanner Problem</AlertTitle>
+              <AlertDescription>{cameraError}</AlertDescription>
             </Alert>
           )}
-           {hasCameraPermission === null && !qrError && (
-             <div className="text-center text-muted-foreground py-4">Requesting camera access...</div>
-           )}
+          {!cameraError && <div className="text-center text-muted-foreground text-sm">Initializing scanner... If prompted, please allow camera access.</div>}
 
           <div className="flex flex-col sm:flex-row gap-2">
-            <Button onClick={handleSimulateScan} className="w-full" disabled={!hasCameraPermission || isLoading}>
-              <ScanLine className="mr-2 h-5 w-5" /> Simulate Successful Scan
-            </Button>
             <Button variant="outline" onClick={handleCancelScan} className="w-full">
               <XCircle className="mr-2 h-5 w-5" /> Cancel Scan
             </Button>
@@ -277,12 +286,7 @@ export function CheckinForm({ className }: { className?: string }) {
   return (
     <Card className={`w-full max-w-lg shadow-2xl ${className}`}>
       <CardHeader className="text-center">
-         <div className="mx-auto bg-primary rounded-full p-3 w-fit mb-4">
-          {/* Reverted to QrCode icon for consistency with image, LogIn was for the button */}
-          <LogIn className="h-10 w-10 text-primary-foreground" /> 
-        </div>
         <CardTitle className="text-3xl font-headline">Check-in Form</CardTitle>
-        <CardDescription>Use your Member ID or QR code. Current Gym: {currentKioskGymId || 'Loading...'}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         <Form {...form}>
@@ -321,7 +325,7 @@ export function CheckinForm({ className }: { className?: string }) {
             <CardContent className="p-6 text-center">
               {checkinStatus.type === 'success' && <CheckCircle2 className="mx-auto h-12 w-12 text-green-500 mb-3" />}
               {checkinStatus.type === 'error' && <AlertTriangle className="mx-auto h-12 w-12 text-red-500 mb-3" />}
-              {checkinStatus.type === 'info' && <AlertTriangle className="mx-auto h-12 w-12 text-blue-500 mb-3" />} {/* Should be AlertCircle? Icon was AlertTriangle */}
+              {checkinStatus.type === 'info' && <AlertTriangle className="mx-auto h-12 w-12 text-blue-500 mb-3" />}
               <p className={`text-xl font-semibold ${checkinStatus.type === 'success' ? 'text-green-400' : checkinStatus.type === 'error' ? 'text-red-400' : 'text-blue-400'}`}>
                 {checkinStatus.message}
               </p>
