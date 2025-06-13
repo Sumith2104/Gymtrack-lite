@@ -19,38 +19,9 @@ import {
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from "@/hooks/use-toast";
+import { verifyGymOwnerCredentials } from '@/app/auth/actions';
 import type { Gym } from '@/lib/types';
 
-// Mock gyms data - in a real app, this would come from your Supabase backend
-const MOCK_GYMS: Gym[] = [
-  {
-    id: 'd3b2ded3-42ec-4906-846a-21d3e7130d78', // From screenshot
-    name: 'ast', // From screenshot
-    ownerEmail: 'sumithsumith4567890@gmail.com', // From screenshot
-    formattedGymId: 'UOFIPOIB', // From screenshot
-    createdAt: '2025-06-12T08:51:07.380Z', // Approximate from screenshot
-    status: 'active', // From screenshot
-    ownerUserId: null // From screenshot
-  },
-  {
-    id: 'gym_uuid_1',
-    name: 'Fitness Central',
-    ownerEmail: 'owner@example.com',
-    formattedGymId: 'GYM123',
-    createdAt: new Date().toISOString(),
-    status: 'active',
-    ownerUserId: 'owner_user_uuid_1'
-  },
-  {
-    id: 'gym_uuid_2',
-    name: 'Iron Paradise',
-    ownerEmail: 'gymadmin@example.org',
-    formattedGymId: 'GYMXYZ',
-    createdAt: new Date().toISOString(),
-    status: 'active',
-    ownerUserId: 'owner_user_uuid_2'
-  },
-];
 
 const loginSchema = z.object({
   email: z.string().email({ message: 'Invalid email address.' }),
@@ -72,38 +43,37 @@ export function LoginForm() {
   });
 
   async function onSubmit(data: LoginFormValues) {
-    // Mock passwordless authentication for gym owner
-    const targetGym = MOCK_GYMS.find(gym => gym.formattedGymId.toLowerCase() === data.gymId.toLowerCase() && gym.ownerEmail.toLowerCase() === data.email.toLowerCase());
+    form.clearErrors('root'); // Clear previous root errors
+    const targetGym = await verifyGymOwnerCredentials(data.email, data.gymId);
 
     if (targetGym) {
-      // Simulate successful magic link authentication (or similar passwordless flow)
-      localStorage.setItem('isAuthenticated', 'true'); // Mock auth state
-      localStorage.setItem('gymId', targetGym.formattedGymId); // Store formattedGymId
+      // In a real Supabase magic link/OTP flow, Supabase handles session creation.
+      // Here, we are simulating by setting localStorage for other parts of the app.
+      localStorage.setItem('isAuthenticated', 'true');
+      localStorage.setItem('gymId', targetGym.formattedGymId);
       localStorage.setItem('gymOwnerEmail', targetGym.ownerEmail);
-      localStorage.setItem('gymName', targetGym.name); // Store gym name
-      localStorage.setItem('gymDatabaseId', targetGym.id); // Store actual gym UUID
+      localStorage.setItem('gymName', targetGym.name);
+      localStorage.setItem('gymDatabaseId', targetGym.id); // Actual gym UUID
 
       toast({
-        title: "Check Your Email",
-        description: `A login link has been sent to ${data.email}. Please click it to sign in. (Simulated)`,
+        title: "Login Verification Successful",
+        description: `Welcome back to ${targetGym.name}! (Database check)`,
       });
-      // In a real magic link flow, user would click link from email. Here we'll auto-redirect for mock.
-      // For demo purposes, we'll proceed as if the link was clicked.
+      
+      // Simulate time for user to see toast before redirect
+      // In a real magic link flow, user would click link from email.
+      // Here we'll auto-redirect after a short delay.
       setTimeout(() => {
-        toast({
-            title: "Login Successful",
-            description: "Welcome back!",
-        });
         router.push('/dashboard');
-      }, 2000);
+      }, 1500);
 
     } else {
       toast({
         variant: "destructive",
         title: "Authentication Failed",
-        description: "Invalid Gym ID or Email. Please check your details. (Simulated)",
+        description: "Invalid Gym ID or Email. Please check your details.",
       });
-      form.setError('root', { message: 'Invalid Gym ID or Email.' });
+      form.setError('root', { message: 'Invalid Gym ID or Email. Please try again.' });
     }
   }
 
@@ -153,7 +123,7 @@ export function LoginForm() {
               <p className="text-sm font-medium text-destructive">{form.formState.errors.root.message}</p>
             )}
             <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
-              {form.formState.isSubmitting ? 'Processing...' : 'Login with Email Link'}
+              {form.formState.isSubmitting ? 'Processing...' : 'Login'}
             </Button>
           </form>
         </Form>
