@@ -16,6 +16,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { UserCircle, LogOut } from 'lucide-react';
+import { useState, useEffect } from 'react';
 
 
 export interface NavItem {
@@ -29,6 +30,20 @@ export interface NavItem {
 export function AppHeader() {
   const pathname = usePathname();
   const router = useRouter();
+  const [displayGymName, setDisplayGymName] = useState('Gym Owner');
+  const [displayOwnerEmail, setDisplayOwnerEmail] = useState('owner@example.com');
+
+  useEffect(() => {
+    // This code runs only on the client, after hydration
+    const storedGymName = localStorage.getItem('gymName');
+    const storedOwnerEmail = localStorage.getItem('gymOwnerEmail');
+    if (storedGymName) {
+      setDisplayGymName(storedGymName);
+    }
+    if (storedOwnerEmail) {
+      setDisplayOwnerEmail(storedOwnerEmail);
+    }
+  }, []);
   
   const handleLogout = () => {
     localStorage.removeItem('isAuthenticated');
@@ -36,6 +51,9 @@ export function AppHeader() {
     localStorage.removeItem('gymOwnerEmail');
     localStorage.removeItem('gymName');
     localStorage.removeItem('gymDatabaseId');
+    // Reset display values on logout
+    setDisplayGymName('Gym Owner');
+    setDisplayOwnerEmail('owner@example.com');
     router.push('/login');
   };
 
@@ -70,9 +88,6 @@ export function AppHeader() {
                 rel={item.external ? 'noopener noreferrer' : undefined}
                 className={cn(
                   "flex items-center gap-1 transition-colors hover:text-primary",
-                  // Apply active/inactive styling:
-                  // External links get default non-active styling.
-                  // Internal links get active or inactive styling.
                   item.external 
                     ? "text-foreground/70" 
                     : isActive 
@@ -99,27 +114,20 @@ export function AppHeader() {
               <DropdownMenuLabel className="font-normal">
                 <div className="flex flex-col space-y-1">
                   <p className="text-sm font-medium leading-none">
-                    {typeof window !== 'undefined' ? localStorage.getItem('gymName') || 'Gym Owner' : 'Gym Owner'}
+                    {displayGymName}
                   </p>
                   <p className="text-xs leading-none text-muted-foreground">
-                     {typeof window !== 'undefined' ? localStorage.getItem('gymOwnerEmail') || 'owner@example.com' : 'owner@example.com'}
+                     {displayOwnerEmail}
                   </p>
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              {/* Add items like Profile, Settings if needed */}
-              {/* <DropdownMenuItem onClick={() => router.push('/profile')} className="cursor-pointer">
-                <Settings className="mr-2 h-4 w-4" />
-                <span>Profile</span>
-              </DropdownMenuItem> */}
               <DropdownMenuItem onClick={handleLogout} className="cursor-pointer">
                 <LogOut className="mr-2 h-4 w-4" />
                 <span>Log out</span>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-           {/* Mobile Menu Trigger - can be implemented with Sheet if needed */}
-           {/* <Button variant="ghost" size="icon" className="md:hidden"> <Menu className="h-6 w-6" /> <span className="sr-only">Menu</span></Button> */}
         </div>
       </div>
     </header>
