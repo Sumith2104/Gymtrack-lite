@@ -1,6 +1,7 @@
+
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
@@ -33,12 +34,20 @@ const mockKioskMembers: Member[] = [
   { id: 'member-uuid-2', memberId: 'MBR002', name: 'Bob Smith', email: 'bob@example.com', membershipStatus: 'expired', createdAt: new Date().toISOString(), gymId: 'GYM123_default' },
   { id: 'member-uuid-3', memberId: 'MBR003', name: 'Carol White', email: 'carol@example.com', membershipStatus: 'inactive', createdAt: new Date().toISOString(), gymId: 'GYM123_default' },
   { id: 'member-uuid-4', memberId: 'MBR004', name: 'Valid Member', email: 'valid@example.com', membershipStatus: 'active', createdAt: new Date().toISOString(), gymId: 'GYM_OTHER' }, // Belongs to a different gym
+  { id: 'member-uuid-sumith', memberId: 'SUMITH001', name: 'Sumith Test Kiosk', email: 'sumith.kiosk@example.com', membershipStatus: 'active', createdAt: new Date().toISOString(), gymId: 'UOFIPOIB' },
 ];
 
 export function CheckinForm() {
   const { toast } = useToast();
   const [checkinStatus, setCheckinStatus] = useState<{ type: 'success' | 'error' | 'info'; message: string; quote?: string; memberName?: string } | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [currentKioskGymId, setCurrentKioskGymId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setCurrentKioskGymId(localStorage.getItem('gymId') || 'GYM123_default');
+    }
+  }, []);
 
 
   const form = useForm<CheckinFormValues>({
@@ -52,10 +61,14 @@ export function CheckinForm() {
     setIsLoading(true);
     setCheckinStatus(null); 
     
+    if (!currentKioskGymId) {
+        setCheckinStatus({ type: 'error', message: 'Kiosk configuration error. Please contact admin.' });
+        setIsLoading(false);
+        return;
+    }
+    
     // Simulate API call & QR decoding (if QR codes were implemented with memberId)
     await new Promise(resolve => setTimeout(resolve, 1000));
-
-    const currentKioskGymId = localStorage.getItem('gymId') || 'GYM123_default'; // Get current gym ID for the kiosk
 
     // Find member by memberId. QR codes would typically encode the memberId.
     const member = mockKioskMembers.find(m => 
@@ -129,6 +142,8 @@ export function CheckinForm() {
     } finally {
       form.reset(); 
       setIsLoading(false);
+      // Optionally clear status message after some time
+      setTimeout(() => setCheckinStatus(null), 10000);
     }
   }
 
@@ -139,7 +154,7 @@ export function CheckinForm() {
           <QrCode className="h-10 w-10 text-primary-foreground" />
         </div>
         <CardTitle className="text-4xl font-headline">Gym Check-in Kiosk</CardTitle>
-        <CardDescription>Enter your Member ID</CardDescription>
+        <CardDescription>Enter your Member ID. Current Gym: {currentKioskGymId || 'Loading...'}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         <Form {...form}>
@@ -165,7 +180,7 @@ export function CheckinForm() {
                 </FormItem>
               )}
             />
-            <Button type="submit" className="w-full text-lg py-6" disabled={isLoading}>
+            <Button type="submit" className="w-full text-lg py-6" disabled={isLoading || !currentKioskGymId}>
               {isLoading ? 'Processing...' : 'Check In'}
             </Button>
           </form>
@@ -176,7 +191,7 @@ export function CheckinForm() {
             <CardContent className="p-6 text-center">
               {checkinStatus.type === 'success' && <CheckCircle2 className="mx-auto h-12 w-12 text-green-500 mb-3" />}
               {checkinStatus.type === 'error' && <AlertTriangle className="mx-auto h-12 w-12 text-red-500 mb-3" />}
-              {checkinStatus.type === 'info' && <AlertTriangle className="mx-auto h-12 w-12 text-blue-500 mb-3" />} {/* Example for info */}
+              {checkinStatus.type === 'info' && <AlertTriangle className="mx-auto h-12 w-12 text-blue-500 mb-3" />}
               <p className={`text-xl font-semibold ${checkinStatus.type === 'success' ? 'text-green-400' : checkinStatus.type === 'error' ? 'text-red-400' : 'text-blue-400'}`}>
                 {checkinStatus.message}
               </p>
@@ -194,3 +209,4 @@ export function CheckinForm() {
     </Card>
   );
 }
+

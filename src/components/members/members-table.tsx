@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -51,6 +52,7 @@ const initialData: Member[] = [
   { id: 'member_uuid_2', memberId: 'MBR002', name: 'Bob Smith', email: 'bob@example.com', membershipStatus: 'inactive', gymId: 'GYM123_default', createdAt: new Date(Date.now() - 86400000 * 20).toISOString(), joinDate: new Date(Date.now() - 86400000 * 20).toISOString(), phoneNumber: '234-567-8901', membershipType: 'Monthly' },
   { id: 'member_uuid_3', memberId: 'MBR003', name: 'Carol White', email: 'carol@example.com', membershipStatus: 'expired', gymId: 'GYM123_default', createdAt: new Date(Date.now() - 86400000 * 30).toISOString(), joinDate: new Date(Date.now() - 86400000 * 30).toISOString(), expiryDate: new Date(Date.now() - 86400000 * 5).toISOString(), membershipType: 'Monthly'},
   { id: 'member_uuid_4', memberId: 'MBR004', name: 'David Brown', email: 'david@example.com', membershipStatus: 'active', gymId: 'GYM123_default', createdAt: new Date(Date.now() - 86400000 * 15).toISOString(), joinDate: new Date(Date.now() - 86400000 * 15).toISOString(), phoneNumber: '345-678-9012', membershipType: '6-Month'},
+  { id: 'member_uuid_5', memberId: 'MBR005', name: 'Sumith Member', email: 'sumith.member@example.com', membershipStatus: 'active', gymId: 'UOFIPOIB', createdAt: new Date().toISOString(), joinDate: new Date().toISOString(), expiryDate: new Date(Date.now() + 86400000 * 30).toISOString(), phoneNumber: '555-555-5555', membershipType: 'Annual' },
 ];
 
 
@@ -58,23 +60,32 @@ export function MembersTable() {
   const [data, setData] = React.useState<Member[]>(initialData);
   const { toast } = useToast();
 
-  // In a real app, gymId would come from auth context or props
-  const currentFormattedGymId = typeof window !== 'undefined' ? localStorage.getItem('gymId') : 'GYM123_default';
+  const [currentFormattedGymId, setCurrentFormattedGymId] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setCurrentFormattedGymId(localStorage.getItem('gymId'));
+    }
+  }, []);
   
-  // Filter members based on the gymId stored in localStorage (which is formattedGymId)
-  // This assumes member.gymId in the mock data also stores formattedGymId for simplicity here.
-  // In a real scenario with Supabase, member.gymId would be the UUID of the gym.
-  const gymMembers = data.filter(member => member.gymId === currentFormattedGymId);
+  const gymMembers = React.useMemo(() => {
+    if (!currentFormattedGymId) return [];
+    return data.filter(member => member.gymId === currentFormattedGymId);
+  }, [data, currentFormattedGymId]);
 
 
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
-  const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
+  const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({
+     // Default hidden columns
+    'age': false,
+    'createdAt': false,
+  });
   const [rowSelection, setRowSelection] = React.useState({});
 
-  const handleDeleteMember = (memberId: string) => {
-    setData(prev => prev.filter(m => m.id !== memberId));
-    toast({ title: "Member Deleted", description: `Member with ID ${memberId} has been removed. (Simulated)` });
+  const handleDeleteMember = (memberIdToDelete: string) => {
+    setData(prev => prev.filter(m => m.id !== memberIdToDelete));
+    toast({ title: "Member Deleted", description: `Member has been removed. (Simulated)` });
   };
   
   const handleEditMember = (member: Member) => {
@@ -92,24 +103,26 @@ export function MembersTable() {
   };
   
   const handleBulkDelete = () => {
-    const selectedIds = table.getFilteredSelectedRowModel().rows.map(row => row.original.id);
-    if (selectedIds.length === 0) {
-      toast({ title: "No members selected", variant: "destructive" });
+    const selectedRows = table.getFilteredSelectedRowModel().rows;
+    if (selectedRows.length === 0) {
+      toast({ title: "No members selected", variant: "destructive", description: "Please select members to delete." });
       return;
     }
+    const selectedIds = selectedRows.map(row => row.original.id);
     setData(prev => prev.filter(m => !selectedIds.includes(m.id)));
-    toast({ title: "Bulk Delete", description: `${selectedIds.length} members deleted. (Simulated)` });
+    toast({ title: "Bulk Delete", description: `${selectedIds.length} member(s) deleted. (Simulated)` });
     setRowSelection({});
   };
 
   const handleBulkStatusUpdate = (status: MembershipStatus) => {
-    const selectedIds = table.getFilteredSelectedRowModel().rows.map(row => row.original.id);
-     if (selectedIds.length === 0) {
-      toast({ title: "No members selected", variant: "destructive" });
+    const selectedRows = table.getFilteredSelectedRowModel().rows;
+     if (selectedRows.length === 0) {
+      toast({ title: "No members selected", variant: "destructive", description: "Please select members to update." });
       return;
     }
+    const selectedIds = selectedRows.map(row => row.original.id);
     setData(prev => prev.map(m => selectedIds.includes(m.id) ? { ...m, membershipStatus: status } : m));
-    toast({ title: "Bulk Status Update", description: `${selectedIds.length} members updated to ${status}. (Simulated)` });
+    toast({ title: "Bulk Status Update", description: `${selectedIds.length} member(s) updated to ${status}. (Simulated)` });
     setRowSelection({});
   };
 
@@ -169,12 +182,15 @@ export function MembersTable() {
       header: 'Status',
       cell: ({ row }) => {
         const status = row.getValue('membershipStatus') as MembershipStatus;
-        let badgeVariant: 'default' | 'secondary' | 'destructive' | 'outline' = 'default';
+        let badgeVariant: 'default' | 'secondary' | 'destructive' | 'outline' = 'default'; // active
         if (status === 'inactive') badgeVariant = 'secondary';
         if (status === 'expired') badgeVariant = 'destructive';
-        if (status === 'pending') badgeVariant = 'outline'; // Example for 'pending'
+        if (status === 'pending') badgeVariant = 'outline';
         return <Badge variant={badgeVariant} className="capitalize">{status}</Badge>;
       },
+      filterFn: (row, id, value) => {
+        return value.includes(row.getValue(id))
+      }
     },
     {
       accessorKey: 'membershipType',
@@ -196,6 +212,16 @@ export function MembersTable() {
         const expiryDate = row.getValue('expiryDate') as string | null;
         return expiryDate ? format(new Date(expiryDate), 'PP') : 'N/A';
       },
+    },
+    {
+      accessorKey: 'age', // For filtering and potential display
+      header: 'Age',
+      cell: ({row}) => row.getValue('age') || 'N/A'
+    },
+    {
+      accessorKey: 'createdAt', // For filtering and potential display
+      header: 'Registered On',
+      cell: ({row}) => format(new Date(row.getValue('createdAt')), 'PPpp')
     },
     {
       id: 'actions',
@@ -258,33 +284,74 @@ export function MembersTable() {
   });
 
   const handleMemberAdded = (newMember: Member) => {
-    setData((prev) => [{...newMember, gymId: currentFormattedGymId }, ...prev]); // Ensure gymId matches for filtering
+    // Ensure new member gets the current gym's ID if not already set (it should be by AddMemberDialog)
+    const gymIdForNewMember = newMember.gymId || currentFormattedGymId || 'GYM123_default';
+    setData((prev) => [{ ...newMember, gymId: gymIdForNewMember }, ...prev]);
+    if (gymIdForNewMember === currentFormattedGymId) {
+      // Only re-render if it matches current gym, this logic is covered by useMemo for gymMembers
+    }
   };
+  
+  const globalFilter = (table.getColumn('name')?.getFilterValue() as string) ?? '';
+  React.useEffect(() => {
+    const nameFilter = globalFilter;
+    table.getColumn('name')?.setFilterValue(nameFilter);
+    table.getColumn('email')?.setFilterValue(nameFilter); // Assuming you want to filter email by the same global input
+    table.getColumn('memberId')?.setFilterValue(nameFilter); // And memberId
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [globalFilter]); // Only re-run if globalFilter string changes
 
   return (
     <div className="w-full space-y-4">
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
         <Input
           placeholder="Filter by name, email or Member ID..."
-          value={(table.getColumn('name')?.getFilterValue() as string) ?? ''}
+          value={globalFilter}
           onChange={(event) => {
             const value = event.target.value;
-            table.getColumn('name')?.setFilterValue(value);
-            table.getColumn('email')?.setFilterValue(value);
-            table.getColumn('memberId')?.setFilterValue(value);
+            // This will trigger the useEffect above to apply filter to multiple columns
+             table.getColumn('name')?.setFilterValue(value);
+             // To make filtering work on multiple columns at once you might need a custom global filter function or apply to each column you want
+             // For simplicity here, we will filter on name, and you can expand if needed
           }}
-          className="max-w-sm"
+          className="max-w-sm grow"
         />
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+           <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline">
+                Columns <ChevronDownIcon className="ml-2 h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {table
+                .getAllColumns()
+                .filter((column) => column.getCanHide())
+                .map((column) => {
+                  return (
+                    <DropdownMenuCheckboxItem
+                      key={column.id}
+                      className="capitalize"
+                      checked={column.getIsVisible()}
+                      onCheckedChange={(value) =>
+                        column.toggleVisibility(!!value)
+                      }
+                    >
+                      {column.id}
+                    </DropdownMenuCheckboxItem>
+                  )
+                })}
+            </DropdownMenuContent>
+          </DropdownMenu>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="ml-auto">
+              <Button variant="outline">
                 Bulk Actions <ChevronDownIcon className="ml-2 h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               {(['active', 'inactive', 'expired', 'pending'] as MembershipStatus[]).map(status => (
-                 <DropdownMenuItem key={status} onClick={() => handleBulkStatusUpdate(status)} className="capitalize">Set {status}</DropdownMenuItem>
+                 <DropdownMenuItem key={status} onClick={() => handleBulkStatusUpdate(status)} className="capitalize">Set Selected to {status}</DropdownMenuItem>
               ))}
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleBulkDelete} className="text-destructive focus:text-destructive">Delete Selected</DropdownMenuItem>
@@ -336,7 +403,7 @@ export function MembersTable() {
                   colSpan={columns.length}
                   className="h-24 text-center"
                 >
-                  No members found for this gym.
+                  {currentFormattedGymId ? 'No members found for this gym.' : 'Loading gym data...'}
                 </TableCell>
               </TableRow>
             )}
@@ -370,3 +437,4 @@ export function MembersTable() {
     </div>
   );
 }
+

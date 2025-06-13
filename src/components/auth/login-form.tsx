@@ -1,3 +1,4 @@
+
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -22,21 +23,30 @@ import type { Gym } from '@/lib/types';
 
 // Mock gyms data - in a real app, this would come from your Supabase backend
 const MOCK_GYMS: Gym[] = [
-  { 
-    id: 'gym_uuid_1', 
-    name: 'Fitness Central', 
-    ownerEmail: 'owner@example.com', 
-    formattedGymId: 'GYM123', 
-    createdAt: new Date().toISOString(), 
-    status: 'active',
-    ownerUserId: 'owner_user_uuid_1' 
+  {
+    id: 'd3b2ded3-42ec-4906-846a-21d3e7130d78', // From screenshot
+    name: 'ast', // From screenshot
+    ownerEmail: 'sumithsumith4567890@gmail.com', // From screenshot
+    formattedGymId: 'UOFIPOIB', // From screenshot
+    createdAt: '2025-06-12T08:51:07.380Z', // Approximate from screenshot
+    status: 'active', // From screenshot
+    ownerUserId: null // From screenshot
   },
-  { 
-    id: 'gym_uuid_2', 
-    name: 'Iron Paradise', 
-    ownerEmail: 'gymadmin@example.org', 
-    formattedGymId: 'GYMXYZ', 
-    createdAt: new Date().toISOString(), 
+  {
+    id: 'gym_uuid_1',
+    name: 'Fitness Central',
+    ownerEmail: 'owner@example.com',
+    formattedGymId: 'GYM123',
+    createdAt: new Date().toISOString(),
+    status: 'active',
+    ownerUserId: 'owner_user_uuid_1'
+  },
+  {
+    id: 'gym_uuid_2',
+    name: 'Iron Paradise',
+    ownerEmail: 'gymadmin@example.org',
+    formattedGymId: 'GYMXYZ',
+    createdAt: new Date().toISOString(),
     status: 'active',
     ownerUserId: 'owner_user_uuid_2'
   },
@@ -45,7 +55,6 @@ const MOCK_GYMS: Gym[] = [
 const loginSchema = z.object({
   email: z.string().email({ message: 'Invalid email address.' }),
   gymId: z.string().min(1, { message: 'Gym ID is required.' }),
-  // Password field removed as per request
 });
 
 type LoginFormValues = z.infer<typeof loginSchema>;
@@ -71,7 +80,9 @@ export function LoginForm() {
       localStorage.setItem('isAuthenticated', 'true'); // Mock auth state
       localStorage.setItem('gymId', targetGym.formattedGymId); // Store formattedGymId
       localStorage.setItem('gymOwnerEmail', targetGym.ownerEmail);
-      
+      localStorage.setItem('gymName', targetGym.name); // Store gym name
+      localStorage.setItem('gymDatabaseId', targetGym.id); // Store actual gym UUID
+
       toast({
         title: "Check Your Email",
         description: `A login link has been sent to ${data.email}. Please click it to sign in. (Simulated)`,
@@ -138,7 +149,6 @@ export function LoginForm() {
                 </FormItem>
               )}
             />
-            {/* Password field and FormField removed */}
             {form.formState.errors.root && (
               <p className="text-sm font-medium text-destructive">{form.formState.errors.root.message}</p>
             )}
