@@ -1,3 +1,4 @@
+
 import type { NavItem } from '@/components/layout/app-header'; // Adjusted path
 import { LayoutDashboard, Users, BarChart3, ScanLine, Megaphone, Settings, Dumbbell, LogOut } from 'lucide-react';
 
@@ -15,7 +16,7 @@ export const NAV_LINKS_HEADER: NavItem[] = [
     href: '/kiosk',
     icon: ScanLine,
     label: 'Check-in',
-    external: true, // To open in new tab
+    // external: true, // Removed to open in the same window
   },
   {
     href: '/members',
@@ -73,3 +74,4 @@ export const USER_NAV_LINKS = [
     action: 'logout' // Special flag for logout
   }
 ];
+
