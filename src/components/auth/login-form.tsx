@@ -4,7 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
 import { useRouter } from 'next/navigation';
-import { Mail, KeyRound, Shield, LogIn } from 'lucide-react';
+import { Mail, Shield, LogIn } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -18,12 +18,34 @@ import {
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from "@/hooks/use-toast";
+import type { Gym } from '@/lib/types';
 
+// Mock gyms data - in a real app, this would come from your Supabase backend
+const MOCK_GYMS: Gym[] = [
+  { 
+    id: 'gym_uuid_1', 
+    name: 'Fitness Central', 
+    ownerEmail: 'owner@example.com', 
+    formattedGymId: 'GYM123', 
+    createdAt: new Date().toISOString(), 
+    status: 'active',
+    ownerUserId: 'owner_user_uuid_1' 
+  },
+  { 
+    id: 'gym_uuid_2', 
+    name: 'Iron Paradise', 
+    ownerEmail: 'gymadmin@example.org', 
+    formattedGymId: 'GYMXYZ', 
+    createdAt: new Date().toISOString(), 
+    status: 'active',
+    ownerUserId: 'owner_user_uuid_2'
+  },
+];
 
 const loginSchema = z.object({
   email: z.string().email({ message: 'Invalid email address.' }),
   gymId: z.string().min(1, { message: 'Gym ID is required.' }),
-  password: z.string().min(6, { message: 'Password must be at least 6 characters.' }),
+  // Password field removed as per request
 });
 
 type LoginFormValues = z.infer<typeof loginSchema>;
@@ -37,29 +59,40 @@ export function LoginForm() {
     defaultValues: {
       email: '',
       gymId: '',
-      password: '',
     },
   });
 
   async function onSubmit(data: LoginFormValues) {
-    // Mock authentication
-    if (data.email === 'owner@example.com' && data.gymId === 'GYM123' && data.password === 'password') {
-      // Simulate successful login
-      // In a real app, you'd set a token in localStorage/cookie and manage auth state.
+    // Mock passwordless authentication for gym owner
+    const targetGym = MOCK_GYMS.find(gym => gym.formattedGymId.toLowerCase() === data.gymId.toLowerCase() && gym.ownerEmail.toLowerCase() === data.email.toLowerCase());
+
+    if (targetGym) {
+      // Simulate successful magic link authentication (or similar passwordless flow)
       localStorage.setItem('isAuthenticated', 'true'); // Mock auth state
-      localStorage.setItem('gymId', data.gymId);
+      localStorage.setItem('gymId', targetGym.formattedGymId); // Store formattedGymId
+      localStorage.setItem('gymOwnerEmail', targetGym.ownerEmail);
+      
       toast({
-        title: "Login Successful",
-        description: "Welcome back!",
+        title: "Check Your Email",
+        description: `A login link has been sent to ${data.email}. Please click it to sign in. (Simulated)`,
       });
-      router.push('/dashboard');
+      // In a real magic link flow, user would click link from email. Here we'll auto-redirect for mock.
+      // For demo purposes, we'll proceed as if the link was clicked.
+      setTimeout(() => {
+        toast({
+            title: "Login Successful",
+            description: "Welcome back!",
+        });
+        router.push('/dashboard');
+      }, 2000);
+
     } else {
       toast({
         variant: "destructive",
-        title: "Login Failed",
-        description: "Invalid credentials. Please try again.",
+        title: "Authentication Failed",
+        description: "Invalid Gym ID or Email. Please check your details. (Simulated)",
       });
-      form.setError('root', { message: 'Invalid credentials.' });
+      form.setError('root', { message: 'Invalid Gym ID or Email.' });
     }
   }
 
@@ -81,7 +114,7 @@ export function LoginForm() {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel className="flex items-center">
-                    <Mail className="mr-2 h-4 w-4 text-primary" /> Email Address
+                    <Mail className="mr-2 h-4 w-4 text-primary" /> Owner Email Address
                   </FormLabel>
                   <FormControl>
                     <Input type="email" placeholder="owner@example.com" {...field} />
@@ -105,26 +138,12 @@ export function LoginForm() {
                 </FormItem>
               )}
             />
-            <FormField
-              control={form.control}
-              name="password"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="flex items-center">
-                    <KeyRound className="mr-2 h-4 w-4 text-primary" /> Password
-                  </FormLabel>
-                  <FormControl>
-                    <Input type="password" placeholder="••••••••" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            {/* Password field and FormField removed */}
             {form.formState.errors.root && (
               <p className="text-sm font-medium text-destructive">{form.formState.errors.root.message}</p>
             )}
             <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
-              {form.formState.isSubmitting ? 'Logging in...' : 'Login'}
+              {form.formState.isSubmitting ? 'Processing...' : 'Login with Email Link'}
             </Button>
           </form>
         </Form>

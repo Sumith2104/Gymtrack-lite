@@ -12,18 +12,18 @@ import { formatDistanceToNow } from 'date-fns';
 
 const MOCK_INITIAL_ANNOUNCEMENTS: Announcement[] = [
   {
-    id: '1',
+    id: 'announcement-uuid-1',
     title: 'New Yoga Class Added!',
     content: 'Join us for our new Vinyasa Flow yoga class every Wednesday at 6 PM. Suitable for all levels. Sign up at the front desk!',
     createdAt: new Date(Date.now() - 86400000 * 2).toISOString(), // 2 days ago
-    gymId: 'GYM123',
+    gymId: 'GYM123_default', // This should be the gym's UUID (gyms.id) in a real app
   },
   {
-    id: '2',
+    id: 'announcement-uuid-2',
     title: 'Gym Maintenance Notice',
     content: 'Please be advised that the sauna will be closed for maintenance on Friday from 10 AM to 2 PM. We apologize for any inconvenience.',
     createdAt: new Date(Date.now() - 86400000 * 5).toISOString(), // 5 days ago
-    gymId: 'GYM123',
+    gymId: 'GYM123_default',
   },
 ];
 
@@ -34,10 +34,13 @@ export function AnnouncementsSection() {
     setAnnouncements((prev) => [newAnnouncement, ...prev]);
   };
   
-  // Filter announcements for the current gym (mocked)
-  const gymId = typeof window !== 'undefined' ? localStorage.getItem('gymId') || 'GYM123' : 'GYM123';
+  // In a real app, currentGymId (UUID) would come from auth context or props.
+  // localStorage.getItem('gymId') currently stores the formattedGymId (e.g., "GYM123").
+  // For mock purposes, we assume mock announcements also use formattedGymId in their gymId field.
+  const currentFormattedGymId = typeof window !== 'undefined' ? localStorage.getItem('gymId') || 'GYM123_default' : 'GYM123_default';
+  
   const gymAnnouncements = announcements
-    .filter(ann => ann.gymId === gymId)
+    .filter(ann => ann.gymId === currentFormattedGymId) // Filter by the gym's identifier
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
 
@@ -56,7 +59,7 @@ export function AnnouncementsSection() {
         </div>
         <ScrollArea className="h-[300px] pr-4">
           {gymAnnouncements.length === 0 ? (
-            <p className="text-muted-foreground text-center py-8">No announcements yet.</p>
+            <p className="text-muted-foreground text-center py-8">No announcements yet for this gym.</p>
           ) : (
             gymAnnouncements.map((announcement, index) => (
               <div key={announcement.id}>

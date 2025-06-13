@@ -18,20 +18,21 @@ import {
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { generateMotivationalQuote, type MotivationalQuoteInput } from '@/ai/flows/generate-motivational-quote'; // Assuming path is correct
-import type { Member } from '@/lib/types';
+import { generateMotivationalQuote, type MotivationalQuoteInput } from '@/ai/flows/generate-motivational-quote';
+import type { Member, CheckIn } from '@/lib/types';
 
 const checkinSchema = z.object({
-  identifier: z.string().min(1, { message: 'Member ID or QR code is required.' }),
+  identifier: z.string().min(1, { message: 'Member ID is required.' }),
 });
 
 type CheckinFormValues = z.infer<typeof checkinSchema>;
 
-// Mock members data for kiosk
+// Mock members data for kiosk - aligned with new Member type
 const mockKioskMembers: Member[] = [
-  { id: '1', memberId: 'MBR001', name: 'Alice Johnson', email: 'alice@example.com', status: 'active', lastCheckIn: null, gymId: 'GYM123' },
-  { id: '2', memberId: 'MBR002', name: 'Bob Smith', email: 'bob@example.com', status: 'expired', lastCheckIn: null, gymId: 'GYM123' },
-  { id: '3', memberId: 'MBR003', name: 'Carol White', email: 'carol@example.com', status: 'inactive', lastCheckIn: null, gymId: 'GYM123' },
+  { id: 'member-uuid-1', memberId: 'MBR001', name: 'Alice Johnson', email: 'alice@example.com', membershipStatus: 'active', createdAt: new Date().toISOString(), gymId: 'GYM123_default' },
+  { id: 'member-uuid-2', memberId: 'MBR002', name: 'Bob Smith', email: 'bob@example.com', membershipStatus: 'expired', createdAt: new Date().toISOString(), gymId: 'GYM123_default' },
+  { id: 'member-uuid-3', memberId: 'MBR003', name: 'Carol White', email: 'carol@example.com', membershipStatus: 'inactive', createdAt: new Date().toISOString(), gymId: 'GYM123_default' },
+  { id: 'member-uuid-4', memberId: 'MBR004', name: 'Valid Member', email: 'valid@example.com', membershipStatus: 'active', createdAt: new Date().toISOString(), gymId: 'GYM_OTHER' }, // Belongs to a different gym
 ];
 
 export function CheckinForm() {
@@ -49,27 +50,39 @@ export function CheckinForm() {
 
   async function onSubmit(data: CheckinFormValues) {
     setIsLoading(true);
-    setCheckinStatus(null); // Reset status
+    setCheckinStatus(null); 
     
-    // Simulate API call & QR decoding
+    // Simulate API call & QR decoding (if QR codes were implemented with memberId)
     await new Promise(resolve => setTimeout(resolve, 1000));
 
-    const member = mockKioskMembers.find(m => m.memberId === data.identifier || m.qrCodeUrl?.includes(data.identifier));
+    const currentKioskGymId = localStorage.getItem('gymId') || 'GYM123_default'; // Get current gym ID for the kiosk
+
+    // Find member by memberId. QR codes would typically encode the memberId.
+    const member = mockKioskMembers.find(m => 
+        m.memberId.toLowerCase() === data.identifier.toLowerCase() && 
+        m.gymId === currentKioskGymId // Ensure member belongs to the current gym
+    );
 
     if (!member) {
-      setCheckinStatus({ type: 'error', message: 'Member not found. Please check your ID or QR code.' });
+      setCheckinStatus({ type: 'error', message: 'Member not found for this gym or ID is invalid.' });
       setIsLoading(false);
       return;
     }
 
-    if (member.status === 'expired') {
+    if (member.membershipStatus === 'expired') {
       setCheckinStatus({ type: 'error', message: `Hi ${member.name}, your membership has expired. Please see reception.` });
       setIsLoading(false);
       return;
     }
 
-    if (member.status === 'inactive') {
+    if (member.membershipStatus === 'inactive') {
       setCheckinStatus({ type: 'error', message: `Hi ${member.name}, your membership is inactive. Please contact support.` });
+      setIsLoading(false);
+      return;
+    }
+    
+    if (member.membershipStatus === 'pending') {
+      setCheckinStatus({ type: 'info', message: `Hi ${member.name}, your membership is pending. Please see reception.` });
       setIsLoading(false);
       return;
     }
@@ -79,6 +92,16 @@ export function CheckinForm() {
       const quoteInput: MotivationalQuoteInput = { memberId: member.memberId, memberName: member.name };
       const motivation = await generateMotivationalQuote(quoteInput);
       
+      // Simulate creating a check-in record
+      const newCheckIn: CheckIn = {
+        id: `checkin_${Date.now()}`, // Mock ID
+        gymId: member.gymId,
+        memberTableId: member.id, // Link to the member's UUID
+        checkInTime: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
+      };
+      console.log("Mock Check-In Record Created:", newCheckIn);
+      
       setCheckinStatus({ 
         type: 'success', 
         message: `Welcome back, ${member.name}! You're checked in.`,
@@ -86,8 +109,6 @@ export function CheckinForm() {
         memberName: member.name,
       });
       
-      // Simulate sending email
-      console.log(`Simulated email to ${member.email} with quote: "${motivation.quote}"`);
       toast({
         title: `Welcome ${member.name}!`,
         description: `Checked in successfully. ${motivation.quote}`,
@@ -96,9 +117,9 @@ export function CheckinForm() {
     } catch (error) {
       console.error("Failed to generate motivational quote:", error);
       setCheckinStatus({ 
-        type: 'success', // Still successful check-in
+        type: 'success', 
         message: `Welcome back, ${member.name}! You're checked in.`,
-        quote: "Keep pushing your limits!", // Fallback quote
+        quote: "Keep pushing your limits!", 
         memberName: member.name,
       });
       toast({
@@ -106,7 +127,7 @@ export function CheckinForm() {
         description: `Checked in successfully. Keep pushing your limits!`,
       });
     } finally {
-      form.reset(); // Clear the input field
+      form.reset(); 
       setIsLoading(false);
     }
   }
@@ -118,7 +139,7 @@ export function CheckinForm() {
           <QrCode className="h-10 w-10 text-primary-foreground" />
         </div>
         <CardTitle className="text-4xl font-headline">Gym Check-in Kiosk</CardTitle>
-        <CardDescription>Enter your Member ID or scan QR code</CardDescription>
+        <CardDescription>Enter your Member ID</CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         <Form {...form}>
@@ -128,12 +149,12 @@ export function CheckinForm() {
               name="identifier"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel className="sr-only">Member ID or QR Code</FormLabel>
+                  <FormLabel className="sr-only">Member ID</FormLabel>
                   <FormControl>
                     <div className="relative">
                       <Fingerprint className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                       <Input 
-                        placeholder="Scan or type ID..." 
+                        placeholder="Type Member ID..." 
                         {...field} 
                         className="pl-10 text-lg h-12"
                         autoFocus
@@ -151,14 +172,15 @@ export function CheckinForm() {
         </Form>
 
         {checkinStatus && (
-          <Card className={`mt-6 ${checkinStatus.type === 'success' ? 'border-green-500' : 'border-red-500'} bg-card/50`}>
+          <Card className={`mt-6 ${checkinStatus.type === 'success' ? 'border-green-500' : checkinStatus.type === 'error' ? 'border-red-500' : 'border-blue-500'} bg-card/50`}>
             <CardContent className="p-6 text-center">
               {checkinStatus.type === 'success' && <CheckCircle2 className="mx-auto h-12 w-12 text-green-500 mb-3" />}
               {checkinStatus.type === 'error' && <AlertTriangle className="mx-auto h-12 w-12 text-red-500 mb-3" />}
-              <p className={`text-xl font-semibold ${checkinStatus.type === 'success' ? 'text-green-400' : 'text-red-400'}`}>
+              {checkinStatus.type === 'info' && <AlertTriangle className="mx-auto h-12 w-12 text-blue-500 mb-3" />} {/* Example for info */}
+              <p className={`text-xl font-semibold ${checkinStatus.type === 'success' ? 'text-green-400' : checkinStatus.type === 'error' ? 'text-red-400' : 'text-blue-400'}`}>
                 {checkinStatus.message}
               </p>
-              {checkinStatus.quote && (
+              {checkinStatus.quote && checkinStatus.type === 'success' && (
                 <div className="mt-4 pt-4 border-t border-border">
                   <PartyPopper className="mx-auto h-8 w-8 text-primary mb-2" />
                   <p className="text-sm text-muted-foreground">Your motivation for today:</p>

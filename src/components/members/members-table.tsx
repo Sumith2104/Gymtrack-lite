@@ -40,17 +40,17 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import type { Member } from '@/lib/types';
+import type { Member, MembershipStatus } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { AddMemberDialog } from './add-member-dialog';
 import { ScrollArea } from '../ui/scroll-area';
+import { format } from 'date-fns';
 
 const initialData: Member[] = [
-  { id: '1', memberId: 'MBR001', name: 'Alice Johnson', email: 'alice@example.com', status: 'active', lastCheckIn: new Date(Date.now() - 86400000).toISOString(), gymId: 'GYM123', qrCodeUrl: 'https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=MBR001' },
-  { id: '2', memberId: 'MBR002', name: 'Bob Smith', email: 'bob@example.com', status: 'inactive', lastCheckIn: new Date(Date.now() - 86400000 * 5).toISOString(), gymId: 'GYM123', qrCodeUrl: 'https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=MBR002' },
-  { id: '3', memberId: 'MBR003', name: 'Carol White', email: 'carol@example.com', status: 'expired', lastCheckIn: null, gymId: 'GYM123', qrCodeUrl: 'https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=MBR003' },
-  { id: '4', memberId: 'MBR004', name: 'David Brown', email: 'david@example.com', status: 'active', lastCheckIn: new Date(Date.now() - 86400000 * 2).toISOString(), gymId: 'GYM123', qrCodeUrl: 'https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=MBR004' },
-  // Add more mock members if needed
+  { id: 'member_uuid_1', memberId: 'MBR001', name: 'Alice Johnson', email: 'alice@example.com', membershipStatus: 'active', gymId: 'GYM123_default', createdAt: new Date(Date.now() - 86400000 * 10).toISOString(), joinDate: new Date(Date.now() - 86400000 * 10).toISOString(), expiryDate: new Date(Date.now() + 86400000 * 355).toISOString(), phoneNumber: '123-456-7890', membershipType: 'Annual' },
+  { id: 'member_uuid_2', memberId: 'MBR002', name: 'Bob Smith', email: 'bob@example.com', membershipStatus: 'inactive', gymId: 'GYM123_default', createdAt: new Date(Date.now() - 86400000 * 20).toISOString(), joinDate: new Date(Date.now() - 86400000 * 20).toISOString(), phoneNumber: '234-567-8901', membershipType: 'Monthly' },
+  { id: 'member_uuid_3', memberId: 'MBR003', name: 'Carol White', email: 'carol@example.com', membershipStatus: 'expired', gymId: 'GYM123_default', createdAt: new Date(Date.now() - 86400000 * 30).toISOString(), joinDate: new Date(Date.now() - 86400000 * 30).toISOString(), expiryDate: new Date(Date.now() - 86400000 * 5).toISOString(), membershipType: 'Monthly'},
+  { id: 'member_uuid_4', memberId: 'MBR004', name: 'David Brown', email: 'david@example.com', membershipStatus: 'active', gymId: 'GYM123_default', createdAt: new Date(Date.now() - 86400000 * 15).toISOString(), joinDate: new Date(Date.now() - 86400000 * 15).toISOString(), phoneNumber: '345-678-9012', membershipType: '6-Month'},
 ];
 
 
@@ -58,8 +58,13 @@ export function MembersTable() {
   const [data, setData] = React.useState<Member[]>(initialData);
   const { toast } = useToast();
 
-  const gymId = typeof window !== 'undefined' ? localStorage.getItem('gymId') || 'GYM123' : 'GYM123';
-  const gymMembers = data.filter(member => member.gymId === gymId);
+  // In a real app, gymId would come from auth context or props
+  const currentFormattedGymId = typeof window !== 'undefined' ? localStorage.getItem('gymId') : 'GYM123_default';
+  
+  // Filter members based on the gymId stored in localStorage (which is formattedGymId)
+  // This assumes member.gymId in the mock data also stores formattedGymId for simplicity here.
+  // In a real scenario with Supabase, member.gymId would be the UUID of the gym.
+  const gymMembers = data.filter(member => member.gymId === currentFormattedGymId);
 
 
   const [sorting, setSorting] = React.useState<SortingState>([]);
@@ -68,22 +73,22 @@ export function MembersTable() {
   const [rowSelection, setRowSelection] = React.useState({});
 
   const handleDeleteMember = (memberId: string) => {
-    // Mock delete
     setData(prev => prev.filter(m => m.id !== memberId));
-    toast({ title: "Member Deleted", description: `Member ${memberId} has been removed.` });
+    toast({ title: "Member Deleted", description: `Member with ID ${memberId} has been removed. (Simulated)` });
   };
   
   const handleEditMember = (member: Member) => {
-    // Mock edit - in real app, open a dialog with member data
-    toast({ title: "Edit Member", description: `Editing ${member.name}. (Not implemented)` });
+    // In real app, open a dialog with member data for editing
+    // For now, this could be AddMemberDialog pre-filled, or a new EditMemberDialog
+    toast({ title: "Edit Member", description: `Editing ${member.name}. (UI for editing not fully implemented here)` });
   };
 
   const handleSendCustomEmail = (member: Member) => {
-    toast({ title: "Send Email", description: `Sending custom email to ${member.name}. (Not implemented)` });
+    toast({ title: "Send Email", description: `Simulating sending email to ${member.name}.` });
   };
 
   const handleViewAttendance = (member: Member) => {
-    toast({ title: "Attendance Summary", description: `Viewing attendance for ${member.name}. (Not implemented)` });
+    toast({ title: "Attendance Summary", description: `Simulating viewing attendance for ${member.name}.` });
   };
   
   const handleBulkDelete = () => {
@@ -93,18 +98,18 @@ export function MembersTable() {
       return;
     }
     setData(prev => prev.filter(m => !selectedIds.includes(m.id)));
-    toast({ title: "Bulk Delete", description: `${selectedIds.length} members deleted.` });
+    toast({ title: "Bulk Delete", description: `${selectedIds.length} members deleted. (Simulated)` });
     setRowSelection({});
   };
 
-  const handleBulkStatusUpdate = (status: Member['status']) => {
+  const handleBulkStatusUpdate = (status: MembershipStatus) => {
     const selectedIds = table.getFilteredSelectedRowModel().rows.map(row => row.original.id);
      if (selectedIds.length === 0) {
       toast({ title: "No members selected", variant: "destructive" });
       return;
     }
-    setData(prev => prev.map(m => selectedIds.includes(m.id) ? { ...m, status } : m));
-    toast({ title: "Bulk Status Update", description: `${selectedIds.length} members updated to ${status}.` });
+    setData(prev => prev.map(m => selectedIds.includes(m.id) ? { ...m, membershipStatus: status } : m));
+    toast({ title: "Bulk Status Update", description: `${selectedIds.length} members updated to ${status}. (Simulated)` });
     setRowSelection({});
   };
 
@@ -155,22 +160,41 @@ export function MembersTable() {
       cell: ({ row }) => <div>{row.getValue('email')}</div>,
     },
     {
-      accessorKey: 'status',
+      accessorKey: 'phoneNumber',
+      header: 'Phone',
+      cell: ({ row }) => <div>{row.getValue('phoneNumber') || 'N/A'}</div>,
+    },
+    {
+      accessorKey: 'membershipStatus',
       header: 'Status',
       cell: ({ row }) => {
-        const status = row.getValue('status') as string;
-        let badgeVariant: 'default' | 'secondary' | 'destructive' = 'default';
+        const status = row.getValue('membershipStatus') as MembershipStatus;
+        let badgeVariant: 'default' | 'secondary' | 'destructive' | 'outline' = 'default';
         if (status === 'inactive') badgeVariant = 'secondary';
         if (status === 'expired') badgeVariant = 'destructive';
+        if (status === 'pending') badgeVariant = 'outline'; // Example for 'pending'
         return <Badge variant={badgeVariant} className="capitalize">{status}</Badge>;
       },
     },
     {
-      accessorKey: 'lastCheckIn',
-      header: 'Last Check-in',
+      accessorKey: 'membershipType',
+      header: 'Membership Type',
+      cell: ({ row }) => <div>{row.getValue('membershipType') || 'N/A'}</div>,
+    },
+    {
+      accessorKey: 'joinDate',
+      header: 'Join Date',
       cell: ({ row }) => {
-        const lastCheckIn = row.getValue('lastCheckIn') as string | null;
-        return lastCheckIn ? new Date(lastCheckIn).toLocaleDateString() : 'N/A';
+        const joinDate = row.getValue('joinDate') as string | null;
+        return joinDate ? format(new Date(joinDate), 'PP') : 'N/A';
+      },
+    },
+    {
+      accessorKey: 'expiryDate',
+      header: 'Expiry Date',
+      cell: ({ row }) => {
+        const expiryDate = row.getValue('expiryDate') as string | null;
+        return expiryDate ? format(new Date(expiryDate), 'PP') : 'N/A';
       },
     },
     {
@@ -228,21 +252,26 @@ export function MembersTable() {
       columnVisibility,
       rowSelection,
     },
+    initialState: {
+      pagination: { pageSize: 5 }
+    }
   });
 
   const handleMemberAdded = (newMember: Member) => {
-    setData((prev) => [newMember, ...prev]);
+    setData((prev) => [{...newMember, gymId: currentFormattedGymId }, ...prev]); // Ensure gymId matches for filtering
   };
 
   return (
     <div className="w-full space-y-4">
       <div className="flex items-center justify-between gap-2">
         <Input
-          placeholder="Filter by name or email..."
+          placeholder="Filter by name, email or Member ID..."
           value={(table.getColumn('name')?.getFilterValue() as string) ?? ''}
           onChange={(event) => {
-            table.getColumn('name')?.setFilterValue(event.target.value);
-            table.getColumn('email')?.setFilterValue(event.target.value);
+            const value = event.target.value;
+            table.getColumn('name')?.setFilterValue(value);
+            table.getColumn('email')?.setFilterValue(value);
+            table.getColumn('memberId')?.setFilterValue(value);
           }}
           className="max-w-sm"
         />
@@ -254,9 +283,9 @@ export function MembersTable() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => handleBulkStatusUpdate('active')}>Set Active</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleBulkStatusUpdate('inactive')}>Set Inactive</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleBulkStatusUpdate('expired')}>Set Expired</DropdownMenuItem>
+              {(['active', 'inactive', 'expired', 'pending'] as MembershipStatus[]).map(status => (
+                 <DropdownMenuItem key={status} onClick={() => handleBulkStatusUpdate(status)} className="capitalize">Set {status}</DropdownMenuItem>
+              ))}
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleBulkDelete} className="text-destructive focus:text-destructive">Delete Selected</DropdownMenuItem>
             </DropdownMenuContent>
@@ -307,7 +336,7 @@ export function MembersTable() {
                   colSpan={columns.length}
                   className="h-24 text-center"
                 >
-                  No members found.
+                  No members found for this gym.
                 </TableCell>
               </TableRow>
             )}
