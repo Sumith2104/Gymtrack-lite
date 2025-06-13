@@ -1,10 +1,11 @@
+
 'use client';
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import type { LucideIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { APP_NAME, APP_LOGO as AppLogoIcon, NAV_LINKS_HEADER, USER_NAV_LINKS } from '@/lib/constants';
+import { APP_NAME, APP_LOGO as AppLogoIcon, NAV_LINKS_HEADER } from '@/lib/constants';
 import { cn } from '@/lib/utils';
 import {
   DropdownMenu,
@@ -49,23 +50,41 @@ export function AppHeader() {
         </div>
 
         <nav className="hidden md:flex flex-1 items-center justify-center space-x-6 text-sm font-medium">
-          {NAV_LINKS_HEADER.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              target={item.external ? '_blank' : undefined}
-              rel={item.external ? 'noopener noreferrer' : undefined}
-              className={cn(
-                "flex items-center gap-1 transition-colors hover:text-primary",
-                pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href) && item.href !== '/kiosk')
-                  ? "text-primary font-semibold"
-                  : "text-foreground/70"
-              )}
-            >
-              <item.icon className="h-4 w-4" />
-              {item.label}
-            </Link>
-          ))}
+          {NAV_LINKS_HEADER.map((item) => {
+            let isActive;
+            if (item.external) {
+              isActive = false;
+            } else if (item.href === '/dashboard') {
+              // Dashboard is active only on exact match
+              isActive = pathname === item.href;
+            } else {
+              // Other internal links are active if it's an exact match or a sub-path
+              isActive = pathname === item.href || pathname.startsWith(item.href + '/');
+            }
+
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                target={item.external ? '_blank' : undefined}
+                rel={item.external ? 'noopener noreferrer' : undefined}
+                className={cn(
+                  "flex items-center gap-1 transition-colors hover:text-primary",
+                  // Apply active/inactive styling:
+                  // External links get default non-active styling.
+                  // Internal links get active or inactive styling.
+                  item.external 
+                    ? "text-foreground/70" 
+                    : isActive 
+                      ? "text-primary font-semibold" 
+                      : "text-foreground/70"
+                )}
+              >
+                <item.icon className="h-4 w-4" />
+                {item.label}
+              </Link>
+            );
+          })}
         </nav>
 
         <div className="flex items-center justify-end space-x-4">
