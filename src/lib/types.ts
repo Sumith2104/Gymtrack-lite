@@ -1,3 +1,4 @@
+
 export type MembershipStatus = 'active' | 'inactive' | 'expired' | 'pending';
 
 export interface Member {
@@ -14,6 +15,7 @@ export interface Member {
   joinDate?: string | null; // timestamptz
   expiryDate?: string | null; // timestamptz
   membershipType?: string | null; // e.g., 'monthly', 'annual', 'class_pass'
+  // updated_at is not present here, consistent with DB schema image
 }
 
 export interface Announcement {
@@ -22,6 +24,7 @@ export interface Announcement {
   title: string;
   content: string;
   createdAt: string; // timestamptz
+  updatedAt?: string | null; // Keeping this as it's common, though not explicitly in image details
 }
 
 export interface Gym {
@@ -41,7 +44,8 @@ export interface Plan {
   durationMonths?: number | null;
   isActive: boolean;
   planId?: string | null; // User-defined plan identifier/SKU (e.g., GOLD_MONTHLY)
-  gymId?: string | null; // uuid, FK to gyms.id - if plans are gym-specific
+  // gymId removed as per DB schema image
+  // created_at and updated_at removed as per DB schema image
 }
 
 export interface CheckIn {
@@ -56,7 +60,7 @@ export interface CheckIn {
 export interface SuperAdmin {
   id: string; // uuid
   email: string;
-  passwordHash: string;
+  passwordHash: string; // In application type, we usually don't handle passwordHash directly
   createdAt: string; // timestamptz
   updatedAt?: string | null; // timestamptz
 }
