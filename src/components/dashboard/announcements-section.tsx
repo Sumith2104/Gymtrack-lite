@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import type { Announcement } from '@/lib/types';
-import { Megaphone, AlertCircle, Trash2 } from 'lucide-react';
+import { Megaphone, AlertCircle, Trash2, RefreshCw } from 'lucide-react';
 import { formatDistanceToNow, parseISO, isValid } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -24,17 +24,8 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { fetchAnnouncementsAction, deleteAnnouncementsAction } from '@/app/actions/announcement-actions';
 
-// Fallback announcements, useful if localStorage is empty or for a new user
-const MOCK_FALLBACK_ANNOUNCEMENTS: Announcement[] = [
-  {
-    id: 'announcement-fallback-1',
-    title: 'Welcome to GymTrack Lite!',
-    content: 'This is your announcements section. Important updates and news will appear here.',
-    createdAt: new Date(Date.now() - 86400000 * 1).toISOString(),
-    gymId: 'GYM123_default_uuid', // Use a placeholder UUID or ensure this gymId is one the user might have
-  },
-];
 
 export function AnnouncementsSection({ className }: { className?: string }) {
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
@@ -44,57 +35,45 @@ export function AnnouncementsSection({ className }: { className?: string }) {
   const [selectedAnnouncements, setSelectedAnnouncements] = useState<string[]>([]);
   const { toast } = useToast();
 
-  const loadAnnouncements = useCallback(() => {
+  const loadAnnouncements = useCallback(async (gymId: string) => {
     setIsLoading(true);
     setError(null);
-    try {
-      if (typeof window !== 'undefined') {
-        const gymIdFromStorage = localStorage.getItem('gymDatabaseId'); // This is the UUID
-        setCurrentGymDbId(gymIdFromStorage);
-
-        const announcementsRaw = localStorage.getItem('gymAnnouncements');
-        let allAnnouncements: Announcement[] = announcementsRaw ? JSON.parse(announcementsRaw) : [];
-        
-        // Filter announcements by the current gym's database ID (UUID)
-        const relevantAnnouncements = allAnnouncements.filter(ann => ann.gymId === gymIdFromStorage);
-
-        if (gymIdFromStorage && relevantAnnouncements.length > 0) {
-          setAnnouncements(relevantAnnouncements);
-        } else if (gymIdFromStorage && relevantAnnouncements.length === 0) {
-          // Logged into a specific gym, but no announcements for them
-          setAnnouncements([]);
-        } else {
-           // No specific gym logged in, or gymIdFromStorage is null
-           // Show fallback for a generic default mock gym, or an empty list
-           // For consistency, if no gymId, perhaps show nothing or a "login to see announcements"
-           setAnnouncements([]); // Default to empty if no gymId
-        }
-      } else {
-        setAnnouncements([]); // Fallback if localStorage is not available
-      }
-    } catch (e: any) {
-      console.error("Error loading announcements from localStorage:", e);
-      setError("Could not load announcements.");
-      setAnnouncements([]); // Fallback on error
-    } finally {
-      setIsLoading(false);
-      setSelectedAnnouncements([]);
+    const response = await fetchAnnouncementsAction(gymId);
+    if (response.error || !response.data) {
+      setError(response.error || "Failed to load announcements.");
+      setAnnouncements([]);
+      toast({ variant: "destructive", title: "Error", description: response.error || "Could not load announcements." });
+    } else {
+      setAnnouncements(response.data);
     }
-  }, []);
+    setIsLoading(false);
+    setSelectedAnnouncements([]);
+  }, [toast]);
 
   useEffect(() => {
-    loadAnnouncements();
-    
-    const handleStorageChange = (event: StorageEvent) => {
-      if (event.key === 'gymAnnouncements' || event.key === 'gymDatabaseId') {
-        loadAnnouncements();
+    const gymIdFromStorage = localStorage.getItem('gymDatabaseId');
+    setCurrentGymDbId(gymIdFromStorage);
+    if (gymIdFromStorage) {
+      loadAnnouncements(gymIdFromStorage);
+    } else {
+      setIsLoading(false); // No gym ID, so not loading anything
+      setAnnouncements([]);
+    }
+  }, [loadAnnouncements]);
+
+  // Listen for custom event to reload announcements (e.g., after adding one)
+  useEffect(() => {
+    const handleReloadAnnouncements = () => {
+      if (currentGymDbId) {
+        loadAnnouncements(currentGymDbId);
       }
     };
-    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('reloadAnnouncements', handleReloadAnnouncements);
     return () => {
-      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('reloadAnnouncements', handleReloadAnnouncements);
     };
-  }, [loadAnnouncements]);
+  }, [currentGymDbId, loadAnnouncements]);
+
 
   const sortedAnnouncements = announcements
     .sort((a, b) => {
@@ -112,59 +91,45 @@ export function AnnouncementsSection({ className }: { className?: string }) {
     );
   };
 
-  const handleDeleteSelected = () => {
+  const handleDeleteSelected = async () => {
     if (selectedAnnouncements.length === 0) {
       toast({ title: "No announcements selected", variant: "destructive" });
       return;
     }
-    try {
-      const announcementsRaw = localStorage.getItem('gymAnnouncements');
-      let allAnnouncementsStored: Announcement[] = announcementsRaw ? JSON.parse(announcementsRaw) : [];
-      
-      const remainingAnnouncements = allAnnouncementsStored.filter(ann => !selectedAnnouncements.includes(ann.id));
-      localStorage.setItem('gymAnnouncements', JSON.stringify(remainingAnnouncements));
-      
-      // Update local state to reflect deletion
-      setAnnouncements(prev => prev.filter(ann => !selectedAnnouncements.includes(ann.id)));
-      setSelectedAnnouncements([]); 
-      // window.dispatchEvent(new Event('storage')); // Already handled by loadAnnouncements on storage event
-
+    const response = await deleteAnnouncementsAction(selectedAnnouncements);
+    if (response.success) {
       toast({ title: "Announcements Deleted", description: `${selectedAnnouncements.length} announcement(s) removed.`});
-    } catch (e) {
-      console.error("Error deleting announcements:", e);
-      toast({ title: "Error", description: "Could not delete announcements.", variant: "destructive" });
+      // Re-fetch or filter local state
+      setAnnouncements(prev => prev.filter(ann => !selectedAnnouncements.includes(ann.id)));
+      setSelectedAnnouncements([]);
+    } else {
+      toast({ title: "Error", description: response.error || "Could not delete announcements.", variant: "destructive" });
     }
   };
 
   return (
+    <AlertDialog>
     <Card className={cn("shadow-lg", className)}>
       <CardHeader>
         <div className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-base font-semibold">Announcements</CardTitle>
-          <Megaphone className="h-5 w-5 text-primary" />
+          <div className="flex items-center gap-2">
+             <Megaphone className="h-5 w-5 text-primary" />
+            <CardTitle className="text-base font-semibold">Announcements</CardTitle>
+          </div>
+          {currentGymDbId && !isLoading && (
+            <Button variant="ghost" size="sm" onClick={() => loadAnnouncements(currentGymDbId)}>
+                <RefreshCw className="h-4 w-4"/>
+            </Button>
+          )}
         </div>
         <div className="flex flex-row items-center justify-between">
             <CardDescription className="text-xs">Latest news for your gym. Select to manage.</CardDescription>
             {selectedAnnouncements.length > 0 && (
-                 <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                        <Button variant="destructive" size="sm" className="ml-auto">
-                            <Trash2 className="mr-2 h-4 w-4" /> Delete ({selectedAnnouncements.length})
-                        </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                        <AlertDialogHeader>
-                        <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            This action cannot be undone. This will permanently delete {selectedAnnouncements.length} selected announcement(s).
-                        </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={handleDeleteSelected}>Delete</AlertDialogAction>
-                        </AlertDialogFooter>
-                    </AlertDialogContent>
-                </AlertDialog>
+                 <AlertDialogTrigger asChild>
+                    <Button variant="destructive" size="sm" className="ml-auto">
+                        <Trash2 className="mr-2 h-4 w-4" /> Delete ({selectedAnnouncements.length})
+                    </Button>
+                </AlertDialogTrigger>
             )}
         </div>
       </CardHeader>
@@ -172,12 +137,9 @@ export function AnnouncementsSection({ className }: { className?: string }) {
         <ScrollArea className="h-[250px] pr-3">
           {isLoading ? (
             <div className="space-y-3 py-2">
-              <Skeleton className="h-8 w-3/4" />
-              <Skeleton className="h-4 w-1/2" />
-              <Skeleton className="h-12 w-full" />
-              <Separator className="my-3 bg-border/50" />
-              <Skeleton className="h-8 w-2/3" />
-              <Skeleton className="h-4 w-1/3" />
+              <Skeleton className="h-8 w-3/4" /> <Skeleton className="h-4 w-1/2" />
+              <Skeleton className="h-12 w-full" /> <Separator className="my-3 bg-border/50" />
+              <Skeleton className="h-8 w-2/3" /> <Skeleton className="h-4 w-1/3" />
               <Skeleton className="h-10 w-full" />
             </div>
           ) : error ? (
@@ -214,7 +176,19 @@ export function AnnouncementsSection({ className }: { className?: string }) {
           )}
         </ScrollArea>
       </CardContent>
+       <AlertDialogContent>
+            <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+                This action cannot be undone. This will permanently delete {selectedAnnouncements.length} selected announcement(s).
+            </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteSelected}>Delete</AlertDialogAction>
+            </AlertDialogFooter>
+        </AlertDialogContent>
     </Card>
+    </AlertDialog>
   );
 }
-

@@ -2,20 +2,43 @@
 'use server';
 
 import { addMonths, format } from 'date-fns';
-import type { Member, MembershipType, Announcement, FetchedMembershipPlan } from '@/lib/types';
+import type { Member, MembershipType, FetchedMembershipPlan, MemberWithPlanDetails } from '@/lib/types';
 import { APP_NAME } from '@/lib/constants';
 import { addMemberFormSchema, type AddMemberFormValues } from '@/lib/schemas/member-schemas';
 import { createSupabaseServerActionClient } from '@/lib/supabase/server';
+import { addAnnouncementAction } from './announcement-actions'; // For welcome announcement
 
 
 interface AddMemberServerResponse {
   data?: {
     newMember: Member;
-    welcomeAnnouncement: Announcement;
+    // welcomeAnnouncement: Announcement; // Announcement now handled by calling addAnnouncementAction
     emailStatus: string;
   };
   error?: string;
 }
+
+// Helper to map DB row to Member type
+function mapDbMemberToAppMember(dbMember: any): Member {
+  const planDetails = dbMember.plans;
+  return {
+    id: dbMember.id,
+    gymId: dbMember.gym_id,
+    planId: dbMember.plan_id,
+    memberId: dbMember.member_id,
+    name: dbMember.name,
+    email: dbMember.email, // Assuming email is always present from DB as per schema
+    membershipStatus: dbMember.membership_status,
+    createdAt: dbMember.created_at,
+    age: dbMember.age,
+    phoneNumber: dbMember.phone_number,
+    joinDate: dbMember.join_date,
+    expiryDate: dbMember.expiry_date,
+    membershipType: planDetails?.plan_name as MembershipType || 'Other',
+    planPrice: planDetails?.price || 0,
+  };
+}
+
 
 export async function addMember(
   formData: AddMemberFormValues,
@@ -24,234 +47,233 @@ export async function addMember(
 ): Promise<AddMemberServerResponse> {
   const supabase = createSupabaseServerActionClient();
   try {
-    // 1. Server-side validation
     const validationResult = addMemberFormSchema.safeParse(formData);
     if (!validationResult.success) {
-      console.error("Server-side validation failed:", validationResult.error.flatten().fieldErrors);
       const fieldErrors = validationResult.error.flatten().fieldErrors;
-      let errorMessages = [];
-      if (fieldErrors.name) errorMessages.push(`Name: ${fieldErrors.name.join(', ')}`);
-      if (fieldErrors.email) errorMessages.push(`Email: ${fieldErrors.email.join(', ')}`);
-      if (fieldErrors.selectedPlanUuid) errorMessages.push(`Membership Plan: ${fieldErrors.selectedPlanUuid.join(', ')}`);
-      if (fieldErrors.age) errorMessages.push(`Age: ${fieldErrors.age.join(', ')}`);
-      
-      return { error: `Validation failed: ${errorMessages.join('; ') || 'Check inputs.'}` };
+      let errorMessages = Object.entries(fieldErrors)
+        .map(([key, messages]) => `${key}: ${(messages as string[]).join(', ')}`)
+        .join('; ');
+      return { error: `Validation failed: ${errorMessages || 'Check inputs.'}` };
     }
 
     const { name, email, phoneNumber, age, selectedPlanUuid } = validationResult.data;
 
-    // 2. Fetch selected plan details from DB
     const { data: planDetails, error: planError } = await supabase
       .from('plans')
-      .select('id, plan_name, price, duration_months')
+      .select('plan_name, price, duration_months')
       .eq('id', selectedPlanUuid)
       .eq('is_active', true)
       .single();
 
     if (planError || !planDetails) {
-      console.error('Error fetching plan details or plan not active:', planError?.message);
-      return { error: `Invalid or inactive membership plan selected. Details: ${planError?.message || 'Plan not found.'}` };
+      return { error: `Invalid or inactive membership plan. Details: ${planError?.message || 'Plan not found.'}` };
     }
-    
     if (planDetails.duration_months === null || planDetails.duration_months === undefined) {
         return { error: `Selected plan '${planDetails.plan_name}' has an invalid duration.`};
     }
 
     const planPrice = planDetails.price;
-    const joinDate = new Date(); 
+    const joinDate = new Date();
     const expiryDate = addMonths(joinDate, planDetails.duration_months);
+    const memberIdSuffix = Date.now().toString().slice(-4) + Math.random().toString(36).substring(2, 3).toUpperCase();
+    const memberId = `${gymName.substring(0, 3).toUpperCase()}${name.substring(0,2).toUpperCase()}${memberIdSuffix}`.substring(0, 10);
 
-    // 3. Generate Member ID (Server-side)
-    const memberIdSuffix = Date.now().toString().slice(-6) + Math.random().toString(36).substring(2, 4).toUpperCase();
-    const memberId = `${gymName.substring(0, 3).toUpperCase()}${memberIdSuffix}`.substring(0, 10);
+    // TODO: Add server-side check for memberId uniqueness against the specific gym_id
 
-    console.log(`SIMULATING: Check if Member ID "${memberId}" for gym "${gymDatabaseId}" is unique.`);
-    // In a real app, you would query your members table here.
-
-    // 4. Prepare New Member Object for DB (using snake_case for Supabase)
     const newMemberForDb = {
       gym_id: gymDatabaseId,
-      plan_id: selectedPlanUuid, // FK to plans.id (uuid)
-      member_id: memberId, 
+      plan_id: selectedPlanUuid,
+      member_id: memberId,
       name,
-      email: email || null,
-      membership_status: 'active', 
-      phone_number: phoneNumber || null,
-      age: age || null,
-      join_date: joinDate.toISOString(), 
+      email,
+      phone_number: phoneNumber,
+      age,
+      membership_status: 'active' as MembershipStatus,
+      join_date: joinDate.toISOString(),
       expiry_date: expiryDate.toISOString(),
-      membership_type: planDetails.plan_name as MembershipType, // Store plan name for easy display
-      // plan_price is not a direct column in members table as per schema, derived via plan_id
-      created_at: new Date().toISOString(),
+      membership_type: planDetails.plan_name as MembershipType, // Storing for direct access, denormalized
+      // plan_price is derived via plan_id, not stored directly in members table based on schema.
+      // We will fetch it with a join when displaying members.
     };
-    
-    // SIMULATE DB INSERTION - In real app, use Supabase client to insert `newMemberForDb`
-    // const { data: insertedMemberData, error: insertError } = await supabase
-    //   .from('members')
-    //   .insert(newMemberForDb)
-    //   .select()
-    //   .single();
-    // if (insertError) { return { error: `Failed to add member to database: ${insertError.message}`}; }
-    // const memberIdFromDb = insertedMemberData.id; // the UUID generated by DB for the member row
 
-    // For simulation, create the full member object as it would be after insertion
-    const newMember: Member = {
-        id: `member_serveraction_${Date.now()}`, // Simulated DB-generated UUID for the member row
-        gymId: gymDatabaseId,
-        planId: selectedPlanUuid,
-        memberId,
-        name,
-        email: email || null,
-        membershipStatus: 'active',
-        phoneNumber: phoneNumber || null,
-        age: age || null,
-        joinDate: joinDate.toISOString(),
-        membershipType: planDetails.plan_name as MembershipType,
-        planPrice: planPrice, // Store for client-side use
-        expiryDate: expiryDate.toISOString(),
-        createdAt: new Date().toISOString(),
-    };
-    console.log('SIMULATING: Member data prepared for "insertion":', newMember);
+    const { data: insertedMemberData, error: insertError } = await supabase
+      .from('members')
+      .insert(newMemberForDb)
+      .select('*, plans (plan_name, price, duration_months)') // Fetch joined plan details
+      .single();
 
-
-    // 5. Post-Insertion Actions
-    let emailStatus = 'No email address provided.';
-    if (newMember.email) {
-      const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(newMember.memberId)}`;
-      console.log(`SIMULATING: Sending Welcome Email to: ${newMember.email}`);
-      console.log(`  Subject: Welcome to ${gymName}!`);
-      console.log(`  Body: Hello ${newMember.name},\n\nWelcome to ${gymName}! We're thrilled to have you.\n
-        Your Membership Details:
-        Member ID: ${newMember.memberId}
-        Join Date: ${format(new Date(newMember.joinDate!), 'PP')}
-        Membership Type: ${newMember.membershipType}
-        Plan Price: ₹${newMember.planPrice?.toFixed(2)}
-        Expires: ${newMember.expiryDate ? format(new Date(newMember.expiryDate), 'PP') : 'N/A'}
-        \nUse this QR code for easy check-ins: ${qrCodeUrl}\n\n
-        Best regards,\nThe ${gymName} Team`);
-      emailStatus = `Welcome email simulation for ${newMember.email} initiated.`;
+    if (insertError || !insertedMemberData) {
+      return { error: `Failed to add member to database: ${insertError?.message || "Unknown DB error."}`};
     }
 
-    const welcomeAnnouncement: Announcement = {
-      id: `announce_welcome_${newMember.id}`,
-      gymId: gymDatabaseId,
-      title: `Welcome New Member: ${newMember.name}!`,
-      content: `Let's all give a warm welcome to ${newMember.name} (ID: ${newMember.memberId}), who joined us on ${format(new Date(newMember.joinDate!), 'PP')} with a ${newMember.membershipType || 'new'} membership! We're excited to have them in the ${gymName} community.`,
-      createdAt: new Date().toISOString(),
-    };
-    console.log('SIMULATING: Welcome announcement created:', welcomeAnnouncement);
+    const newMemberAppFormat = mapDbMemberToAppMember(insertedMemberData);
 
-    return {
-      data: {
-        newMember,
-        welcomeAnnouncement,
-        emailStatus,
-      },
-    };
+    let emailStatus = 'No email address provided.';
+    if (newMemberAppFormat.email) {
+      const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(newMemberAppFormat.memberId)}`;
+      console.log(`SIMULATING: Sending Welcome Email to: ${newMemberAppFormat.email}`);
+      console.log(`  Subject: Welcome to ${gymName}! Your Member ID: ${newMemberAppFormat.memberId}. QR: ${qrCodeUrl}`);
+      emailStatus = `Welcome email simulation for ${newMemberAppFormat.email} initiated.`;
+    }
+
+    const announcementTitle = `Welcome New Member: ${newMemberAppFormat.name}!`;
+    const announcementContent = `Let's all give a warm welcome to ${newMemberAppFormat.name} (ID: ${newMemberAppFormat.memberId}), who joined us on ${format(new Date(newMemberAppFormat.joinDate!), 'PP')} with a ${newMemberAppFormat.membershipType || 'new'} membership! We're excited to have them in the ${gymName} community.`;
+    
+    const announcementResult = await addAnnouncementAction(gymDatabaseId, announcementTitle, announcementContent);
+    if (announcementResult.error) {
+      console.error("Failed to create welcome announcement in DB:", announcementResult.error);
+      // Decide if this is a critical error for the addMember flow
+    } else {
+      console.log("Welcome announcement created in DB:", announcementResult.newAnnouncement?.id);
+    }
+
+    return { data: { newMember: newMemberAppFormat, emailStatus } };
 
   } catch (error) {
-    console.error('Error in addMember server action:', error);
     const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred.';
-    return { error: `An unexpected error occurred while adding the member: ${errorMessage}` };
+    return { error: `Error in addMember: ${errorMessage}` };
   }
 }
 
 interface EditMemberServerResponse {
-  data?: {
-    updatedMember: Member;
-    message: string;
-  };
+  data?: { updatedMember: Member; message: string; };
   error?: string;
 }
 
-// formData here should align with AddMemberFormValues, plus original member id
 export async function editMember(
-  formData: AddMemberFormValues, // Re-using the same form values
-  memberOriginalId: string, // The true UUID of the member
+  formData: AddMemberFormValues,
+  memberOriginalDbId: string, // This is the members.id (UUID)
   gymDatabaseId: string
 ): Promise<EditMemberServerResponse> {
-    const supabase = createSupabaseServerActionClient();
-    try {
-        console.log("SIMULATING: Edit member server action for memberId (UUID):", memberOriginalId, "in gymId:", gymDatabaseId, "with data:", formData);
-
-        // Server-side validation of formData (excluding member's existing ID or memberId)
-        const validationResult = addMemberFormSchema.safeParse(formData);
-        if (!validationResult.success) {
-            return { error: `Validation failed: ${JSON.stringify(validationResult.error.flatten().fieldErrors)}` };
-        }
-        const { name, email, phoneNumber, age, selectedPlanUuid } = validationResult.data;
-
-        // Fetch existing member to get non-editable fields like original member_id (user-facing) and join_date
-        // In a real app: const { data: existingMemberFromDb, error: fetchError } = await supabase.from('members').select('member_id, join_date, plan_id').eq('id', memberOriginalId).single();
-        // if (fetchError || !existingMemberFromDb) return { error: "Member not found or cannot be fetched for update."};
-        const simulatedExistingMember = { member_id: `EDIT${Date.now().toString().slice(-4)}`, join_date: new Date(Date.now() - 100000000).toISOString(), current_plan_uuid: 'some_old_plan_uuid' };
-
-
-        // Fetch details of the NEWLY selected plan
-        const { data: planDetails, error: planError } = await supabase
-          .from('plans')
-          .select('id, plan_name, price, duration_months')
-          .eq('id', selectedPlanUuid)
-          .eq('is_active', true)
-          .single();
-
-        if (planError || !planDetails) {
-            return { error: `Invalid or inactive new membership plan selected. Details: ${planError?.message || 'Plan not found.'}` };
-        }
-        if (planDetails.duration_months === null || planDetails.duration_months === undefined) {
-            return { error: `Selected new plan '${planDetails.plan_name}' has an invalid duration.`};
-        }
-
-        const planPrice = planDetails.price;
-        const joinDateForCalc = new Date(simulatedExistingMember.join_date); // Use original join date for expiry calc
-        const expiryDate = addMonths(joinDateForCalc, planDetails.duration_months);
-
-
-        // Prepare data for DB update (snake_case)
-        const memberUpdateForDb = {
-            name,
-            email: email || null,
-            phone_number: phoneNumber || null,
-            age: age || null,
-            plan_id: selectedPlanUuid, // FK to plans.id (uuid)
-            membership_type: planDetails.plan_name as MembershipType,
-            // plan_price is not a direct column
-            expiry_date: expiryDate.toISOString(),
-            // membership_status might be part of formData if editable in this flow
-            // For now, assume status is handled separately or defaults.
-            // If AddMemberFormValues includes membershipStatus:
-            // membership_status: formData.membershipStatus || 'active', 
-        };
-
-        // SIMULATE DB UPDATE
-        // const { data: updatedMemberData, error: updateError } = await supabase.from('members').update(memberUpdateForDb).eq('id', memberOriginalId).select().single();
-        // if (updateError) return { error: `Failed to update member: ${updateError.message}`};
-
-        // Construct the full Member object for client response
-        const finalUpdatedMember: Member = {
-            id: memberOriginalId,
-            gymId: gymDatabaseId,
-            memberId: simulatedExistingMember.member_id, // Keep original user-facing memberId
-            name,
-            email: email || null,
-            phoneNumber: phoneNumber || null,
-            age: age || null,
-            joinDate: simulatedExistingMember.join_date, // Keep original join date
-            planId: selectedPlanUuid,
-            membershipType: planDetails.plan_name as MembershipType,
-            planPrice: planPrice,
-            expiryDate: expiryDate.toISOString(),
-            membershipStatus: formData.membershipStatus || 'active', // If AddMemberFormValues had status
-            createdAt: new Date(Date.now() - 200000000).toISOString(), // Placeholder original createdAt
-        };
-        
-        console.log("SIMULATING: Member data updated:", finalUpdatedMember);
-        return { data: { updatedMember: finalUpdatedMember, message: "Member details updated (Simulated)." } };
-
-    } catch (error) {
-        console.error('Error in editMember server action:', error);
-        const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred.';
-        return { error: `An unexpected error occurred while editing the member: ${errorMessage}` };
+  const supabase = createSupabaseServerActionClient();
+  try {
+    const validationResult = addMemberFormSchema.safeParse(formData);
+    if (!validationResult.success) {
+      return { error: `Validation failed: ${JSON.stringify(validationResult.error.flatten().fieldErrors)}` };
     }
-}
+    const { name, email, phoneNumber, age, selectedPlanUuid } = validationResult.data;
+
+    const { data: existingMember, error: fetchError } = await supabase
+      .from('members')
+      .select('join_date, member_id') // Only need join_date if expiry calculation depends on original join_date
+      .eq('id', memberOriginalDbId)
+      .single();
+
+    if (fetchError || !existingMember) {
+        return { error: `Member with ID ${memberOriginalDbId} not found. ${fetchError?.message || ''}`};
+    }
     
+    const { data: planDetails, error: planError } = await supabase
+      .from('plans')
+      .select('plan_name, price, duration_months')
+      .eq('id', selectedPlanUuid)
+      .eq('is_active', true)
+      .single();
+
+    if (planError || !planDetails) {
+      return { error: `Invalid or inactive new membership plan. Details: ${planError?.message || 'Plan not found.'}` };
+    }
+    if (planDetails.duration_months === null || planDetails.duration_months === undefined) {
+        return { error: `Selected new plan '${planDetails.plan_name}' has an invalid duration.`};
+    }
+    
+    const joinDateForCalc = new Date(existingMember.join_date!); // Use original join date for expiry
+    const expiryDate = addMonths(joinDateForCalc, planDetails.duration_months);
+
+    const memberUpdateForDb = {
+      name,
+      email,
+      phone_number: phoneNumber,
+      age,
+      plan_id: selectedPlanUuid,
+      membership_type: planDetails.plan_name as MembershipType,
+      expiry_date: expiryDate.toISOString(),
+      // membership_status is handled by a separate action
+    };
+
+    const { data: updatedMemberData, error: updateError } = await supabase
+      .from('members')
+      .update(memberUpdateForDb)
+      .eq('id', memberOriginalDbId)
+      .select('*, plans (plan_name, price, duration_months)')
+      .single();
+
+    if (updateError || !updatedMemberData) {
+      return { error: `Failed to update member: ${updateError?.message || "Unknown DB error."}` };
+    }
+    
+    const updatedMemberAppFormat = mapDbMemberToAppMember(updatedMemberData);
+    return { data: { updatedMember: updatedMemberAppFormat, message: "Member details updated." } };
+
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred.';
+    return { error: `Error in editMember: ${errorMessage}` };
+  }
+}
+
+
+export async function fetchMembers(gymDatabaseId: string): Promise<{ data?: Member[]; error?: string }> {
+  if (!gymDatabaseId) return { error: "Gym ID is required to fetch members." };
+  const supabase = createSupabaseServerActionClient();
+  try {
+    const { data: dbMembers, error } = await supabase
+      .from('members')
+      .select('*, plans (plan_name, price, duration_months)') // Join with plans table
+      .eq('gym_id', gymDatabaseId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching members:', error.message);
+      return { error: error.message };
+    }
+    if (!dbMembers) {
+        return { data: [] };
+    }
+    
+    const members = dbMembers.map(mapDbMemberToAppMember);
+    return { data: members };
+
+  } catch (e: any) {
+    console.error('Unexpected error in fetchMembers:', e.message);
+    return { error: 'Failed to fetch members due to an unexpected error.' };
+  }
+}
+
+export async function deleteMemberAction(memberDbId: string): Promise<{ success: boolean; error?: string }> {
+  if (!memberDbId) return { success: false, error: "Member ID is required for deletion." };
+  const supabase = createSupabaseServerActionClient();
+  try {
+    const { error } = await supabase.from('members').delete().eq('id', memberDbId);
+    if (error) {
+      console.error('Error deleting member:', error.message);
+      return { success: false, error: error.message };
+    }
+    return { success: true };
+  } catch (e: any) {
+    console.error('Unexpected error deleting member:', e.message);
+    return { success: false, error: 'Failed to delete member due to an unexpected error.' };
+  }
+}
+
+export async function updateMemberStatusAction(memberDbId: string, newStatus: MembershipStatus): Promise<{ updatedMember?: Member; error?: string }> {
+  if (!memberDbId || !newStatus) return { error: "Member ID and new status are required." };
+  const supabase = createSupabaseServerActionClient();
+  try {
+    const { data: updatedDbMember, error } = await supabase
+      .from('members')
+      .update({ membership_status: newStatus })
+      .eq('id', memberDbId)
+      .select('*, plans (plan_name, price, duration_months)') // Re-fetch with plan details
+      .single();
+
+    if (error || !updatedDbMember) {
+      console.error('Error updating member status:', error?.message);
+      return { error: error?.message || "Failed to update member status or member not found." };
+    }
+    const updatedMemberAppFormat = mapDbMemberToAppMember(updatedDbMember);
+    return { updatedMember: updatedMemberAppFormat };
+  } catch (e: any) {
+    console.error('Unexpected error updating member status:', e.message);
+    return { error: 'Failed to update status due to an unexpected error.' };
+  }
+}

@@ -18,7 +18,7 @@ import {
   getSortedRowModel,
   useReactTable,
 } from '@tanstack/react-table';
-import { MoreHorizontal, Trash2, Edit3, Mail, FileText, PlusCircle, UserX, UserCheck, MailWarning, UserCog, Search as SearchIcon, Users, Check } from 'lucide-react';
+import { MoreHorizontal, Trash2, Edit3, Mail, FileText, PlusCircle, UserX, UserCheck, MailWarning, UserCog, Search as SearchIcon, Users, AlertCircle, RefreshCw } from 'lucide-react';
 import { format, differenceInDays, parseISO, isValid } from 'date-fns';
 
 import { Button } from '@/components/ui/button';
@@ -45,24 +45,24 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import type { Member, MembershipStatus, AttendanceSummary, Announcement } from '@/lib/types';
+import type { Member, MembershipStatus, AttendanceSummary } from '@/lib/types';
 import { AddMemberDialog } from './add-member-dialog';
 import { AttendanceOverviewDialog } from './attendance-overview-dialog';
 import { BulkEmailDialog } from './bulk-email-dialog';
-import { APP_NAME } from '@/lib/constants';
+import { fetchMembers, deleteMemberAction, updateMemberStatusAction } from '@/app/actions/member-actions';
+import { Skeleton } from '@/components/ui/skeleton';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
-
-const initialData: Member[] = [
-  // Note: Ensure gymId here is the UUID (gymDatabaseId) if you want them to show up for a specific mock gym
-  // Example: Replace 'GYM123_default' with the actual UUID of your 'GYM123_default' gym from your Supabase setup
-  // For now, I'll assume 'GYM123_default_uuid' and 'UOFIPOIB_uuid' are placeholders for actual UUIDs
-  { id: 'member_uuid_1', memberId: 'SUMI0493P', name: 'sumith', email: 'sumithsumith4567890@gmail.com', membershipStatus: 'active', gymId: 'GYM123_default_uuid', createdAt: new Date(Date.now() - 86400000 * 10).toISOString(), joinDate: "2025-06-14T00:00:00.000Z", expiryDate: new Date(Date.now() + 86400000 * 355).toISOString(), phoneNumber: '8310870493', membershipType: 'Premium', planPrice: 2999, age: 21 },
-  { id: 'member_uuid_2', memberId: 'MBR002', name: 'Bob Smith', email: 'bob@example.com', membershipStatus: 'inactive', gymId: 'GYM123_default_uuid', createdAt: new Date(Date.now() - 86400000 * 20).toISOString(), joinDate: new Date(Date.now() - 86400000 * 20).toISOString(), phoneNumber: '234-567-8901', membershipType: 'Monthly', planPrice: 599, age: 35 },
-  { id: 'member_uuid_3', memberId: 'MBR003', name: 'Carol White', email: 'carol@example.com', membershipStatus: 'expired', gymId: 'GYM123_default_uuid', createdAt: new Date(Date.now() - 86400000 * 30).toISOString(), joinDate: new Date(Date.now() - 86400000 * 30).toISOString(), expiryDate: new Date(Date.now() - 86400000 * 5).toISOString(), membershipType: 'Monthly', planPrice: 599, age: 42 },
-  { id: 'member_uuid_4', memberId: 'MBR004', name: 'David Brown', email: 'david@example.com', membershipStatus: 'active', gymId: 'GYM123_default_uuid', createdAt: new Date(Date.now() - 86400000 * 15).toISOString(), joinDate: new Date(Date.now() - 86400000 * 15).toISOString(), expiryDate: new Date(Date.now() + 86400000 * 10).toISOString(), phoneNumber: '345-678-9012', membershipType: '6-Month', planPrice: 2999, age: 22 }, // Expiring soon
-  { id: 'member_uuid_5', memberId: 'MBR005', name: 'Sumith Member', email: 'sumith.member@example.com', membershipStatus: 'active', gymId: 'UOFIPOIB_uuid', createdAt: new Date().toISOString(), joinDate: new Date().toISOString(), expiryDate: new Date(Date.now() + 86400000 * 30).toISOString(), phoneNumber: '555-555-5555', membershipType: 'Annual', planPrice: 5999, age: 30 },
-  { id: 'member_uuid_6', memberId: 'MBR006', name: 'Pending Penny', email: 'penny@example.com', membershipStatus: 'pending', gymId: 'GYM123_default_uuid', createdAt: new Date(Date.now() - 86400000 * 2).toISOString(), joinDate: new Date(Date.now() - 86400000 * 2).toISOString(), phoneNumber: '456-789-0123', membershipType: 'Monthly', planPrice: 599, age: 25 },
-];
 
 const getEffectiveMembershipStatus = (member: Member): MembershipStatus => {
   if (member.membershipStatus === 'active' && member.expiryDate) {
@@ -80,10 +80,13 @@ const getEffectiveMembershipStatus = (member: Member): MembershipStatus => {
 
 
 export function MembersTable() {
-  const [data, setData] = React.useState<Member[]>(initialData);
+  const [data, setData] = React.useState<Member[]>([]);
   const { toast } = useToast();
 
   const [currentGymDatabaseId, setCurrentGymDatabaseId] = React.useState<string | null>(null);
+  const [isLoadingMembers, setIsLoadingMembers] = React.useState(true);
+  const [fetchMembersError, setFetchMembersError] = React.useState<string | null>(null);
+
   const [isAddMemberDialogOpen, setIsAddMemberDialogOpen] = React.useState(false);
   const [memberToEdit, setMemberToEdit] = React.useState<Member | null>(null);
   
@@ -94,30 +97,37 @@ export function MembersTable() {
   const [isBulkEmailDialogOpen, setIsBulkEmailDialogOpen] = React.useState(false);
   const [bulkEmailRecipients, setBulkEmailRecipients] = React.useState<Member[]>([]);
 
+  const loadMembers = React.useCallback(async (gymId: string) => {
+    setIsLoadingMembers(true);
+    setFetchMembersError(null);
+    const response = await fetchMembers(gymId);
+    if (response.error || !response.data) {
+      setFetchMembersError(response.error || "Failed to load members.");
+      setData([]);
+      toast({ variant: "destructive", title: "Error loading members", description: response.error });
+    } else {
+      setData(response.data.map(m => ({ ...m, effectiveStatus: getEffectiveMembershipStatus(m) })));
+    }
+    setIsLoadingMembers(false);
+  }, [toast]);
 
   React.useEffect(() => {
     if (typeof window !== 'undefined') {
-      const gymDbId = localStorage.getItem('gymDatabaseId'); // Use the UUID
+      const gymDbId = localStorage.getItem('gymDatabaseId');
       setCurrentGymDatabaseId(gymDbId);
-      // Update initial data to only show members of the current gym if desired
-      // This part is tricky with initialData as it's static.
-      // A real app would fetch data based on gymDbId.
-      // For now, we'll filter the static initialData.
       if (gymDbId) {
-        setData(initialData.filter(m => m.gymId === gymDbId));
+        loadMembers(gymDbId);
       } else {
+        setIsLoadingMembers(false);
         setData([]); // No gym selected, show no members
       }
     }
-  }, []);
+  }, [loadMembers]);
   
   const gymMembers = React.useMemo(() => {
-    if (!currentGymDatabaseId) return [];
-    // Filter the current `data` state, which might include newly added members
-    return data
-      .filter(member => member.gymId === currentGymDatabaseId)
-      .map(member => ({ ...member, effectiveStatus: getEffectiveMembershipStatus(member) }));
-  }, [data, currentGymDatabaseId]);
+    // Data is already filtered by gymId in fetchMembers, and mapped with effectiveStatus
+    return data;
+  }, [data]);
 
 
   const [sorting, setSorting] = React.useState<SortingState>([]);
@@ -133,19 +143,10 @@ export function MembersTable() {
 
 
   const handleMemberSaved = (savedMember: Member) => {
-    setData(prev => {
-      const existingIndex = prev.findIndex(m => m.id === savedMember.id);
-      if (existingIndex > -1) { // Edit
-        const updatedData = [...prev];
-        updatedData[existingIndex] = savedMember;
-        return updatedData;
-      } // Add
-      // Ensure the new member is only added to the list if it belongs to the current gym
-      if (savedMember.gymId === currentGymDatabaseId) {
-        return [savedMember, ...prev];
-      }
-      return prev; // If not current gym, don't add to this view's local state
-    });
+    // After add/edit, re-fetch all members to ensure data consistency
+    if (currentGymDatabaseId) {
+      loadMembers(currentGymDatabaseId);
+    }
     setIsAddMemberDialogOpen(false);
     setMemberToEdit(null);
   };
@@ -160,23 +161,34 @@ export function MembersTable() {
     setIsAddMemberDialogOpen(true);
   };
   
-  const handleDeleteMember = (memberIdToDelete: string) => {
-    setData(prev => prev.filter(m => m.id !== memberIdToDelete));
-    toast({ title: "Member Deleted", description: `Member has been removed. (Simulated)` });
+  const handleDeleteMember = async (memberToDelete: Member) => {
+    const response = await deleteMemberAction(memberToDelete.id);
+    if (response.success) {
+      toast({ title: "Member Deleted", description: `${memberToDelete.name} has been removed.` });
+      setData(prev => prev.filter(m => m.id !== memberToDelete.id));
+    } else {
+      toast({ variant: "destructive", title: "Error Deleting Member", description: response.error });
+    }
   };
 
-  const handleManualStatusUpdate = (member: Member, newStatus: MembershipStatus) => {
+  const handleManualStatusUpdate = async (member: Member, newStatus: MembershipStatus) => {
      if (newStatus === 'expiring soon') {
         toast({ title: "Invalid Action", description: "'Expiring Soon' is an automatically derived status.", variant: "destructive" });
         return;
     }
-    setData(prev => prev.map(m => m.id === member.id ? { ...m, membershipStatus: newStatus } : m));
-    toast({ title: "Status Updated", description: `${member.name}'s status changed to ${newStatus}. (Simulated email notification)` });
-    console.log(`SIMULATING: Email notification to ${member.email} about status change to ${newStatus}.`);
+    const response = await updateMemberStatusAction(member.id, newStatus);
+    if (response.updatedMember) {
+        toast({ title: "Status Updated", description: `${member.name}'s status changed to ${newStatus}. (Simulated email notification)` });
+        setData(prev => prev.map(m => m.id === member.id ? { ...response.updatedMember!, effectiveStatus: getEffectiveMembershipStatus(response.updatedMember!) } : m));
+        console.log(`SIMULATING: Email notification to ${member.email} about status change to ${newStatus}.`);
+    } else {
+        toast({ variant: "destructive", title: "Error Updating Status", description: response.error });
+    }
   };
   
   const handleViewAttendance = (member: Member) => {
     setMemberForAttendance(member);
+    // This remains mock for now, as check-in DB integration for this specific view is not part of this request.
     const lastCheckin = new Date(Date.now() - Math.random() * 10 * 86400000); 
     const recentCheckins = Array.from({length: 5}, (_, i) => new Date(lastCheckin.getTime() - i * Math.random() * 3 * 86400000));
     setMockAttendanceData({
@@ -187,19 +199,25 @@ export function MembersTable() {
     setIsAttendanceDialogOpen(true);
   };
   
-  const handleBulkDelete = () => {
+  const handleBulkDelete = async () => {
     const selectedRows = table.getFilteredSelectedRowModel().rows;
     if (selectedRows.length === 0) {
       toast({ title: "No members selected", variant: "destructive", description: "Please select members to delete." });
       return;
     }
-    const selectedIds = selectedRows.map(row => row.original.id);
-    setData(prev => prev.filter(m => !selectedIds.includes(m.id)));
-    toast({ title: "Bulk Delete", description: `${selectedIds.length} member(s) deleted. (Simulated)` });
+    let successCount = 0;
+    let errorCount = 0;
+    for (const row of selectedRows) {
+        const response = await deleteMemberAction(row.original.id);
+        if (response.success) successCount++;
+        else errorCount++;
+    }
+    toast({ title: "Bulk Delete Complete", description: `${successCount} member(s) deleted. ${errorCount > 0 ? `${errorCount} failed.` : ''}` });
+    if (currentGymDatabaseId) loadMembers(currentGymDatabaseId); // Re-fetch
     setRowSelection({});
   };
 
-  const handleBulkStatusUpdate = (newStatus: MembershipStatus) => {
+  const handleBulkStatusUpdate = async (newStatus: MembershipStatus) => {
     if (newStatus === 'expiring soon') {
         toast({ title: "Invalid Action", description: "'Expiring Soon' is an automatically derived status for bulk actions.", variant: "destructive" });
         return;
@@ -209,9 +227,15 @@ export function MembersTable() {
       toast({ title: "No members selected", variant: "destructive", description: "Please select members to update." });
       return;
     }
-    const selectedIds = selectedRows.map(row => row.original.id);
-    setData(prev => prev.map(m => selectedIds.includes(m.id) ? { ...m, membershipStatus: newStatus } : m));
-    toast({ title: "Bulk Status Update", description: `${selectedIds.length} member(s) updated to ${newStatus}. (Simulated)` });
+    let successCount = 0;
+    let errorCount = 0;
+    for (const row of selectedRows) {
+        const response = await updateMemberStatusAction(row.original.id, newStatus);
+        if (response.updatedMember) successCount++;
+        else errorCount++;
+    }
+    toast({ title: "Bulk Status Update Complete", description: `${successCount} member(s) updated to ${newStatus}. ${errorCount > 0 ? `${errorCount} failed.` : ''}` });
+    if (currentGymDatabaseId) loadMembers(currentGymDatabaseId); // Re-fetch
     setRowSelection({});
   };
 
@@ -225,7 +249,7 @@ export function MembersTable() {
     setIsBulkEmailDialogOpen(true);
   };
 
-  const filterableStatuses: (MembershipStatus | 'all')[] = ['all', 'active', 'expiring soon', 'expired'];
+  const filterableStatuses: (MembershipStatus | 'all')[] = ['all', 'active', 'expiring soon', 'expired', 'inactive', 'pending'];
 
 
   const columns: ColumnDef<Member & { effectiveStatus: MembershipStatus }>[] = [
@@ -286,7 +310,7 @@ export function MembersTable() {
     {
       accessorKey: 'membershipType', 
       header: 'Type',
-      cell: ({ row }) => <div className="capitalize">{row.getValue('membershipType') || 'N/A'}</div>,
+      cell: ({ row }) => <div className="capitalize">{row.original.membershipType || 'N/A'}</div>,
     },
     {
       accessorKey: 'effectiveStatus', 
@@ -305,8 +329,8 @@ export function MembersTable() {
     },
     {
       id: 'actions', 
-      header: 'Overview', // Header text matching image
-      enableHiding: true, // Keep as true to allow hiding via Columns dropdown
+      header: 'Overview',
+      enableHiding: true,
       cell: ({ row }) => {
         const member = row.original;
         return (
@@ -337,12 +361,26 @@ export function MembersTable() {
                 </DropdownMenuItem>
               ))}
               <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={() => handleDeleteMember(member.id)}
-                className="text-destructive focus:text-destructive focus:bg-destructive/10"
-              >
-                <Trash2 className="mr-2 h-4 w-4" /> Delete Member
-              </DropdownMenuItem>
+               <AlertDialogTrigger asChild>
+                <DropdownMenuItem
+                  onSelect={(e) => e.preventDefault()} 
+                  className="text-destructive focus:text-destructive focus:bg-destructive/10"
+                >
+                  <Trash2 className="mr-2 h-4 w-4" /> Delete Member
+                </DropdownMenuItem>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This action cannot be undone. This will permanently delete {member.name}'s account.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={() => handleDeleteMember(member)}>Delete</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
             </DropdownMenuContent>
           </DropdownMenu>
         );
@@ -351,7 +389,7 @@ export function MembersTable() {
     {
       accessorKey: 'planPrice',
       header: 'Price',
-      cell: ({ row }) => row.getValue('planPrice') ? `₹${Number(row.getValue('planPrice')).toFixed(2)}` : 'N/A',
+      cell: ({ row }) => row.original.planPrice ? `₹${Number(row.original.planPrice).toFixed(2)}` : 'N/A',
       enableHiding: true,
     },
     {
@@ -366,7 +404,7 @@ export function MembersTable() {
   ];
 
   const table = useReactTable({
-    data: gymMembers, // Use the filtered gymMembers
+    data: gymMembers,
     columns,
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
@@ -391,8 +429,16 @@ export function MembersTable() {
     table.getColumn('effectiveStatus')?.setFilterValue(statusFilter === 'all' ? undefined : statusFilter);
   }, [statusFilter, table]);
 
+  const globalFilter = (table.getColumn('name')?.getFilterValue() as string) ?? '';
+  const handleGlobalFilterChange = (value: string) => {
+    table.getColumn('name')?.setFilterValue(value);
+    table.getColumn('email')?.setFilterValue(value);
+    table.getColumn('memberId')?.setFilterValue(value);
+  }
+
 
   return (
+     <AlertDialog> {/* AlertDialog must wrap content that uses AlertDialogTrigger */}
     <div className="w-full space-y-4 p-4 md:p-6 bg-card rounded-lg border border-border shadow-sm">
       <AddMemberDialog
         isOpen={isAddMemberDialogOpen}
@@ -416,8 +462,9 @@ export function MembersTable() {
             onSend={(subject, body) => {
                 toast({ title: "Bulk Email Sent (Simulated)", description: `Email with subject "${subject}" sent to ${bulkEmailRecipients.length} members.`});
                 console.log("SIMULATING Bulk Email:", {subject, body, recipients: bulkEmailRecipients.map(r => r.email)});
-                if (bulkEmailRecipients.length === 1) {
-                    console.log(`SIMULATING: QR Code for ${bulkEmailRecipients[0].memberId} would be included.`);
+                if (bulkEmailRecipients.length === 1 && bulkEmailRecipients[0].memberId) {
+                    const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(bulkEmailRecipients[0].memberId)}`;
+                    console.log(`SIMULATING: QR Code for ${bulkEmailRecipients[0].memberId} would be included: ${qrCodeUrl}`);
                 }
                 setBulkEmailRecipients([]); 
             }}
@@ -434,13 +481,8 @@ export function MembersTable() {
             <SearchIcon className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               placeholder="Filter by name, ID, email..."
-              value={(table.getColumn('name')?.getFilterValue() as string) ?? ''}
-              onChange={(event) => {
-                const val = event.target.value;
-                table.getColumn('name')?.setFilterValue(val); 
-                table.getColumn('email')?.setFilterValue(val); 
-                table.getColumn('memberId')?.setFilterValue(val); 
-              }}
+              value={globalFilter}
+              onChange={(event) => handleGlobalFilterChange(event.target.value)}
               className="max-w-xs pl-9 h-10" 
             />
           </div>
@@ -468,50 +510,77 @@ export function MembersTable() {
         </div>
       </div>
       
-       <div className="flex items-center justify-end gap-2 mb-4">
-           <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm">
-                Columns <ChevronDownIcon className="ml-2 h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              {table.getAllColumns().filter((column) => column.getCanHide())
-                .map((column) => (
-                  <DropdownMenuCheckboxItem
-                    key={column.id}
-                    className="capitalize"
-                    checked={column.getIsVisible()}
-                    onCheckedChange={(value) => column.toggleVisibility(!!value)}
-                  >
-                    {/* Simple way to format ID for display, can be improved */}
-                    {column.id.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
-                  </DropdownMenuCheckboxItem>
+       <div className="flex items-center justify-between gap-2 mb-4">
+          <div>
+            {currentGymDatabaseId && !isLoadingMembers && (
+                 <Button variant="ghost" size="sm" onClick={() => loadMembers(currentGymDatabaseId)}>
+                    <RefreshCw className="mr-2 h-4 w-4" /> Refresh List
+                </Button>
+            )}
+          </div>
+           <div className="flex items-center gap-2">
+            <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm">
+                    Columns <ChevronDownIcon className="ml-2 h-4 w-4" />
+                </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                {table.getAllColumns().filter((column) => column.getCanHide())
+                    .map((column) => (
+                    <DropdownMenuCheckboxItem
+                        key={column.id}
+                        className="capitalize"
+                        checked={column.getIsVisible()}
+                        onCheckedChange={(value) => column.toggleVisibility(!!value)}
+                    >
+                        {column.id.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
+                    </DropdownMenuCheckboxItem>
+                    ))}
+                </DropdownMenuContent>
+            </DropdownMenu>
+            <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" disabled={table.getFilteredSelectedRowModel().rows.length === 0}>
+                    Bulk Actions <ChevronDownIcon className="ml-2 h-4 w-4" />
+                </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                <DropdownMenuLabel>For Selected ({table.getFilteredSelectedRowModel().rows.length})</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {(['active', 'inactive', 'expired', 'pending'] as MembershipStatus[]).filter(s => s !== 'expiring soon').map(status => (
+                    <DropdownMenuItem key={status} onClick={() => handleBulkStatusUpdate(status)} className="capitalize">Set Status to {status}</DropdownMenuItem>
                 ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" disabled={table.getFilteredSelectedRowModel().rows.length === 0}>
-                Bulk Actions <ChevronDownIcon className="ml-2 h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuLabel>For Selected ({table.getFilteredSelectedRowModel().rows.length})</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              {(['active', 'inactive', 'expired', 'pending'] as MembershipStatus[]).filter(s => s !== 'expiring soon').map(status => (
-                 <DropdownMenuItem key={status} onClick={() => handleBulkStatusUpdate(status)} className="capitalize">Set Status to {status}</DropdownMenuItem>
-              ))}
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={handleOpenBulkEmailDialog}>
-                  <Mail className="mr-2 h-4 w-4" /> Send Custom Email
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={handleBulkDelete} className="text-destructive focus:text-destructive">
-                <Trash2 className="mr-2 h-4 w-4" /> Delete Selected
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleOpenBulkEmailDialog}>
+                    <Mail className="mr-2 h-4 w-4" /> Send Custom Email
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                  <AlertDialogTrigger asChild>
+                    <DropdownMenuItem 
+                        onSelect={(e) => e.preventDefault()}
+                        className="text-destructive focus:text-destructive"
+                        disabled={table.getFilteredSelectedRowModel().rows.length === 0}
+                    >
+                      <Trash2 className="mr-2 h-4 w-4" /> Delete Selected
+                    </DropdownMenuItem>
+                  </AlertDialogTrigger>
+                </DropdownMenuContent>
+            </DropdownMenu>
+            {/* AlertDialog for Bulk Delete */}
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                <AlertDialogDescription>
+                    This action cannot be undone. This will permanently delete {table.getFilteredSelectedRowModel().rows.length} selected member(s).
+                </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={handleBulkDelete}>Delete Selected</AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+           </div>
       </div>
 
       <div className="rounded-md border overflow-x-auto"> 
@@ -528,7 +597,23 @@ export function MembersTable() {
             ))}
           </TableHeader>
           <TableBody>
-            {table.getRowModel().rows?.length ? (
+            {isLoadingMembers ? (
+                Array.from({length: 5}).map((_, i) => (
+                    <TableRow key={`skeleton-${i}`}>
+                        {columns.map(col => (
+                            <TableCell key={`${col.id || 'col'}-skeleton-${i}`} className="px-3 py-3">
+                                <Skeleton className="h-5 w-full" />
+                            </TableCell>
+                        ))}
+                    </TableRow>
+                ))
+            ) : fetchMembersError ? (
+                <TableRow>
+                    <TableCell colSpan={columns.length} className="h-24 text-center text-destructive">
+                       <AlertCircle className="mx-auto h-8 w-8 mb-2"/> Error: {fetchMembersError}
+                    </TableCell>
+                </TableRow>
+            ) : table.getRowModel().rows?.length ? (
               table.getRowModel().rows.map((row) => (
                 <TableRow key={row.id} data-state={row.getIsSelected() && 'selected'}>
                   {row.getVisibleCells().map((cell) => (
@@ -541,7 +626,7 @@ export function MembersTable() {
             ) : (
               <TableRow>
                 <TableCell colSpan={columns.length} className="h-24 text-center">
-                  {currentGymDatabaseId ? `No members found for this gym matching current filters.` : 'Loading gym data or select a gym...'}
+                  {currentGymDatabaseId ? `No members found for this gym.` : 'Login to view members or add a new one.'}
                 </TableCell>
               </TableRow>
             )}
@@ -573,6 +658,6 @@ export function MembersTable() {
         </div>
       </div>
     </div>
+    </AlertDialog>
   );
 }
-

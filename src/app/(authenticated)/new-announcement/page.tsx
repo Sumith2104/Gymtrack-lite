@@ -11,11 +11,12 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import type { Announcement, Member, MembershipStatus } from '@/lib/types';
+import type { Member, MembershipStatus } from '@/lib/types'; // Member, MembershipStatus used for mock email sim
 import { APP_NAME } from '@/lib/constants';
 import { Megaphone, Send, Lightbulb } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { addDays, differenceInDays, format, parseISO, isValid } from 'date-fns';
+import { addAnnouncementAction } from '@/app/actions/announcement-actions'; // DB action
 
 const announcementSchema = z.object({
   title: z.string().min(3, { message: 'Title must be at least 3 characters.' }).max(100),
@@ -77,77 +78,67 @@ export default function NewAnnouncementPage() {
     let content = template.content();
     if (template.dateSensitive) {
       const tomorrow = addDays(new Date(), 1);
-      content = template.content(format(tomorrow, 'PPPP')); // PPPP for full date format e.g. "Monday, June 10th, 2024"
+      content = template.content(format(tomorrow, 'PPPP'));
     }
     form.reset({ title: template.title, content: content });
   };
 
   async function onSubmit(data: AnnouncementFormValues) {
-    const gymDatabaseId = localStorage.getItem('gymDatabaseId') || 'default_gym_db_id_mock';
+    const gymDatabaseId = localStorage.getItem('gymDatabaseId');
+    if (!gymDatabaseId) {
+      toast({ variant: "destructive", title: 'Error', description: 'Gym ID not found. Please log in again.' });
+      return;
+    }
     
-    const newAnnouncement: Announcement = {
-      id: `announcement_page_${Date.now()}`,
-      title: data.title,
-      content: data.content,
-      createdAt: new Date().toISOString(),
-      gymId: gymDatabaseId, 
-    };
+    const response = await addAnnouncementAction(gymDatabaseId, data.title, data.content);
 
-    try {
-      // Save announcement
-      const existingAnnouncementsRaw = localStorage.getItem('gymAnnouncements');
-      const existingAnnouncements: Announcement[] = existingAnnouncementsRaw ? JSON.parse(existingAnnouncementsRaw) : [];
-      localStorage.setItem('gymAnnouncements', JSON.stringify([newAnnouncement, ...existingAnnouncements]));
-      window.dispatchEvent(new Event('storage'));
-
-      // Simulate fetching members for email broadcast
-      const mockMembersForEmail: Array<Pick<Member, 'email' | 'membershipStatus' | 'expiryDate'>> = [
-          { email: 'active1@example.com', membershipStatus: 'active', expiryDate: addDays(new Date(), 30).toISOString() },
-          { email: 'expiring1@example.com', membershipStatus: 'active', expiryDate: addDays(new Date(), 5).toISOString() },
-          { email: 'inactive1@example.com', membershipStatus: 'inactive', expiryDate: addDays(new Date(), 30).toISOString() },
-          { email: 'expired1@example.com', membershipStatus: 'expired', expiryDate: addDays(new Date(), -5).toISOString() },
-          { email: 'active2@example.com', membershipStatus: 'active', expiryDate: addDays(new Date(), 90).toISOString() },
-          { email: 'pending1@example.com', membershipStatus: 'pending', expiryDate: addDays(new Date(), 60).toISOString() },
-      ];
-
-      const getSimulatedEffectiveStatus = (member: Pick<Member, 'membershipStatus' | 'expiryDate'>): MembershipStatus => {
-        if (member.membershipStatus === 'active' && member.expiryDate) {
-          const expiry = parseISO(member.expiryDate);
-          if (isValid(expiry)) {
-            const daysUntilExpiry = differenceInDays(expiry, new Date());
-            if (daysUntilExpiry <= 14 && daysUntilExpiry >= 0) return 'expiring soon';
-            if (daysUntilExpiry < 0) return 'expired';
-          }
-        }
-        return member.membershipStatus;
-      };
-
-      const membersToEmail = mockMembersForEmail.filter(member => {
-          const effectiveStatus = getSimulatedEffectiveStatus(member);
-          return effectiveStatus === 'active' || effectiveStatus === 'expiring soon';
-      });
-
-      const emailedCount = membersToEmail.length;
-      const totalRelevantMembers = mockMembersForEmail.filter(m => getSimulatedEffectiveStatus(m) === 'active' || getSimulatedEffectiveStatus(m) === 'expiring soon').length;
-
-
-      console.log(`SIMULATING: Emailing announcement "${data.title}" to ${emailedCount} members.`);
-      membersToEmail.forEach(m => console.log(` -> To: ${m.email}, Status: ${getSimulatedEffectiveStatus(m)}`));
-      
-      toast({
-        title: 'Announcement Published',
-        description: `"${data.title}" is now live. Emailed ${emailedCount}/${totalRelevantMembers} relevant members. (Simulated)`,
-      });
-      form.reset();
-      router.push('/dashboard'); 
-    } catch (e) {
-        console.error("Failed to save announcement or simulate email:", e);
+    if (response.error || !response.newAnnouncement) {
         toast({
             variant: "destructive",
             title: 'Error Publishing',
-            description: `Could not save announcement. Please try again.`,
+            description: response.error || 'Could not save announcement. Please try again.',
         });
+        return;
     }
+
+    // Dispatch custom event to notify other components (like dashboard announcements)
+    window.dispatchEvent(new Event('reloadAnnouncements'));
+
+    // Simulate fetching members for email broadcast (remains mock for this step)
+    const mockMembersForEmail: Array<Pick<Member, 'email' | 'membershipStatus' | 'expiryDate'>> = [
+        { email: 'active1@example.com', membershipStatus: 'active', expiryDate: addDays(new Date(), 30).toISOString() },
+        { email: 'expiring1@example.com', membershipStatus: 'active', expiryDate: addDays(new Date(), 5).toISOString() },
+        { email: 'inactive1@example.com', membershipStatus: 'inactive', expiryDate: addDays(new Date(), 30).toISOString() },
+    ];
+
+    const getSimulatedEffectiveStatus = (member: Pick<Member, 'membershipStatus' | 'expiryDate'>): MembershipStatus => {
+      if (member.membershipStatus === 'active' && member.expiryDate) {
+        const expiry = parseISO(member.expiryDate);
+        if (isValid(expiry)) {
+          const daysUntilExpiry = differenceInDays(expiry, new Date());
+          if (daysUntilExpiry <= 14 && daysUntilExpiry >= 0) return 'expiring soon';
+          if (daysUntilExpiry < 0) return 'expired';
+        }
+      }
+      return member.membershipStatus;
+    };
+
+    const membersToEmail = mockMembersForEmail.filter(member => {
+        const effectiveStatus = getSimulatedEffectiveStatus(member);
+        return effectiveStatus === 'active' || effectiveStatus === 'expiring soon';
+    });
+    const emailedCount = membersToEmail.length;
+    const totalRelevantMembers = mockMembersForEmail.filter(m => getSimulatedEffectiveStatus(m) === 'active' || getSimulatedEffectiveStatus(m) === 'expiring soon').length;
+
+    console.log(`SIMULATING: Emailing announcement "${data.title}" to ${emailedCount} members.`);
+    membersToEmail.forEach(m => console.log(` -> To: ${m.email}, Status: ${getSimulatedEffectiveStatus(m)}`));
+    
+    toast({
+      title: 'Announcement Published',
+      description: `"${data.title}" is now live. Emailed ${emailedCount}/${totalRelevantMembers} relevant members. (Simulated)`,
+    });
+    form.reset();
+    router.push('/dashboard'); 
   }
 
   return (
@@ -228,5 +219,3 @@ export default function NewAnnouncementPage() {
     </div>
   );
 }
-
-    
