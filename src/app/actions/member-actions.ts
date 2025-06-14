@@ -109,24 +109,25 @@ export async function addMember(
     if (newMemberAppFormat.email) {
       const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(newMemberAppFormat.memberId)}`;
       const emailSubject = `Welcome to ${gymName}, ${newMemberAppFormat.name}!`;
+      
       const emailHtmlBody = `
         <p>Dear ${newMemberAppFormat.name},</p>
-        <p>Welcome to ${gymName}! We're thrilled to have you as a new member.</p>
+        <p>We're thrilled to have you as a new member of ${gymName}.</p>
         <p>Here are your membership details:</p>
-        <ul>
-          <li><strong>Member ID:</strong> ${newMemberAppFormat.memberId}</li>
-          <li><strong>Name:</strong> ${newMemberAppFormat.name}</li>
-          <li><strong>Joined On:</strong> ${newMemberAppFormat.joinDate ? formatDateIST(newMemberAppFormat.joinDate, 'PPP') : 'N/A'}</li>
-          <li><strong>Membership Type:</strong> ${newMemberAppFormat.membershipType}</li>
-          <li><strong>Plan Price:</strong> ₹${newMemberAppFormat.planPrice?.toFixed(2)}</li>
-          <li><strong>Expires On:</strong> ${newMemberAppFormat.expiryDate ? formatDateIST(newMemberAppFormat.expiryDate, 'PPP') : 'N/A'}</li>
+        <ul style="list-style-type: none; padding-left: 0;">
+          <li><strong style="color: #FFD700;">Member ID:</strong> ${newMemberAppFormat.memberId}</li>
+          <li><strong style="color: #FFD700;">Name:</strong> ${newMemberAppFormat.name}</li>
+          <li><strong style="color: #FFD700;">Join Date:</strong> ${newMemberAppFormat.joinDate ? formatDateIST(newMemberAppFormat.joinDate, 'PP') : 'N/A'}</li>
+          <li><strong style="color: #FFD700;">Membership Type:</strong> ${newMemberAppFormat.membershipType}</li>
+          <li><strong style="color: #FFD700;">Plan Price:</strong> ₹${newMemberAppFormat.planPrice?.toFixed(2)}</li>
+          <li><strong style="color: #FFD700;">Membership Expires:</strong> ${newMemberAppFormat.expiryDate ? formatDateIST(newMemberAppFormat.expiryDate, 'PP') : 'N/A'}</li>
         </ul>
-        <p>You can use the QR code below for quick check-ins at the gym:</p>
-        <div class="qr-code">
-          <img src="${qrCodeUrl}" alt="Membership QR Code" />
+        <p>You can use the QR code below for quick check-ins:</p>
+        <div class="qr-code" style="text-align: center; margin: 20px 0;">
+          <img src="${qrCodeUrl}" alt="Membership QR Code" style="max-width: 150px; border: 3px solid #FFD700; border-radius: 4px;" />
         </div>
-        <p>We look forward to seeing you at the gym!</p>
-        <p>Sincerely,<br/>The ${gymName} Team</p>
+        <p>If you have any questions, feel free to contact us.</p>
+        <p>Best regards,<br/>The ${gymName} Team</p>
       `;
       
       const emailResult = await sendEmail({
@@ -423,8 +424,8 @@ export async function sendBulkCustomEmailAction(
           const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(member.member_id)}`;
           emailHtmlBody += `
             <p>Your Member ID QR Code:</p>
-            <div class="qr-code">
-              <img src="${qrCodeUrl}" alt="Membership QR Code" />
+            <div class="qr-code" style="text-align: center; margin: 20px 0;">
+              <img src="${qrCodeUrl}" alt="Membership QR Code" style="max-width: 150px; border: 3px solid #FFD700; border-radius: 4px;" />
             </div>
           `;
         }
@@ -454,3 +455,4 @@ export async function sendBulkCustomEmailAction(
   }
 }
     
+
