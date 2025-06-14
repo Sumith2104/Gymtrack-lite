@@ -4,7 +4,7 @@
 import { useState, useEffect } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
-import { PlusCircle, Edit, UserPlus } from 'lucide-react'; // Added UserPlus
+import { PlusCircle, Edit, UserPlus } from 'lucide-react';
 import { addMonths, format, parseISO } from 'date-fns';
 
 import { Button } from '@/components/ui/button';
@@ -25,21 +25,19 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'; // Added RadioGroup
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useToast } from '@/hooks/use-toast';
 import type { Member, MembershipStatus, MembershipPlan, MembershipType, Announcement } from '@/lib/types';
 import { MOCK_MEMBERSHIP_PLANS, APP_NAME } from '@/lib/constants';
-import { addMember, editMember } from '@/app/actions/member-actions'; // editMember might need adjustments if its schema changes
+import { addMember, editMember } from '@/app/actions/member-actions';
 import { addMemberFormSchema, type AddMemberFormValues } from '@/lib/schemas/member-schemas';
 
-// Simplified plan options for the RadioGroup based on common types in MOCK_MEMBERSHIP_PLANS
-// We'll map these UI-friendly names to specific plans in MOCK_MEMBERSHIP_PLANS
+// Updated to reflect the new plan structure
 const DIALOG_MEMBERSHIP_OPTIONS: { label: MembershipType; planId: string }[] = [
-  { label: 'Monthly', planId: MOCK_MEMBERSHIP_PLANS.find(p => p.name === 'Monthly' && p.durationMonths === 1)?.id || 'plan_monthly_basic' }, // Assuming 'Monthly' is a basic monthly plan
-  { label: 'Premium', planId: MOCK_MEMBERSHIP_PLANS.find(p => p.name === 'Premium' && p.durationMonths === 1)?.id || 'plan_premium_monthly' }, // Assuming 'Premium' is a premium monthly plan
-  { label: 'Annual', planId: MOCK_MEMBERSHIP_PLANS.find(p => p.name === 'Annual' && p.durationMonths === 12)?.id || 'plan_annual_basic' }, // Assuming 'Annual' is a basic annual plan
+  { label: 'Basic', planId: 'plan_basic_1m' },
+  { label: 'Premium', planId: 'plan_premium_6m' },
+  { label: 'Annual', planId: 'plan_annual_12m' },
 ];
-// Ensure these planIds exist in MOCK_MEMBERSHIP_PLANS or adjust as needed.
 
 const memberStatuses: MembershipStatus[] = ['active', 'inactive', 'expired', 'pending'];
 
@@ -62,8 +60,7 @@ export function AddMemberDialog({ isOpen, onOpenChange, onMemberSaved, memberToE
       email: '',
       phoneNumber: null,
       age: null,
-      // Default to the first option's name (e.g., 'Monthly')
-      membershipType: MOCK_MEMBERSHIP_PLANS.find(p => p.id === DIALOG_MEMBERSHIP_OPTIONS[0].planId)?.name || DIALOG_MEMBERSHIP_OPTIONS[0].label,
+      membershipType: 'Basic', // Default to 'Basic' plan name
     },
   });
 
@@ -71,22 +68,23 @@ export function AddMemberDialog({ isOpen, onOpenChange, onMemberSaved, memberToE
     if (isOpen) {
       if (memberToEdit) {
         setIsEditing(true);
-        // Find the plan ID from MOCK_MEMBERSHIP_PLANS that matches memberToEdit.membershipType and general characteristics
-        const currentMemberPlan = MOCK_MEMBERSHIP_PLANS.find(p => p.name === memberToEdit.membershipType && p.price === memberToEdit.planPrice);
+        // The membershipType in memberToEdit is the plan name (e.g., "Basic", "Premium")
+        // We need to ensure this name corresponds to one of the new MOCK_MEMBERSHIP_PLANS
+        const currentMemberPlan = MOCK_MEMBERSHIP_PLANS.find(p => p.name === memberToEdit.membershipType);
         
         form.reset({
           name: memberToEdit.name,
           email: memberToEdit.email || '',
           phoneNumber: memberToEdit.phoneNumber,
           age: memberToEdit.age,
-          membershipType: currentMemberPlan?.name || DIALOG_MEMBERSHIP_OPTIONS[0].label,
+          membershipType: currentMemberPlan?.name || 'Basic', // Fallback to 'Basic' if type is unfamiliar
         });
       } else {
         setIsEditing(false);
         form.reset({
           name: '', email: '',
           phoneNumber: null, age: null,
-          membershipType: MOCK_MEMBERSHIP_PLANS.find(p => p.id === DIALOG_MEMBERSHIP_OPTIONS[0].planId)?.name || DIALOG_MEMBERSHIP_OPTIONS[0].label,
+          membershipType: 'Basic', // Default to Basic plan name
         });
       }
     }
@@ -98,19 +96,15 @@ export function AddMemberDialog({ isOpen, onOpenChange, onMemberSaved, memberToE
     const gymName = localStorage.getItem('gymName') || APP_NAME;
 
     if (isEditing && memberToEdit) {
-      // For editing, we need to include the member ID and potentially other existing fields
-      // The `editMember` server action would need to handle this structure
       const editData = {
-        ...memberToEdit, // Spread existing member data
-        ...data, // Spread form changes
-        email: data.email || null, // Ensure null for empty optional fields
+        ...memberToEdit, 
+        ...data, 
+        email: data.email || null, 
         age: data.age || null,
         phoneNumber: data.phoneNumber || null,
+        membershipType: data.membershipType, // This is the plan name
       };
       
-      // If membershipType changed, server action should recalculate price/expiry
-      // For now, we simulate a partial update for non-plan related fields.
-      // A more robust editMember would take AddMemberFormValues and the memberId
       const response = await editMember(editData, memberToEdit.id, memberToEdit.gymId);
 
       if (response.error) {
@@ -128,7 +122,7 @@ export function AddMemberDialog({ isOpen, onOpenChange, onMemberSaved, memberToE
         onOpenChange(false);
       }
     } else {
-      // Adding new member
+      // Adding new member. data.membershipType is the plan name.
       const response = await addMember(data, gymDatabaseId, gymName);
 
       if (response.error) {
@@ -224,23 +218,20 @@ export function AddMemberDialog({ isOpen, onOpenChange, onMemberSaved, memberToE
             />
             <FormField
               control={form.control}
-              name="membershipType"
+              name="membershipType" // This field stores the plan NAME (e.g., "Basic")
               render={({ field }) => (
                 <FormItem className="space-y-3">
                   <FormLabel className="text-foreground">Membership Type</FormLabel>
                   <FormControl>
                     <RadioGroup
-                      onValueChange={(value) => {
-                        // `value` here is the planId from DIALOG_MEMBERSHIP_OPTIONS
-                        // Find the corresponding plan to get its name for the form state
-                        const selectedDialogOption = DIALOG_MEMBERSHIP_OPTIONS.find(opt => opt.planId === value);
-                        const planName = MOCK_MEMBERSHIP_PLANS.find(p => p.id === selectedDialogOption?.planId)?.name;
-                        if (planName) {
-                          field.onChange(planName);
+                      onValueChange={(planId) => { // Value from RadioGroupItem is planId
+                        const selectedPlan = MOCK_MEMBERSHIP_PLANS.find(p => p.id === planId);
+                        if (selectedPlan) {
+                          field.onChange(selectedPlan.name); // Update form state with plan NAME
                         }
                       }}
-                      // Find the planId that corresponds to the current field.value (plan name)
-                      value={DIALOG_MEMBERSHIP_OPTIONS.find(opt => MOCK_MEMBERSHIP_PLANS.find(p => p.id === opt.planId)?.name === field.value)?.planId}
+                      // To set the radio group's selected item, find the planId corresponding to the current plan NAME in the form
+                      value={MOCK_MEMBERSHIP_PLANS.find(p => p.name === field.value)?.id}
                       className="flex flex-col space-y-1"
                     >
                       {DIALOG_MEMBERSHIP_OPTIONS.map((option) => {
@@ -252,7 +243,7 @@ export function AddMemberDialog({ isOpen, onOpenChange, onMemberSaved, memberToE
                             </FormControl>
                             <FormLabel className="font-normal text-foreground">
                               {planDetails?.name || option.label} 
-                              {planDetails && <span className="text-xs text-muted-foreground ml-2">(${planDetails.price}/{planDetails.durationMonths}m)</span>}
+                              {planDetails && <span className="text-xs text-muted-foreground ml-2">(₹{planDetails.price} / {planDetails.durationMonths}m)</span>}
                             </FormLabel>
                           </FormItem>
                         );

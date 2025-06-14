@@ -48,16 +48,13 @@ export const USER_NAV_LINKS = [
   }
 ];
 
-// Mock Membership Plans for UI selection
+// Updated Mock Membership Plans
 export const MOCK_MEMBERSHIP_PLANS: MembershipPlan[] = [
-  { id: 'plan_monthly_basic', name: 'Monthly', price: 30, durationMonths: 1, description: 'Basic access, billed monthly.' },
-  { id: 'plan_annual_basic', name: 'Annual', price: 300, durationMonths: 12, description: 'Full year basic access, best value.' },
-  { id: 'plan_premium_monthly', name: 'Premium', price: 50, durationMonths: 1, description: 'Premium access with all perks, billed monthly.' },
-  { id: 'plan_premium_annual', name: 'Premium', price: 500, durationMonths: 12, description: 'Full year premium access.' },
-  { id: 'plan_6_month', name: '6-Month', price: 150, durationMonths: 6, description: '6 months of access.' },
-  { id: 'plan_class_pass_10', name: 'Class Pass', price: 100, durationMonths: 3, description: '10 class pack, expires in 3 months.' }, // Assuming class passes might also have an expiry concept for duration
-  { id: 'plan_other', name: 'Other', price: 0, durationMonths: 0, description: 'Custom or other plan type.' }, // For custom scenarios
+  { id: 'plan_basic_1m', name: 'Basic', price: 599, durationMonths: 1, description: 'Basic access for 1 month.' },
+  { id: 'plan_premium_6m', name: 'Premium', price: 2999, durationMonths: 6, description: 'Premium access for 6 months.' },
+  { id: 'plan_annual_12m', name: 'Annual', price: 5999, durationMonths: 12, description: 'Full year access, best value.' },
 ];
 
 // Available membership types for selection in forms, derived from MOCK_MEMBERSHIP_PLANS for consistency
 export const AVAILABLE_MEMBERSHIP_TYPES: MembershipType[] = Array.from(new Set(MOCK_MEMBERSHIP_PLANS.map(p => p.name)));
+
