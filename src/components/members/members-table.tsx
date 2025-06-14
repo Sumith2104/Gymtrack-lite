@@ -5,7 +5,6 @@ import * as React from 'react';
 import {
   CaretSortIcon,
   ChevronDownIcon,
-  DotsHorizontalIcon,
 } from '@radix-ui/react-icons';
 import {
   ColumnDef,
@@ -18,9 +17,8 @@ import {
   getPaginationRowModel,
   getSortedRowModel,
   useReactTable,
-  FilterFn,
 } from '@tanstack/react-table';
-import { MoreHorizontal, Trash2, Edit3, Mail, FileText, PlusCircle, UserX, UserCheck, MailWarning, UserCog } from 'lucide-react';
+import { MoreHorizontal, Trash2, Edit3, Mail, FileText, PlusCircle, UserX, UserCheck, MailWarning, UserCog, Search as SearchIcon, Users } from 'lucide-react';
 import { format, differenceInDays, parseISO, isValid } from 'date-fns';
 
 import { Button } from '@/components/ui/button';
@@ -46,16 +44,16 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
-import type { Member, MembershipStatus, AttendanceSummary } from '@/lib/types';
+import type { Member, MembershipStatus, AttendanceSummary, Announcement } from '@/lib/types';
 import { AddMemberDialog } from './add-member-dialog';
 import { AttendanceOverviewDialog } from './attendance-overview-dialog';
 import { BulkEmailDialog } from './bulk-email-dialog';
+import { APP_NAME } from '@/lib/constants';
 
 
 const initialData: Member[] = [
-  { id: 'member_uuid_1', memberId: 'MBR001', name: 'Alice Johnson', email: 'alice@example.com', membershipStatus: 'active', gymId: 'GYM123_default', createdAt: new Date(Date.now() - 86400000 * 10).toISOString(), joinDate: new Date(Date.now() - 86400000 * 10).toISOString(), expiryDate: new Date(Date.now() + 86400000 * 355).toISOString(), phoneNumber: '123-456-7890', membershipType: 'Annual', planPrice: 300, age: 28 },
+  { id: 'member_uuid_1', memberId: 'SUMI0493P', name: 'sumith', email: 'sumithsumith4567890@gmail.com', membershipStatus: 'active', gymId: 'GYM123_default', createdAt: new Date(Date.now() - 86400000 * 10).toISOString(), joinDate: "2025-06-14T00:00:00.000Z", expiryDate: new Date(Date.now() + 86400000 * 355).toISOString(), phoneNumber: '8310870493', membershipType: 'Premium', planPrice: 300, age: 21 },
   { id: 'member_uuid_2', memberId: 'MBR002', name: 'Bob Smith', email: 'bob@example.com', membershipStatus: 'inactive', gymId: 'GYM123_default', createdAt: new Date(Date.now() - 86400000 * 20).toISOString(), joinDate: new Date(Date.now() - 86400000 * 20).toISOString(), phoneNumber: '234-567-8901', membershipType: 'Monthly', planPrice: 30, age: 35 },
   { id: 'member_uuid_3', memberId: 'MBR003', name: 'Carol White', email: 'carol@example.com', membershipStatus: 'expired', gymId: 'GYM123_default', createdAt: new Date(Date.now() - 86400000 * 30).toISOString(), joinDate: new Date(Date.now() - 86400000 * 30).toISOString(), expiryDate: new Date(Date.now() - 86400000 * 5).toISOString(), membershipType: 'Monthly', planPrice: 30, age: 42 },
   { id: 'member_uuid_4', memberId: 'MBR004', name: 'David Brown', email: 'david@example.com', membershipStatus: 'active', gymId: 'GYM123_default', createdAt: new Date(Date.now() - 86400000 * 15).toISOString(), joinDate: new Date(Date.now() - 86400000 * 15).toISOString(), expiryDate: new Date(Date.now() + 86400000 * 10).toISOString(), phoneNumber: '345-678-9012', membershipType: '6-Month', planPrice: 150, age: 22 }, // Expiring soon
@@ -71,7 +69,7 @@ const getEffectiveMembershipStatus = (member: Member): MembershipStatus => {
       if (daysUntilExpiry <= 14 && daysUntilExpiry >= 0) {
         return 'expiring soon';
       }
-      if (daysUntilExpiry < 0) return 'expired'; // Double check if status wasn't updated
+      if (daysUntilExpiry < 0) return 'expired';
     }
   }
   return member.membershipStatus;
@@ -96,7 +94,7 @@ export function MembersTable() {
 
   React.useEffect(() => {
     if (typeof window !== 'undefined') {
-      const gymId = localStorage.getItem('gymId'); // This is formatted_gym_id
+      const gymId = localStorage.getItem('gymId');
       setCurrentFormattedGymId(gymId);
     }
   }, []);
@@ -112,10 +110,10 @@ export function MembersTable() {
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
   const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({
-    age: false,
-    createdAt: false,
+    // Columns visible in screenshot: Name, Member ID, Email, Age, Phone, Join Date, Type, Status, Overview (Actions)
+    // Columns to hide by default:
     planPrice: false,
-    // gymId: false, // Assuming gymId is not for direct display
+    createdAt: false, 
   });
   const [rowSelection, setRowSelection] = React.useState({});
   const [statusFilter, setStatusFilter] = React.useState<MembershipStatus | 'all'>('all');
@@ -162,8 +160,7 @@ export function MembersTable() {
   
   const handleViewAttendance = (member: Member) => {
     setMemberForAttendance(member);
-    // Simulate fetching attendance data
-    const lastCheckin = new Date(Date.now() - Math.random() * 10 * 86400000); // Random date in last 10 days
+    const lastCheckin = new Date(Date.now() - Math.random() * 10 * 86400000); 
     const recentCheckins = Array.from({length: 5}, (_, i) => new Date(lastCheckin.getTime() - i * Math.random() * 3 * 86400000));
     setMockAttendanceData({
         totalCheckIns: Math.floor(Math.random() * 100) + 5,
@@ -220,6 +217,7 @@ export function MembersTable() {
           checked={table.getIsAllPageRowsSelected() || (table.getIsSomePageRowsSelected() && 'indeterminate')}
           onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
           aria-label="Select all"
+          className="border-primary-foreground/50 data-[state=checked]:bg-primary data-[state=checked]:border-primary"
         />
       ),
       cell: ({ row }) => (
@@ -227,10 +225,16 @@ export function MembersTable() {
           checked={row.getIsSelected()}
           onCheckedChange={(value) => row.toggleSelected(!!value)}
           aria-label="Select row"
+          className="border-primary-foreground/50 data-[state=checked]:bg-primary data-[state=checked]:border-primary"
         />
       ),
       enableSorting: false,
       enableHiding: false,
+    },
+    {
+      accessorKey: 'name',
+      header: ({ column }) => <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}>Name <CaretSortIcon className="ml-2 h-4 w-4" /></Button>,
+      cell: ({ row }) => <div>{row.getValue('name')}</div>,
     },
     {
       accessorKey: 'memberId',
@@ -238,14 +242,14 @@ export function MembersTable() {
       cell: ({ row }) => <div className="font-medium">{row.getValue('memberId')}</div>,
     },
     {
-      accessorKey: 'name',
-      header: 'Name',
-      cell: ({ row }) => <div>{row.getValue('name')}</div>,
-    },
-    {
       accessorKey: 'email',
       header: 'Email',
       cell: ({ row }) => <div>{row.getValue('email') || 'N/A'}</div>,
+    },
+     {
+      accessorKey: 'age',
+      header: 'Age',
+      cell: ({row}) => row.getValue('age') || 'N/A'
     },
     {
       accessorKey: 'phoneNumber',
@@ -253,62 +257,38 @@ export function MembersTable() {
       cell: ({ row }) => <div>{row.getValue('phoneNumber') || 'N/A'}</div>,
     },
     {
-      accessorKey: 'age',
-      header: 'Age',
-      cell: ({row}) => row.getValue('age') || 'N/A'
+      accessorKey: 'joinDate',
+      header: 'Join Date',
+      cell: ({ row }) => {
+        const joinDateVal = row.getValue('joinDate') as string | null;
+        return joinDateVal && isValid(parseISO(joinDateVal)) ? format(parseISO(joinDateVal), 'd MMM yyyy') : 'N/A';
+      },
     },
     {
-      accessorKey: 'effectiveStatus', // Use effectiveStatus for display and filtering
+      accessorKey: 'membershipType', // "Type" in the image
+      header: 'Type',
+      cell: ({ row }) => <div>{row.getValue('membershipType') || 'N/A'}</div>,
+    },
+    {
+      accessorKey: 'effectiveStatus', 
       header: 'Status',
       cell: ({ row }) => {
         const status = row.original.effectiveStatus;
         let badgeClass = '';
-        if (status === 'active') badgeClass = 'bg-green-600/80 hover:bg-green-600 text-white border-green-700';
+        // Using variant="default" for primary-like gold, "secondary" for muted, "destructive" for red
+        if (status === 'active') badgeClass = 'badge-status-active'; // Uses custom green from globals.css
         else if (status === 'inactive') badgeClass = 'bg-slate-500 hover:bg-slate-600 text-slate-100 border-slate-600';
-        else if (status === 'expired') badgeClass = 'bg-red-600 hover:bg-red-700 text-white border-red-700';
+        else if (status === 'expired') badgeClass = 'badge-status-expired'; // Uses destructive red
         else if (status === 'pending') badgeClass = 'bg-yellow-500 hover:bg-yellow-600 text-white border-yellow-600';
-        else if (status === 'expiring soon') badgeClass = 'bg-amber-500 hover:bg-amber-600 text-white border-amber-600';
+        else if (status === 'expiring soon') badgeClass = 'badge-status-expiring-soon'; // Uses custom amber from globals.css
         return <Badge className={`capitalize ${badgeClass}`}>{status}</Badge>;
       },
       filterFn: (row, id, value) => value === 'all' || value.includes(row.original.effectiveStatus),
     },
     {
-      accessorKey: 'membershipType',
-      header: 'Membership Type',
-      cell: ({ row }) => <div>{row.getValue('membershipType') || 'N/A'}</div>,
-    },
-     {
-      accessorKey: 'planPrice',
-      header: 'Price',
-      cell: ({ row }) => row.getValue('planPrice') ? `$${Number(row.getValue('planPrice')).toFixed(2)}` : 'N/A',
-    },
-    {
-      accessorKey: 'joinDate',
-      header: 'Join Date',
-      cell: ({ row }) => {
-        const joinDateVal = row.getValue('joinDate') as string | null;
-        return joinDateVal && isValid(parseISO(joinDateVal)) ? format(parseISO(joinDateVal), 'PP') : 'N/A';
-      },
-    },
-    {
-      accessorKey: 'expiryDate',
-      header: 'Expiry Date',
-      cell: ({ row }) => {
-        const expiryDateVal = row.getValue('expiryDate') as string | null;
-        return expiryDateVal && isValid(parseISO(expiryDateVal)) ? format(parseISO(expiryDateVal), 'PP') : 'N/A';
-      },
-    },
-    {
-      accessorKey: 'createdAt',
-      header: 'Registered On',
-      cell: ({row}) => {
-        const createdAtVal = row.getValue('createdAt') as string;
-        return isValid(parseISO(createdAtVal)) ? format(parseISO(createdAtVal), 'PPpp') : 'Invalid Date';
-      }
-    },
-    {
-      id: 'actions',
-      enableHiding: false,
+      id: 'actions', // Corresponds to "Overview" in image
+      header: 'Overview',
+      enableHiding: true, // Keep it toggleable but visible by default as per image
       cell: ({ row }) => {
         const member = row.original;
         return (
@@ -350,6 +330,22 @@ export function MembersTable() {
         );
       },
     },
+    // Hidden by default as per screenshot
+    {
+      accessorKey: 'planPrice',
+      header: 'Price',
+      cell: ({ row }) => row.getValue('planPrice') ? `$${Number(row.getValue('planPrice')).toFixed(2)}` : 'N/A',
+      enableHiding: true,
+    },
+    {
+      accessorKey: 'createdAt',
+      header: 'Registered On',
+      cell: ({row}) => {
+        const createdAtVal = row.getValue('createdAt') as string;
+        return isValid(parseISO(createdAtVal)) ? format(parseISO(createdAtVal), 'PPpp') : 'Invalid Date';
+      },
+      enableHiding: true,
+    },
   ];
 
   const table = useReactTable({
@@ -370,7 +366,7 @@ export function MembersTable() {
       rowSelection,
     },
     initialState: {
-      pagination: { pageSize: 5 }
+      pagination: { pageSize: 10 } // Increased default page size
     }
   });
   
@@ -380,7 +376,7 @@ export function MembersTable() {
 
 
   return (
-    <div className="w-full space-y-4">
+    <div className="w-full space-y-4 p-4 md:p-6 bg-card rounded-lg border border-border shadow-sm">
       <AddMemberDialog
         isOpen={isAddMemberDialogOpen}
         onOpenChange={setIsAddMemberDialogOpen}
@@ -406,43 +402,60 @@ export function MembersTable() {
                 if (bulkEmailRecipients.length === 1) {
                     console.log(`SIMULATING: QR Code for ${bulkEmailRecipients[0].memberId} would be included.`);
                 }
-                setBulkEmailRecipients([]); // Clear after "sending"
+                setBulkEmailRecipients([]); 
             }}
         />
       )}
 
-      <div className="flex items-center justify-between gap-2 flex-wrap">
-        <Input
-          placeholder="Filter by name, email or Member ID..."
-          value={(table.getColumn('name')?.getFilterValue() as string) ?? ''}
-          onChange={(event) => {
-            const val = event.target.value;
-            table.getColumn('name')?.setFilterValue(val);
-            table.getColumn('email')?.setFilterValue(val);
-            table.getColumn('memberId')?.setFilterValue(val);
-          }}
-          className="max-w-xs grow sm:max-w-sm"
-        />
+      {/* Table Controls Header Section */}
+      <div className="flex items-center justify-between gap-2 flex-wrap mb-4">
+        <div className="flex items-center gap-2">
+            <Users className="h-6 w-6 text-primary" />
+            <h2 className="text-xl font-semibold text-foreground">All Members ({table.getFilteredRowModel().rows.length})</h2>
+        </div>
         <div className="flex items-center gap-2 flex-wrap">
+          <div className="relative">
+            <SearchIcon className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Filter by name, ID, email..."
+              value={(table.getColumn('name')?.getFilterValue() as string) ?? ''}
+              onChange={(event) => {
+                const val = event.target.value;
+                table.getColumn('name')?.setFilterValue(val); // Filters name
+                table.getColumn('email')?.setFilterValue(val); // Filters email
+                table.getColumn('memberId')?.setFilterValue(val); // Filters memberId
+              }}
+              className="max-w-xs pl-9 h-10" // Added pl-9 for icon padding
+            />
+          </div>
            <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline">
-                Status: <span className="capitalize ml-1 font-semibold">{statusFilter}</span> <ChevronDownIcon className="ml-2 h-4 w-4" />
+              <Button variant="outline" className="h-10">
+                {statusFilter === 'all' ? 'All Statuses' : <span className="capitalize">{statusFilter}</span>}
+                <ChevronDownIcon className="ml-2 h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuLabel>Filter by Status</DropdownMenuLabel>
               <DropdownMenuRadioGroup value={statusFilter} onValueChange={(value) => setStatusFilter(value as MembershipStatus | 'all')}>
-                <DropdownMenuRadioItem value="all">All</DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="all">All Statuses</DropdownMenuRadioItem>
                 {(['active', 'inactive', 'expired', 'pending', 'expiring soon'] as MembershipStatus[]).map(s => (
                   <DropdownMenuRadioItem key={s} value={s} className="capitalize">{s}</DropdownMenuRadioItem>
                 ))}
               </DropdownMenuRadioGroup>
             </DropdownMenuContent>
           </DropdownMenu>
+          <Button onClick={openAddDialog} className="h-10 bg-primary hover:bg-primary/90 text-primary-foreground">
+             <PlusCircle className="mr-2 h-4 w-4" /> Add Member
+          </Button>
+        </div>
+      </div>
+      
+      {/* Optional: Bulk Actions and Column Visibility - Kept for functionality, can be hidden if strictly adhering to screenshot */}
+       <div className="flex items-center justify-end gap-2 mb-4">
            <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline">
+              <Button variant="outline" size="sm">
                 Columns <ChevronDownIcon className="ml-2 h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
@@ -455,14 +468,15 @@ export function MembersTable() {
                     checked={column.getIsVisible()}
                     onCheckedChange={(value) => column.toggleVisibility(!!value)}
                   >
-                    {column.id.replace(/([A-Z])/g, ' $1').trim()}
+                    {/* Format column id for display (e.g., memberId -> Member ID) */}
+                    {column.id.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
                   </DropdownMenuCheckboxItem>
                 ))}
             </DropdownMenuContent>
           </DropdownMenu>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" disabled={table.getFilteredSelectedRowModel().rows.length === 0}>
+              <Button variant="outline" size="sm" disabled={table.getFilteredSelectedRowModel().rows.length === 0}>
                 Bulk Actions <ChevronDownIcon className="ml-2 h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
@@ -482,18 +496,15 @@ export function MembersTable() {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-          <Button onClick={openAddDialog}>
-             <PlusCircle className="mr-2 h-4 w-4" /> Add New Member
-          </Button>
-        </div>
       </div>
-      <ScrollArea className="rounded-md border">
+
+      <div className="rounded-md border overflow-x-auto"> {/* Added border and overflow-x-auto here */}
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
                 {headerGroup.headers.map((header) => (
-                  <TableHead key={header.id}>
+                  <TableHead key={header.id} className="whitespace-nowrap">
                     {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
                   </TableHead>
                 ))}
@@ -505,7 +516,7 @@ export function MembersTable() {
               table.getRowModel().rows.map((row) => (
                 <TableRow key={row.id} data-state={row.getIsSelected() && 'selected'}>
                   {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>
+                    <TableCell key={cell.id} className="whitespace-nowrap">
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </TableCell>
                   ))}
@@ -520,7 +531,7 @@ export function MembersTable() {
             )}
           </TableBody>
         </Table>
-      </ScrollArea>
+      </div>
       <div className="flex items-center justify-end space-x-2 py-4">
         <div className="flex-1 text-sm text-muted-foreground">
           {table.getFilteredSelectedRowModel().rows.length} of{' '}
