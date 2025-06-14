@@ -135,8 +135,9 @@ export function MembersTable() {
   }, [loadMembers]);
   
   const gymMembers = React.useMemo(() => {
-    return data; 
-  }, [data]);
+    if (!currentGymDatabaseId) return []; // Ensure we don't filter if gym ID isn't set yet
+    return data.filter(member => member.gymId === currentGymDatabaseId);
+  }, [data, currentGymDatabaseId]);
 
 
   const [sorting, setSorting] = React.useState<SortingState>([]);
@@ -153,7 +154,18 @@ export function MembersTable() {
 
   const handleMemberSaved = (savedMember: Member) => {
     if (currentGymDatabaseId) {
-      loadMembers(currentGymDatabaseId); // Re-fetch to ensure data consistency
+        // Check if member's gymId matches current gym before adding to local state or re-fetching
+        if (savedMember.gymId === currentGymDatabaseId) {
+          // Optimistic update or re-fetch
+          const memberExists = data.some(m => m.id === savedMember.id);
+          if (memberExists) {
+            setData(prevData => prevData.map(m => m.id === savedMember.id ? {...savedMember, effectiveStatus: getEffectiveMembershipStatus(savedMember) } : m));
+          } else {
+            setData(prevData => [{...savedMember, effectiveStatus: getEffectiveMembershipStatus(savedMember)}, ...prevData]);
+          }
+        }
+        // If using a full re-fetch strategy, it would be:
+        // loadMembers(currentGymDatabaseId);
     }
     setIsAddMemberDialogOpen(false);
     setMemberToEdit(null);
@@ -175,11 +187,11 @@ export function MembersTable() {
   };
 
   const executeDeleteMember = async () => {
-    if (!memberToDelete) return;
+    if (!memberToDelete || !currentGymDatabaseId) return;
     const response = await deleteMemberAction(memberToDelete.id);
     if (response.success) {
       toast({ title: "Member Deleted", description: `${memberToDelete.name} has been removed.` });
-      if (currentGymDatabaseId) loadMembers(currentGymDatabaseId);
+      loadMembers(currentGymDatabaseId); // Re-fetch to update the list
     } else {
       toast({ variant: "destructive", title: "Error Deleting Member", description: response.error });
     }
@@ -192,10 +204,12 @@ export function MembersTable() {
         toast({ title: "Invalid Action", description: "'Expiring Soon' is an automatically derived status.", variant: "destructive" });
         return;
     }
+    if (!currentGymDatabaseId) return;
+
     const response = await updateMemberStatusAction(member.id, newStatus);
     if (response.updatedMember) {
         toast({ title: "Status Updated", description: `${member.name}'s status changed to ${newStatus}. (Simulated email notification)` });
-        if (currentGymDatabaseId) loadMembers(currentGymDatabaseId);
+        loadMembers(currentGymDatabaseId); // Re-fetch
         console.log(`SIMULATING: Email notification to ${member.email} about status change to ${newStatus}.`);
     } else {
         toast({ variant: "destructive", title: "Error Updating Status", description: response.error });
@@ -216,10 +230,8 @@ export function MembersTable() {
   
   const handleBulkDelete = async () => {
     const selectedRows = table.getFilteredSelectedRowModel().rows;
-    if (selectedRows.length === 0) {
-      // This case should be handled by disabling the button, but as a safeguard:
-      // toast({ title: "No members selected", variant: "destructive", description: "Please select members to delete." });
-      setIsBulkDeleteConfirmOpen(false); // Ensure dialog closes if somehow triggered
+    if (selectedRows.length === 0 || !currentGymDatabaseId) {
+      setIsBulkDeleteConfirmOpen(false); 
       return;
     }
     const memberIdsToDelete = selectedRows.map(row => row.original.id);
@@ -227,12 +239,10 @@ export function MembersTable() {
     
     toast({ title: "Bulk Delete Processed", description: `${response.successCount} member(s) targeted for deletion. ${response.errorCount > 0 ? `${response.errorCount} failed. Error: ${response.error}` : (response.error ? `Error: ${response.error}` : '')}` });
     
-    if (response.successCount > 0 && currentGymDatabaseId) {
+    if (response.successCount > 0) {
         loadMembers(currentGymDatabaseId); 
-    } else if (response.successCount === 0 && response.error) {
-        // Error handled by toast, no need to reload if nothing changed
     }
-    setRowSelection({}); // Clear selection after action
+    setRowSelection({}); 
     setIsBulkDeleteConfirmOpen(false);
   };
 
@@ -242,8 +252,7 @@ export function MembersTable() {
         return;
     }
     const selectedRows = table.getFilteredSelectedRowModel().rows;
-     if (selectedRows.length === 0) {
-      // toast({ title: "No members selected", variant: "destructive", description: "Please select members to update." });
+     if (selectedRows.length === 0 || !currentGymDatabaseId) {
       return;
     }
     const memberIdsToUpdate = selectedRows.map(row => row.original.id);
@@ -251,7 +260,7 @@ export function MembersTable() {
 
     toast({ title: "Bulk Status Update Processed", description: `${response.successCount} member(s) status updated to ${newStatus}. ${response.errorCount > 0 ? `${response.errorCount} failed. Error: ${response.error}`: (response.error ? `Error: ${response.error}` : '')}` });
     
-    if (response.successCount > 0 && currentGymDatabaseId) {
+    if (response.successCount > 0) {
         loadMembers(currentGymDatabaseId);
     }
     setRowSelection({});
@@ -260,7 +269,6 @@ export function MembersTable() {
   const handleOpenBulkEmailDialog = () => {
     const selectedRows = table.getFilteredSelectedRowModel().rows;
     if (selectedRows.length === 0) {
-      // toast({ title: "No members selected", variant: "destructive", description: "Please select members to email." });
       return;
     }
     setBulkEmailRecipients(selectedRows.map(row => row.original));
@@ -278,6 +286,7 @@ export function MembersTable() {
           checked={table.getIsAllPageRowsSelected() || (table.getIsSomePageRowsSelected() && 'indeterminate')}
           onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
           aria-label="Select all"
+          className="border-primary"
         />
       ),
       cell: ({ row }) => (
@@ -285,6 +294,7 @@ export function MembersTable() {
           checked={row.getIsSelected()}
           onCheckedChange={(value) => row.toggleSelected(!!value)}
           aria-label="Select row"
+          className="border-primary"
         />
       ),
       enableSorting: false,
