@@ -18,7 +18,7 @@ import {
   getSortedRowModel,
   useReactTable,
 } from '@tanstack/react-table';
-import { MoreHorizontal, Trash2, Edit3, Mail, FileText, PlusCircle, UserX, UserCheck, MailWarning, UserCog, Search as SearchIcon, Users } from 'lucide-react';
+import { MoreHorizontal, Trash2, Edit3, Mail, FileText, PlusCircle, UserX, UserCheck, MailWarning, UserCog, Search as SearchIcon, Users, Check } from 'lucide-react';
 import { format, differenceInDays, parseISO, isValid } from 'date-fns';
 
 import { Button } from '@/components/ui/button';
@@ -110,8 +110,6 @@ export function MembersTable() {
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
   const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({
-    // Columns visible in screenshot: Name, Member ID, Email, Age, Phone, Join Date, Type, Status, Overview (Actions)
-    // Columns to hide by default:
     planPrice: false,
     createdAt: false, 
   });
@@ -208,6 +206,8 @@ export function MembersTable() {
     setIsBulkEmailDialogOpen(true);
   };
 
+  const filterableStatuses: (MembershipStatus | 'all')[] = ['all', 'active', 'expiring soon', 'expired'];
+
 
   const columns: ColumnDef<Member & { effectiveStatus: MembershipStatus }>[] = [
     {
@@ -265,7 +265,7 @@ export function MembersTable() {
       },
     },
     {
-      accessorKey: 'membershipType', // "Type" in the image
+      accessorKey: 'membershipType', 
       header: 'Type',
       cell: ({ row }) => <div>{row.getValue('membershipType') || 'N/A'}</div>,
     },
@@ -275,20 +275,19 @@ export function MembersTable() {
       cell: ({ row }) => {
         const status = row.original.effectiveStatus;
         let badgeClass = '';
-        // Using variant="default" for primary-like gold, "secondary" for muted, "destructive" for red
-        if (status === 'active') badgeClass = 'badge-status-active'; // Uses custom green from globals.css
+        if (status === 'active') badgeClass = 'badge-status-active';
         else if (status === 'inactive') badgeClass = 'bg-slate-500 hover:bg-slate-600 text-slate-100 border-slate-600';
-        else if (status === 'expired') badgeClass = 'badge-status-expired'; // Uses destructive red
+        else if (status === 'expired') badgeClass = 'badge-status-expired'; 
         else if (status === 'pending') badgeClass = 'bg-yellow-500 hover:bg-yellow-600 text-white border-yellow-600';
-        else if (status === 'expiring soon') badgeClass = 'badge-status-expiring-soon'; // Uses custom amber from globals.css
+        else if (status === 'expiring soon') badgeClass = 'badge-status-expiring-soon';
         return <Badge className={`capitalize ${badgeClass}`}>{status}</Badge>;
       },
       filterFn: (row, id, value) => value === 'all' || value.includes(row.original.effectiveStatus),
     },
     {
-      id: 'actions', // Corresponds to "Overview" in image
+      id: 'actions', 
       header: 'Overview',
-      enableHiding: true, // Keep it toggleable but visible by default as per image
+      enableHiding: true, 
       cell: ({ row }) => {
         const member = row.original;
         return (
@@ -330,7 +329,6 @@ export function MembersTable() {
         );
       },
     },
-    // Hidden by default as per screenshot
     {
       accessorKey: 'planPrice',
       header: 'Price',
@@ -366,7 +364,7 @@ export function MembersTable() {
       rowSelection,
     },
     initialState: {
-      pagination: { pageSize: 10 } // Increased default page size
+      pagination: { pageSize: 10 } 
     }
   });
   
@@ -407,7 +405,6 @@ export function MembersTable() {
         />
       )}
 
-      {/* Table Controls Header Section */}
       <div className="flex items-center justify-between gap-2 flex-wrap mb-4">
         <div className="flex items-center gap-2">
             <Users className="h-6 w-6 text-primary" />
@@ -421,11 +418,11 @@ export function MembersTable() {
               value={(table.getColumn('name')?.getFilterValue() as string) ?? ''}
               onChange={(event) => {
                 const val = event.target.value;
-                table.getColumn('name')?.setFilterValue(val); // Filters name
-                table.getColumn('email')?.setFilterValue(val); // Filters email
-                table.getColumn('memberId')?.setFilterValue(val); // Filters memberId
+                table.getColumn('name')?.setFilterValue(val); 
+                table.getColumn('email')?.setFilterValue(val); 
+                table.getColumn('memberId')?.setFilterValue(val); 
               }}
-              className="max-w-xs pl-9 h-10" // Added pl-9 for icon padding
+              className="max-w-xs pl-9 h-10" 
             />
           </div>
            <DropdownMenu>
@@ -438,9 +435,10 @@ export function MembersTable() {
             <DropdownMenuContent align="end">
               <DropdownMenuLabel>Filter by Status</DropdownMenuLabel>
               <DropdownMenuRadioGroup value={statusFilter} onValueChange={(value) => setStatusFilter(value as MembershipStatus | 'all')}>
-                <DropdownMenuRadioItem value="all">All Statuses</DropdownMenuRadioItem>
-                {(['active', 'inactive', 'expired', 'pending', 'expiring soon'] as MembershipStatus[]).map(s => (
-                  <DropdownMenuRadioItem key={s} value={s} className="capitalize">{s}</DropdownMenuRadioItem>
+                {filterableStatuses.map(s => (
+                  <DropdownMenuRadioItem key={s} value={s} className="capitalize">
+                    {s === 'all' ? 'All Statuses' : s}
+                  </DropdownMenuRadioItem>
                 ))}
               </DropdownMenuRadioGroup>
             </DropdownMenuContent>
@@ -451,7 +449,6 @@ export function MembersTable() {
         </div>
       </div>
       
-      {/* Optional: Bulk Actions and Column Visibility - Kept for functionality, can be hidden if strictly adhering to screenshot */}
        <div className="flex items-center justify-end gap-2 mb-4">
            <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -468,7 +465,6 @@ export function MembersTable() {
                     checked={column.getIsVisible()}
                     onCheckedChange={(value) => column.toggleVisibility(!!value)}
                   >
-                    {/* Format column id for display (e.g., memberId -> Member ID) */}
                     {column.id.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
                   </DropdownMenuCheckboxItem>
                 ))}
@@ -483,7 +479,7 @@ export function MembersTable() {
             <DropdownMenuContent align="end">
               <DropdownMenuLabel>For Selected ({table.getFilteredSelectedRowModel().rows.length})</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              {(['active', 'inactive', 'expired', 'pending'] as MembershipStatus[]).map(status => (
+              {(['active', 'inactive', 'expired', 'pending'] as MembershipStatus[]).filter(s => s !== 'expiring soon').map(status => (
                  <DropdownMenuItem key={status} onClick={() => handleBulkStatusUpdate(status)} className="capitalize">Set Status to {status}</DropdownMenuItem>
               ))}
               <DropdownMenuSeparator />
@@ -498,7 +494,7 @@ export function MembersTable() {
           </DropdownMenu>
       </div>
 
-      <div className="rounded-md border overflow-x-auto"> {/* Added border and overflow-x-auto here */}
+      <div className="rounded-md border overflow-x-auto"> 
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
