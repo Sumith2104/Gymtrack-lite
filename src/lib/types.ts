@@ -15,7 +15,6 @@ export interface Member {
   joinDate?: string | null; // timestamptz
   expiryDate?: string | null; // timestamptz
   membershipType?: string | null; // e.g., 'monthly', 'annual', 'class_pass'
-  // updated_at is not present here, consistent with DB schema image
 }
 
 export interface Announcement {
@@ -24,17 +23,17 @@ export interface Announcement {
   title: string;
   content: string;
   createdAt: string; // timestamptz
-  updatedAt?: string | null; // Keeping this as it's common, though not explicitly in image details
+  updatedAt?: string | null; 
 }
 
 export interface Gym {
   id: string; // uuid
   name: string;
   ownerEmail: string;
-  ownerUserId?: string | null; // FK to auth.users.id (Supabase Auth)
-  formattedGymId: string; // User-friendly gym identifier (e.g., GYM123)
+  ownerUserId?: string | null; 
+  formattedGymId: string; 
   createdAt: string; // timestamptz
-  status: string; // e.g., 'active', 'inactive', 'pending_setup'
+  status: string; 
 }
 
 export interface Plan {
@@ -43,12 +42,10 @@ export interface Plan {
   price: number; // numeric
   durationMonths?: number | null;
   isActive: boolean;
-  planId?: string | null; // User-defined plan identifier/SKU (e.g., GOLD_MONTHLY)
-  // gymId removed as per DB schema image
-  // created_at and updated_at removed as per DB schema image
+  planId?: string | null; 
 }
 
-export interface CheckIn {
+export interface CheckIn { // This is the raw DB record type
   id: string; // uuid
   gymId: string; // uuid, FK to gyms.id
   memberTableId: string; // uuid, FK to members.id
@@ -57,16 +54,26 @@ export interface CheckIn {
   createdAt: string; // timestamptz
 }
 
+// Type for displaying formatted check-in information in the UI
+export interface FormattedCheckIn {
+  memberTableId: string; // The actual UUID of the member from members table
+  memberName: string;
+  memberId: string; // The user-facing MBR001 style ID
+  checkInTime: Date; // Use Date object for easier manipulation client-side
+  gymName: string; // Name of the gym where check-in occurred
+}
+
+
 export interface SuperAdmin {
   id: string; // uuid
   email: string;
-  passwordHash: string; // In application type, we usually don't handle passwordHash directly
+  passwordHash: string; 
   createdAt: string; // timestamptz
   updatedAt?: string | null; // timestamptz
 }
 
 
-// For chart data (can remain as is or be updated if data sources change)
+// For chart data
 export interface DailyCheckIns {
   date: string;
   count: number;

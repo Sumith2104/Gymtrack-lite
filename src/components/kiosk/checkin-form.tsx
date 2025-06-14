@@ -8,7 +8,6 @@ import * as z from 'zod';
 import { QrCode, LogIn, AlertTriangle, CheckCircle2, PartyPopper, Video, XCircle, ScanLine, CameraOff } from 'lucide-react';
 import { Html5QrcodeScanner, Html5QrcodeSupportedFormats, type Html5QrcodeError, type Html5QrcodeResult } from 'html5-qrcode';
 
-
 import { Button } from '@/components/ui/button';
 import {
   Form,
@@ -22,37 +21,39 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { generateMotivationalQuote, type MotivationalQuoteInput } from '@/ai/flows/generate-motivational-quote';
-import type { Member, CheckIn, FormattedCheckIn } from '@/lib/types';
+import type { Member, CheckIn, FormattedCheckIn } from '@/lib/types'; // CheckIn might not be directly used now
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 const checkinSchema = z.object({
-  identifier: z.string().min(1, { message: 'Member ID is required.' }),
+  identifier: z.string().min(1, { message: 'Member ID or QR code data is required.' }),
 });
 
 type CheckinFormValues = z.infer<typeof checkinSchema>;
 
+// This mock data should ideally live in KioskPage or be fetched.
+// For CheckinForm, it primarily validates against the current kiosk's members.
 const mockKioskMembers: Member[] = [
   { id: 'member-uuid-1', memberId: 'MBR001', name: 'Alice Johnson', email: 'alice@example.com', membershipStatus: 'active', createdAt: new Date().toISOString(), gymId: 'GYM123_default' },
   { id: 'member-uuid-2', memberId: 'MBR002', name: 'Bob Smith', email: 'bob@example.com', membershipStatus: 'expired', createdAt: new Date().toISOString(), gymId: 'GYM123_default' },
   { id: 'member-uuid-3', memberId: 'MBR003', name: 'Carol White', email: 'carol@example.com', membershipStatus: 'inactive', createdAt: new Date().toISOString(), gymId: 'GYM123_default' },
-  { id: 'member-uuid-4', memberId: 'MBR004', name: 'Valid Member', email: 'valid@example.com', membershipStatus: 'active', createdAt: new Date().toISOString(), gymId: 'GYM_OTHER' },
+  { id: 'member-uuid-4', memberId: 'MBR004', name: 'Valid Member', email: 'valid@example.com', membershipStatus: 'active', createdAt: new Date().toISOString(), gymId: 'GYM_OTHER' }, // Belongs to a different gym
   { id: 'member-uuid-sumith', memberId: 'SUMITH001', name: 'Sumith Test Kiosk', email: 'sumith.kiosk@example.com', membershipStatus: 'active', createdAt: new Date().toISOString(), gymId: 'UOFIPOIB' },
 ];
 
 interface CheckinFormProps {
   className?: string;
-  onSuccessfulCheckin?: (checkinEntry: FormattedCheckIn) => void;
+  onSuccessfulCheckin: (checkinEntry: FormattedCheckIn) => void;
+  todaysCheckins: FormattedCheckIn[]; // Passed from KioskPage
 }
 
 const QR_READER_ELEMENT_ID = "qr-reader-kiosk";
 
-export function CheckinForm({ className, onSuccessfulCheckin }: CheckinFormProps) {
+export function CheckinForm({ className, onSuccessfulCheckin, todaysCheckins }: CheckinFormProps) {
   const { toast } = useToast();
   const [checkinStatus, setCheckinStatus] = useState<{ type: 'success' | 'error' | 'info'; message: string; quote?: string; memberName?: string } | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [currentKioskGymId, setCurrentKioskGymId] = useState<string | null>(null);
+  const [currentKioskFormattedGymId, setCurrentKioskFormattedGymId] = useState<string | null>(null); // e.g. GYM123_default
   const [currentKioskGymName, setCurrentKioskGymName] = useState<string | null>(null);
-
 
   const [isScanning, setIsScanning] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
@@ -60,8 +61,8 @@ export function CheckinForm({ className, onSuccessfulCheckin }: CheckinFormProps
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      setCurrentKioskGymId(localStorage.getItem('gymId') || 'GYM123_default');
-      setCurrentKioskGymName(localStorage.getItem('gymName') || 'Default Gym');
+      setCurrentKioskFormattedGymId(localStorage.getItem('gymId')); // This is formatted_gym_id
+      setCurrentKioskGymName(localStorage.getItem('gymName'));
     }
   }, []);
 
@@ -72,11 +73,15 @@ export function CheckinForm({ className, onSuccessfulCheckin }: CheckinFormProps
     },
   });
 
+  const isAlreadyCheckedInToday = (memberTableId: string): boolean => {
+    return todaysCheckins.some(ci => ci.memberTableId === memberTableId);
+  };
+
   async function onSubmit(data: CheckinFormValues) {
     setIsLoading(true);
     setCheckinStatus(null);
     
-    if (!currentKioskGymId) {
+    if (!currentKioskFormattedGymId || !currentKioskGymName) {
         setCheckinStatus({ type: 'error', message: 'Kiosk configuration error. Please contact admin.' });
         setIsLoading(false);
         return;
@@ -84,9 +89,11 @@ export function CheckinForm({ className, onSuccessfulCheckin }: CheckinFormProps
     
     await new Promise(resolve => setTimeout(resolve, 700)); // Simulate network delay
 
+    // Find member by identifier (could be memberId string or data from QR code)
+    // Assuming QR code contains the memberId string for now.
     const member = mockKioskMembers.find(m => 
         m.memberId.toLowerCase() === data.identifier.toLowerCase() && 
-        m.gymId === currentKioskGymId
+        m.gymId === currentKioskFormattedGymId // Crucially, check member belongs to THIS gym
     );
 
     if (!member) {
@@ -96,7 +103,7 @@ export function CheckinForm({ className, onSuccessfulCheckin }: CheckinFormProps
     }
 
     if (member.membershipStatus === 'expired') {
-      setCheckinStatus({ type: 'error', message: `Hi ${member.name}, your membership has expired. Please see reception.` });
+      setCheckinStatus({ type: 'error', message: `Membership for ${member.name} is expired. Please see reception.` });
       setIsLoading(false);
       return;
     }
@@ -113,68 +120,72 @@ export function CheckinForm({ className, onSuccessfulCheckin }: CheckinFormProps
       return;
     }
 
+    if (isAlreadyCheckedInToday(member.id)) { // member.id is the unique UUID like 'member-uuid-1'
+      setCheckinStatus({ type: 'info', message: `${member.name}, you are already checked in today.` });
+      setIsLoading(false);
+      return;
+    }
+
     try {
       const quoteInput: MotivationalQuoteInput = { memberId: member.memberId, memberName: member.name };
       const motivation = await generateMotivationalQuote(quoteInput);
       
-      const newCheckInRecord: CheckIn = { // This is the full CheckIn type
-        id: `checkin_${Date.now()}`,
-        gymId: member.gymId,
-        memberTableId: member.id,
-        checkInTime: new Date().toISOString(),
-        createdAt: new Date().toISOString(),
-      };
-      console.log("Mock Check-In Record Created:", newCheckInRecord);
-      console.log(`SIMULATING: Email sent to ${member.email} for successful check-in.`);
-
+      // SIMULATE creating a check_in record in the database
+      // In a real app, this would be an API call / server action
+      console.log(`SIMULATING: Check-in record created for member ${member.id} at gym ${member.gymId}.`);
+      
+      // Simulate sending email
+      if (member.email) {
+        console.log(`SIMULATING: Email confirmation sent to ${member.email} for successful check-in. Quote: "${motivation.quote}"`);
+      } else {
+        console.log(`SIMULATING: Member ${member.name} has no email on file. No email sent.`);
+      }
 
       const formattedCheckinForDisplay: FormattedCheckIn = {
+        memberTableId: member.id,
         memberName: member.name,
         memberId: member.memberId,
-        checkInTime: new Date(newCheckInRecord.checkInTime),
-        gymName: currentKioskGymName || member.gymId, // Use fetched gym name if available
+        checkInTime: new Date(), // Current time for the check-in
+        gymName: currentKioskGymName, 
       };
 
-      if (onSuccessfulCheckin) {
-        onSuccessfulCheckin(formattedCheckinForDisplay);
-      }
+      onSuccessfulCheckin(formattedCheckinForDisplay); // Notify parent page
       
       setCheckinStatus({ 
         type: 'success', 
-        message: `Welcome back, ${member.name}! You're checked in.`,
+        message: `Welcome, ${member.name}! Enjoy your workout.`,
         quote: motivation.quote,
         memberName: member.name,
       });
       
-      toast({
-        title: `Welcome ${member.name}!`,
-        description: `Checked in successfully. ${motivation.quote}`,
-      });
+      // Toast can be redundant if card status is prominent, but kept for now.
+      // toast({
+      //   title: `Welcome ${member.name}!`,
+      //   description: `Checked in successfully. ${motivation.quote}`,
+      // });
 
     } catch (error) {
       console.error("Failed to generate motivational quote:", error);
       const fallbackQuote = "Keep pushing your limits!";
-       const formattedCheckinForDisplayOnError: FormattedCheckIn = {
+      // Still proceed with check-in even if quote fails
+      const formattedCheckinForDisplayOnError: FormattedCheckIn = {
+        memberTableId: member.id,
         memberName: member.name,
         memberId: member.memberId,
         checkInTime: new Date(),
-        gymName: currentKioskGymName || member.gymId,
+        gymName: currentKioskGymName,
       };
-       if (onSuccessfulCheckin) {
-        onSuccessfulCheckin(formattedCheckinForDisplayOnError);
-      }
+      onSuccessfulCheckin(formattedCheckinForDisplayOnError);
 
       setCheckinStatus({ 
         type: 'success', 
-        message: `Welcome back, ${member.name}! You're checked in.`,
+        message: `Welcome, ${member.name}! Enjoy your workout.`,
         quote: fallbackQuote, 
         memberName: member.name,
       });
-      toast({
-        title: `Welcome ${member.name}!`,
-        description: `Checked in successfully. ${fallbackQuote}`,
-      });
-      console.log(`SIMULATING: Email sent to ${member.email} for successful check-in (with fallback quote).`);
+      if (member.email) {
+         console.log(`SIMULATING: Email confirmation sent to ${member.email} (with fallback quote).`);
+      }
     } finally {
       form.reset(); 
       setIsLoading(false);
@@ -183,22 +194,19 @@ export function CheckinForm({ className, onSuccessfulCheckin }: CheckinFormProps
   }
 
   const onScanSuccess = (decodedText: string, result: Html5QrcodeResult) => {
-    console.log(`QR Code detected: ${decodedText}`, result);
     form.setValue('identifier', decodedText);
     toast({
         title: "QR Code Scanned",
         description: `Member ID ${decodedText} captured. Processing...`,
     });
-    handleCancelScan(); // Stop camera and hide scanning UI
+    handleCancelScan(); 
     setTimeout(() => {
       form.handleSubmit(onSubmit)();
-    }, 200); // Short delay for user to see toast
+    }, 200); 
   };
 
   const onScanFailure = (error: Html5QrcodeError | string) => {
-    // Handle scan failure, usually ignore if it's just "QR code not found"
-    // console.warn(`QR Scan Error: ${JSON.stringify(error)}`);
-    // Can set a mild error message if needed, but often not for continuous scanning
+    // Usually ignore "QR code not found"
   };
 
   useEffect(() => {
@@ -213,14 +221,14 @@ export function CheckinForm({ className, onSuccessfulCheckin }: CheckinFormProps
             supportedScanTypes: [Html5QrcodeSupportedFormats.QR_CODE],
             rememberLastUsedCamera: true,
           },
-          false // verbose
+          false 
         );
         scanner.render(onScanSuccess, onScanFailure);
         html5QrCodeScannerRef.current = scanner;
       } catch (err: any) {
         console.error("Failed to initialize QR Scanner:", err);
         setCameraError(err.message || "Failed to initialize camera/scanner.");
-        setIsScanning(false); // Stop scanning mode if init fails
+        setIsScanning(false); 
       }
     }
 
@@ -232,11 +240,13 @@ export function CheckinForm({ className, onSuccessfulCheckin }: CheckinFormProps
         html5QrCodeScannerRef.current = null;
       }
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isScanning]);
 
 
   const handleScanQrCodeClick = () => {
     setIsScanning(true);
+    setCheckinStatus(null); // Clear previous status messages
   };
 
   const handleCancelScan = () => {
@@ -259,7 +269,7 @@ export function CheckinForm({ className, onSuccessfulCheckin }: CheckinFormProps
           <CardDescription>Point your QR code at the camera.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div id={QR_READER_ELEMENT_ID} className="w-full aspect-video bg-muted rounded-md border border-border">
+          <div id={QR_READER_ELEMENT_ID} className="w-full aspect-square bg-muted rounded-md border border-border overflow-hidden">
             {/* QR Scanner will render here */}
           </div>
           
@@ -286,7 +296,8 @@ export function CheckinForm({ className, onSuccessfulCheckin }: CheckinFormProps
   return (
     <Card className={`w-full max-w-lg shadow-2xl ${className}`}>
       <CardHeader className="text-center">
-        <CardTitle className="text-3xl font-headline">Check-in Form</CardTitle>
+        <CardTitle className="text-3xl font-headline">Member Check-in</CardTitle>
+        <CardDescription>Enter Member ID or Scan QR</CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         <Form {...form}>
@@ -296,10 +307,10 @@ export function CheckinForm({ className, onSuccessfulCheckin }: CheckinFormProps
               name="identifier"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel className="text-left">Member ID</FormLabel>
+                  <FormLabel className="text-left">Member ID / QR Data</FormLabel>
                   <FormControl>
                     <Input 
-                      placeholder="Enter your Member ID" 
+                      placeholder="Enter Member ID or scan QR" 
                       {...field} 
                       className="text-base h-11"
                       autoFocus
@@ -310,25 +321,35 @@ export function CheckinForm({ className, onSuccessfulCheckin }: CheckinFormProps
               )}
             />
             <div className="flex flex-col sm:flex-row gap-3">
-                <Button type="submit" className="w-full text-base py-5 sm:flex-1" disabled={isLoading || !currentKioskGymId}>
+                <Button type="submit" className="w-full text-base py-5 sm:flex-1" disabled={isLoading || !currentKioskFormattedGymId}>
                     <LogIn className="mr-2 h-5 w-5" /> Sign In
                 </Button>
-                <Button type="button" onClick={handleScanQrCodeClick} className="w-full text-base py-5 sm:flex-1" disabled={isLoading || !currentKioskGymId}>
-                    <QrCode className="mr-2 h-5 w-5" /> Scan QR Code
+                <Button type="button" onClick={handleScanQrCodeClick} className="w-full text-base py-5 sm:flex-1" disabled={isLoading || !currentKioskFormattedGymId}>
+                    <ScanLine className="mr-2 h-5 w-5" /> Scan QR Code
                 </Button>
             </div>
           </form>
         </Form>
 
         {checkinStatus && (
-          <Card className={`mt-6 ${checkinStatus.type === 'success' ? 'border-green-500' : checkinStatus.type === 'error' ? 'border-red-500' : 'border-blue-500'} bg-card/80`}>
+          <Card className={`mt-6 ${
+            checkinStatus.type === 'success' ? 'border-green-500' 
+            : checkinStatus.type === 'error' ? 'border-red-500' 
+            : 'border-blue-500'
+          } bg-card/80`}>
             <CardContent className="p-6 text-center">
               {checkinStatus.type === 'success' && <CheckCircle2 className="mx-auto h-12 w-12 text-green-500 mb-3" />}
               {checkinStatus.type === 'error' && <AlertTriangle className="mx-auto h-12 w-12 text-red-500 mb-3" />}
               {checkinStatus.type === 'info' && <AlertTriangle className="mx-auto h-12 w-12 text-blue-500 mb-3" />}
-              <p className={`text-xl font-semibold ${checkinStatus.type === 'success' ? 'text-green-400' : checkinStatus.type === 'error' ? 'text-red-400' : 'text-blue-400'}`}>
+              
+              <p className={`text-xl font-semibold ${
+                checkinStatus.type === 'success' ? 'text-green-400' 
+                : checkinStatus.type === 'error' ? 'text-red-400' 
+                : 'text-blue-400'
+              }`}>
                 {checkinStatus.message}
               </p>
+
               {checkinStatus.quote && checkinStatus.type === 'success' && (
                 <div className="mt-4 pt-4 border-t border-border/50">
                   <PartyPopper className="mx-auto h-8 w-8 text-primary mb-2" />
