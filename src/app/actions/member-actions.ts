@@ -2,23 +2,20 @@
 'use server';
 
 import { addMonths, format } from 'date-fns';
-import type { Member, MembershipType, FetchedMembershipPlan, MemberWithPlanDetails } from '@/lib/types';
+import type { Member, MembershipStatus, FetchedMembershipPlan, MemberWithPlanDetails } from '@/lib/types';
 import { APP_NAME } from '@/lib/constants';
 import { addMemberFormSchema, type AddMemberFormValues } from '@/lib/schemas/member-schemas';
 import { createSupabaseServerActionClient } from '@/lib/supabase/server';
-import { addAnnouncementAction } from './announcement-actions'; // For welcome announcement
-
+import { addAnnouncementAction } from './announcement-actions'; 
 
 interface AddMemberServerResponse {
   data?: {
     newMember: Member;
-    // welcomeAnnouncement: Announcement; // Announcement now handled by calling addAnnouncementAction
     emailStatus: string;
   };
   error?: string;
 }
 
-// Helper to map DB row to Member type
 function mapDbMemberToAppMember(dbMember: any): Member {
   const planDetails = dbMember.plans;
   return {
@@ -27,7 +24,7 @@ function mapDbMemberToAppMember(dbMember: any): Member {
     planId: dbMember.plan_id,
     memberId: dbMember.member_id,
     name: dbMember.name,
-    email: dbMember.email, // Assuming email is always present from DB as per schema
+    email: dbMember.email,
     membershipStatus: dbMember.membership_status,
     createdAt: dbMember.created_at,
     age: dbMember.age,
@@ -72,13 +69,11 @@ export async function addMember(
         return { error: `Selected plan '${planDetails.plan_name}' has an invalid duration.`};
     }
 
-    const planPrice = planDetails.price;
     const joinDate = new Date();
     const expiryDate = addMonths(joinDate, planDetails.duration_months);
     const memberIdSuffix = Date.now().toString().slice(-4) + Math.random().toString(36).substring(2, 3).toUpperCase();
     const memberId = `${gymName.substring(0, 3).toUpperCase()}${name.substring(0,2).toUpperCase()}${memberIdSuffix}`.substring(0, 10);
 
-    // TODO: Add server-side check for memberId uniqueness against the specific gym_id
 
     const newMemberForDb = {
       gym_id: gymDatabaseId,
@@ -91,15 +86,13 @@ export async function addMember(
       membership_status: 'active' as MembershipStatus,
       join_date: joinDate.toISOString(),
       expiry_date: expiryDate.toISOString(),
-      membership_type: planDetails.plan_name as MembershipType, // Storing for direct access, denormalized
-      // plan_price is derived via plan_id, not stored directly in members table based on schema.
-      // We will fetch it with a join when displaying members.
+      membership_type: planDetails.plan_name as MembershipType,
     };
 
     const { data: insertedMemberData, error: insertError } = await supabase
       .from('members')
       .insert(newMemberForDb)
-      .select('*, plans (plan_name, price, duration_months)') // Fetch joined plan details
+      .select('*, plans (plan_name, price, duration_months)') 
       .single();
 
     if (insertError || !insertedMemberData) {
@@ -122,7 +115,6 @@ export async function addMember(
     const announcementResult = await addAnnouncementAction(gymDatabaseId, announcementTitle, announcementContent);
     if (announcementResult.error) {
       console.error("Failed to create welcome announcement in DB:", announcementResult.error);
-      // Decide if this is a critical error for the addMember flow
     } else {
       console.log("Welcome announcement created in DB:", announcementResult.newAnnouncement?.id);
     }
@@ -142,7 +134,7 @@ interface EditMemberServerResponse {
 
 export async function editMember(
   formData: AddMemberFormValues,
-  memberOriginalDbId: string, // This is the members.id (UUID)
+  memberOriginalDbId: string, 
   gymDatabaseId: string
 ): Promise<EditMemberServerResponse> {
   const supabase = createSupabaseServerActionClient();
@@ -155,7 +147,7 @@ export async function editMember(
 
     const { data: existingMember, error: fetchError } = await supabase
       .from('members')
-      .select('join_date, member_id') // Only need join_date if expiry calculation depends on original join_date
+      .select('join_date, member_id') 
       .eq('id', memberOriginalDbId)
       .single();
 
@@ -177,7 +169,7 @@ export async function editMember(
         return { error: `Selected new plan '${planDetails.plan_name}' has an invalid duration.`};
     }
     
-    const joinDateForCalc = new Date(existingMember.join_date!); // Use original join date for expiry
+    const joinDateForCalc = new Date(existingMember.join_date!); 
     const expiryDate = addMonths(joinDateForCalc, planDetails.duration_months);
 
     const memberUpdateForDb = {
@@ -188,7 +180,6 @@ export async function editMember(
       plan_id: selectedPlanUuid,
       membership_type: planDetails.plan_name as MembershipType,
       expiry_date: expiryDate.toISOString(),
-      // membership_status is handled by a separate action
     };
 
     const { data: updatedMemberData, error: updateError } = await supabase
@@ -218,7 +209,7 @@ export async function fetchMembers(gymDatabaseId: string): Promise<{ data?: Memb
   try {
     const { data: dbMembers, error } = await supabase
       .from('members')
-      .select('*, plans (plan_name, price, duration_months)') // Join with plans table
+      .select('*, plans (plan_name, price, duration_months)') 
       .eq('gym_id', gymDatabaseId)
       .order('created_at', { ascending: false });
 
@@ -263,7 +254,7 @@ export async function updateMemberStatusAction(memberDbId: string, newStatus: Me
       .from('members')
       .update({ membership_status: newStatus })
       .eq('id', memberDbId)
-      .select('*, plans (plan_name, price, duration_months)') // Re-fetch with plan details
+      .select('*, plans (plan_name, price, duration_months)') 
       .single();
 
     if (error || !updatedDbMember) {
@@ -275,5 +266,63 @@ export async function updateMemberStatusAction(memberDbId: string, newStatus: Me
   } catch (e: any) {
     console.error('Unexpected error updating member status:', e.message);
     return { error: 'Failed to update status due to an unexpected error.' };
+  }
+}
+
+export async function deleteMembersAction(memberDbIds: string[]): Promise<{ successCount: number; errorCount: number; error?: string }> {
+  if (!memberDbIds || memberDbIds.length === 0) {
+    return { successCount: 0, errorCount: 0, error: "No member IDs provided for deletion." };
+  }
+  const supabase = createSupabaseServerActionClient();
+  try {
+    const { error, count } = await supabase
+      .from('members')
+      .delete()
+      .in('id', memberDbIds);
+
+    if (error) {
+      console.error('Error bulk deleting members:', error.message);
+      return { successCount: 0, errorCount: memberDbIds.length, error: error.message };
+    }
+    // The 'count' returned by Supabase delete might be the number of rows affected or null.
+    // For simplicity, if no error, assume all specified were targeted.
+    // A more robust check might involve checking `count`.
+    return { successCount: memberDbIds.length, errorCount: 0 };
+
+  } catch (e: any) {
+    console.error('Unexpected error in deleteMembersAction:', e.message);
+    return { successCount: 0, errorCount: memberDbIds.length, error: 'An unexpected error occurred during bulk deletion.' };
+  }
+}
+
+export async function bulkUpdateMemberStatusAction(memberDbIds: string[], newStatus: MembershipStatus): Promise<{ successCount: number; errorCount: number; error?: string }> {
+  if (!memberDbIds || memberDbIds.length === 0) {
+    return { successCount: 0, errorCount: 0, error: "No member IDs provided for status update." };
+  }
+  if (!newStatus) {
+    return { successCount: 0, errorCount: memberDbIds.length, error: "New status is required." };
+  }
+  const supabase = createSupabaseServerActionClient();
+  try {
+    const { error, data } = await supabase
+      .from('members')
+      .update({ membership_status: newStatus })
+      .in('id', memberDbIds)
+      .select('id'); // Select only 'id' to count affected rows
+
+    if (error) {
+      console.error('Error bulk updating member statuses:', error.message);
+      return { successCount: 0, errorCount: memberDbIds.length, error: error.message };
+    }
+    
+    // `data` will be an array of objects like [{id: '...'}, {id: '...'}] for successfully updated rows
+    const SCount = data ? data.length : 0;
+    const ECount = memberDbIds.length - SCount;
+
+    return { successCount: SCount, errorCount: ECount };
+
+  } catch (e: any) {
+    console.error('Unexpected error in bulkUpdateMemberStatusAction:', e.message);
+    return { successCount: 0, errorCount: memberDbIds.length, error: 'An unexpected error occurred during bulk status update.' };
   }
 }

@@ -33,6 +33,10 @@ import {
   DropdownMenuTrigger,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuPortal
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import {
@@ -49,7 +53,7 @@ import type { Member, MembershipStatus, AttendanceSummary } from '@/lib/types';
 import { AddMemberDialog } from './add-member-dialog';
 import { AttendanceOverviewDialog } from './attendance-overview-dialog';
 import { BulkEmailDialog } from './bulk-email-dialog';
-import { fetchMembers, deleteMemberAction, updateMemberStatusAction } from '@/app/actions/member-actions';
+import { fetchMembers, deleteMemberAction, updateMemberStatusAction, deleteMembersAction, bulkUpdateMemberStatusAction } from '@/app/actions/member-actions';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   AlertDialog,
@@ -92,11 +96,14 @@ export function MembersTable() {
   
   const [isAttendanceDialogOpen, setIsAttendanceDialogOpen] = React.useState(false);
   const [memberForAttendance, setMemberForAttendance] = React.useState<Member | null>(null);
-  // Mock data for attendance summary, to be replaced with real data fetching if implemented
   const [mockAttendanceData, setMockAttendanceData] = React.useState<AttendanceSummary | null>(null);
 
   const [isBulkEmailDialogOpen, setIsBulkEmailDialogOpen] = React.useState(false);
   const [bulkEmailRecipients, setBulkEmailRecipients] = React.useState<Member[]>([]);
+  
+  const [memberToDelete, setMemberToDelete] = React.useState<Member | null>(null);
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = React.useState(false);
+
 
   const loadMembers = React.useCallback(async (gymId: string) => {
     setIsLoadingMembers(true);
@@ -105,7 +112,6 @@ export function MembersTable() {
     if (response.error || !response.data) {
       setFetchMembersError(response.error || "Failed to load members.");
       setData([]);
-      // toast({ variant: "destructive", title: "Error loading members", description: response.error || "Unknown error" });
     } else {
       setData(response.data.map(m => ({ ...m, effectiveStatus: getEffectiveMembershipStatus(m) })));
     }
@@ -120,13 +126,13 @@ export function MembersTable() {
         loadMembers(gymDbId);
       } else {
         setIsLoadingMembers(false);
-        setData([]); // No gym selected, show no members
+        setData([]); 
       }
     }
   }, [loadMembers]);
   
   const gymMembers = React.useMemo(() => {
-    return data; // Data is already fetched for the current gym
+    return data; 
   }, [data]);
 
 
@@ -143,7 +149,6 @@ export function MembersTable() {
 
 
   const handleMemberSaved = (savedMember: Member) => {
-    // After add/edit, re-fetch all members to ensure data consistency and UI update
     if (currentGymDatabaseId) {
       loadMembers(currentGymDatabaseId);
     }
@@ -161,15 +166,22 @@ export function MembersTable() {
     setIsAddMemberDialogOpen(true);
   };
   
-  const handleDeleteMember = async (memberToDelete: Member) => {
+  const confirmDeleteMember = (member: Member) => {
+    setMemberToDelete(member);
+    setIsDeleteConfirmOpen(true);
+  };
+
+  const executeDeleteMember = async () => {
+    if (!memberToDelete) return;
     const response = await deleteMemberAction(memberToDelete.id);
     if (response.success) {
       toast({ title: "Member Deleted", description: `${memberToDelete.name} has been removed.` });
-      // Re-fetch members to reflect deletion
       if (currentGymDatabaseId) loadMembers(currentGymDatabaseId);
     } else {
       toast({ variant: "destructive", title: "Error Deleting Member", description: response.error });
     }
+    setIsDeleteConfirmOpen(false);
+    setMemberToDelete(null);
   };
 
   const handleManualStatusUpdate = async (member: Member, newStatus: MembershipStatus) => {
@@ -180,7 +192,6 @@ export function MembersTable() {
     const response = await updateMemberStatusAction(member.id, newStatus);
     if (response.updatedMember) {
         toast({ title: "Status Updated", description: `${member.name}'s status changed to ${newStatus}. (Simulated email notification)` });
-        // Re-fetch members to reflect status update
         if (currentGymDatabaseId) loadMembers(currentGymDatabaseId);
         console.log(`SIMULATING: Email notification to ${member.email} about status change to ${newStatus}.`);
     } else {
@@ -190,13 +201,11 @@ export function MembersTable() {
   
   const handleViewAttendance = (member: Member) => {
     setMemberForAttendance(member);
-    // This remains mock for now, as check-in DB integration for this specific view is not part of this request.
-    // In a real app, you would fetch attendance data from 'check_ins' table for this member.
-    const lastCheckin = new Date(Date.now() - Math.random() * 10 * 86400000); // Random date in last 10 days
+    const lastCheckin = new Date(Date.now() - Math.random() * 10 * 86400000); 
     const recentCheckins = Array.from({length: Math.floor(Math.random()* 5) +1 }, (_, i) => new Date(lastCheckin.getTime() - i * Math.random() * 3 * 86400000));
     setMockAttendanceData({
         totalCheckIns: Math.floor(Math.random() * 100) + 5,
-        lastCheckInTime: recentCheckins.length > 0 ? recentCheckins[0] : null, // Ensure lastCheckInTime is null if no recent checkins
+        lastCheckInTime: recentCheckins.length > 0 ? recentCheckins[0] : null,
         recentCheckIns: recentCheckins.sort((a,b) => b.getTime() - a.getTime()),
     });
     setIsAttendanceDialogOpen(true);
@@ -208,15 +217,14 @@ export function MembersTable() {
       toast({ title: "No members selected", variant: "destructive", description: "Please select members to delete." });
       return;
     }
-    let successCount = 0;
-    let errorCount = 0;
-    for (const row of selectedRows) {
-        const response = await deleteMemberAction(row.original.id);
-        if (response.success) successCount++;
-        else errorCount++;
+    const memberIdsToDelete = selectedRows.map(row => row.original.id);
+    const response = await deleteMembersAction(memberIdsToDelete);
+    
+    toast({ title: "Bulk Delete Processed", description: `${response.successCount} member(s) targeted for deletion. ${response.errorCount > 0 ? `${response.errorCount} failed. Error: ${response.error}` : (response.error ? `Error: ${response.error}` : '')}` });
+    
+    if (response.successCount > 0 && currentGymDatabaseId) {
+        loadMembers(currentGymDatabaseId); 
     }
-    toast({ title: "Bulk Delete Complete", description: `${successCount} member(s) deleted. ${errorCount > 0 ? `${errorCount} failed.` : ''}` });
-    if (currentGymDatabaseId) loadMembers(currentGymDatabaseId); // Re-fetch
     setRowSelection({});
   };
 
@@ -230,15 +238,14 @@ export function MembersTable() {
       toast({ title: "No members selected", variant: "destructive", description: "Please select members to update." });
       return;
     }
-    let successCount = 0;
-    let errorCount = 0;
-    for (const row of selectedRows) {
-        const response = await updateMemberStatusAction(row.original.id, newStatus);
-        if (response.updatedMember) successCount++;
-        else errorCount++;
+    const memberIdsToUpdate = selectedRows.map(row => row.original.id);
+    const response = await bulkUpdateMemberStatusAction(memberIdsToUpdate, newStatus);
+
+    toast({ title: "Bulk Status Update Processed", description: `${response.successCount} member(s) status updated to ${newStatus}. ${response.errorCount > 0 ? `${response.errorCount} failed. Error: ${response.error}`: (response.error ? `Error: ${response.error}` : '')}` });
+    
+    if (response.successCount > 0 && currentGymDatabaseId) {
+        loadMembers(currentGymDatabaseId);
     }
-    toast({ title: "Bulk Status Update Complete", description: `${successCount} member(s) updated to ${newStatus}. ${errorCount > 0 ? `${errorCount} failed.` : ''}` });
-    if (currentGymDatabaseId) loadMembers(currentGymDatabaseId); // Re-fetch
     setRowSelection({});
   };
 
@@ -252,7 +259,7 @@ export function MembersTable() {
     setIsBulkEmailDialogOpen(true);
   };
 
-  const filterableStatusesForDropdown: (MembershipStatus | 'all')[] = ['all', 'active', 'expiring soon', 'expired'];
+  const filterableStatusesForDropdown: (MembershipStatus | 'all')[] = ['all', 'active', 'expiring soon', 'expired', 'inactive', 'pending'];
 
 
   const columns: ColumnDef<Member & { effectiveStatus?: MembershipStatus }>[] = [
@@ -319,7 +326,7 @@ export function MembersTable() {
       accessorKey: 'effectiveStatus', 
       header: 'Status',
       cell: ({ row }) => {
-        const status = row.original.effectiveStatus; // Use pre-calculated effectiveStatus
+        const status = row.original.effectiveStatus; 
         let badgeClass = '';
         if (status === 'active') badgeClass = 'bg-green-500/20 text-green-700 border-green-500/30 hover:bg-green-500/30 dark:bg-green-500/10 dark:text-green-400 dark:border-green-500/20 dark:hover:bg-green-500/20';
         else if (status === 'inactive') badgeClass = 'bg-slate-500/20 text-slate-700 border-slate-500/30 hover:bg-slate-500/30 dark:bg-slate-500/10 dark:text-slate-400 dark:border-slate-500/20 dark:hover:bg-slate-500/20';
@@ -332,12 +339,11 @@ export function MembersTable() {
     },
     {
       id: 'actions', 
-      header: 'Overview',
-      enableHiding: true,
+      header: 'Actions',
+      enableHiding: false,
       cell: ({ row }) => {
         const member = row.original;
         return (
-          <AlertDialogTrigger asChild>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="h-8 w-8 p-0">
@@ -354,59 +360,37 @@ export function MembersTable() {
                 <FileText className="mr-2 h-4 w-4" /> Attendance Summary
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuLabel>Change Status</DropdownMenuLabel>
-              {(['active', 'inactive', 'pending', 'expired'] as MembershipStatus[]).map(s => (
-                <DropdownMenuItem key={s} onClick={() => handleManualStatusUpdate(member, s)} disabled={s === member.membershipStatus || s === 'expiring soon'}>
-                  {s === 'active' && <UserCheck className="mr-2 h-4 w-4" />}
-                  {s === 'inactive' && <UserX className="mr-2 h-4 w-4" />}
-                  {s === 'pending' && <UserCog className="mr-2 h-4 w-4" />}
-                  {s === 'expired' && <MailWarning className="mr-2 h-4 w-4" />}
-                  Set to {s.charAt(0).toUpperCase() + s.slice(1)}
-                </DropdownMenuItem>
-              ))}
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger>
+                    <UserCog className="mr-2 h-4 w-4" />
+                    <span>Change Status</span>
+                </DropdownMenuSubTrigger>
+                <DropdownMenuPortal>
+                    <DropdownMenuSubContent>
+                        {(['active', 'inactive', 'pending', 'expired'] as MembershipStatus[]).map(s => (
+                            <DropdownMenuItem key={s} onClick={() => handleManualStatusUpdate(member, s)} disabled={s === member.membershipStatus || s === 'expiring soon'}>
+                            {s === 'active' && <UserCheck className="mr-2 h-4 w-4 text-green-500" />}
+                            {s === 'inactive' && <UserX className="mr-2 h-4 w-4 text-slate-500" />}
+                            {s === 'pending' && <UserCog className="mr-2 h-4 w-4 text-yellow-500" />}
+                            {s === 'expired' && <MailWarning className="mr-2 h-4 w-4 text-red-500" />}
+                            Set to {s.charAt(0).toUpperCase() + s.slice(1)}
+                            </DropdownMenuItem>
+                        ))}
+                    </DropdownMenuSubContent>
+                </DropdownMenuPortal>
+              </DropdownMenuSub>
               <DropdownMenuSeparator />
-              {/* AlertDialogTrigger for individual delete moved to wrap the DropdownMenuItem */}
-              <DropdownMenuItem
-                onSelect={(e) => {
-                  e.preventDefault(); // Prevent menu from closing
-                  // Trigger the AlertDialog for this specific member
-                  // This requires the AlertDialog to be closable and for state to manage which member is being deleted
-                  // For simplicity with multiple AlertDialogs, we might need a refactor or a single AlertDialog whose content is dynamically set.
-                  // The current setup has a single AlertDialog at the top level of the component.
-                  // We need to ensure this AlertDialog can be triggered for a specific member row.
-                  // This will be handled by setting a "memberToDelete" state before showing the AlertDialog.
-                  // For now, the AlertDialogTrigger is outside, so this specific item will just be visual.
-                  // The actual trigger is the one at the top level for bulk delete.
-                  // Let's adjust for single delete.
-                }}
-                className="text-destructive focus:text-destructive focus:bg-destructive/10"
-                onClick={() => {
-                    // This is a bit of a workaround to trigger the parent AlertDialog.
-                    // Ideally, each row action would have its own AlertDialogTrigger.
-                    // Or, set state here that the parent AlertDialog reads.
-                    // For now, this console log will indicate the intent.
-                    console.log("Attempting to trigger delete for:", member.name);
-                    // To make the existing AlertDialog work for single delete, we would
-                    // need to set a state variable like `setMemberTargetedForDelete(member)`
-                    // and then the AlertDialog's action would use that state.
-                    // This DropdownMenuItem itself doesn't trigger the main AlertDialog directly.
-                    // We'll make this a direct trigger later if needed, by refactoring AlertDialog placement.
-                    // For now, this just opens the dropdown. The delete is handled if a separate
-                    // "Delete Member" button for this specific member is added or if the main AlertDialog
-                    // is adapted. For now, we will use the parent AlertDialog by setting a temporary state.
-
-                    // This is not how it works, AlertDialogTrigger should wrap this.
-                    // We are inside an AlertDialog already.
-                    // We should trigger the main one by setting a state.
-                    (document.querySelector(`#delete-member-trigger-${member.id}`) as HTMLElement)?.click();
-
-                }}
-              >
-                <Trash2 className="mr-2 h-4 w-4" /> Delete Member
-              </DropdownMenuItem>
+              <AlertDialogTrigger asChild>
+                <DropdownMenuItem 
+                    onSelect={(e) => e.preventDefault()} // Prevent menu closing immediately
+                    onClick={() => confirmDeleteMember(member)}
+                    className="text-destructive focus:text-destructive focus:bg-destructive/10"
+                >
+                  <Trash2 className="mr-2 h-4 w-4" /> Delete Member
+                </DropdownMenuItem>
+              </AlertDialogTrigger>
             </DropdownMenuContent>
           </DropdownMenu>
-          </AlertDialogTrigger>
         );
       },
     },
@@ -455,19 +439,12 @@ export function MembersTable() {
 
   const globalFilter = (table.getColumn('name')?.getFilterValue() as string) ?? '';
   const handleGlobalFilterChange = (value: string) => {
-    // Apply filter to multiple columns for a "global" search effect
     table.getColumn('name')?.setFilterValue(value); 
-    // Note: TanStack Table v8 typically filters per-column. 
-    // To achieve a true global filter that searches across all specified columns with a single input,
-    // you'd set a globalFilter state for the table and provide a globalFilterFn.
-    // For simplicity here, we're setting the filter value for 'name' column.
-    // If you want to filter other columns simultaneously with the same input,
-    // you'd set their filterValue as well, or implement a proper global filter.
   }
 
+  const selectedRowCount = table.getFilteredSelectedRowModel().rows.length;
 
   return (
-     <AlertDialog> {/* AlertDialog must wrap content that uses AlertDialogTrigger */}
     <div className="w-full space-y-4 p-4 md:p-6 bg-card rounded-lg border border-border shadow-sm">
       <AddMemberDialog
         isOpen={isAddMemberDialogOpen}
@@ -496,9 +473,25 @@ export function MembersTable() {
                     console.log(`SIMULATING: QR Code for ${bulkEmailRecipients[0].memberId} would be included: ${qrCodeUrl}`);
                 }
                 setBulkEmailRecipients([]); 
+                setRowSelection({});
             }}
         />
       )}
+        <AlertDialog open={isDeleteConfirmOpen} onOpenChange={setIsDeleteConfirmOpen}>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                <AlertDialogDescription>
+                    This action cannot be undone. This will permanently delete {memberToDelete?.name || 'the selected member'}.
+                </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                <AlertDialogCancel onClick={() => setMemberToDelete(null)}>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={executeDeleteMember} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
+
 
       <div className="flex items-center justify-between gap-2 flex-wrap mb-4">
         <div className="flex items-center gap-2">
@@ -509,9 +502,9 @@ export function MembersTable() {
           <div className="relative">
             <SearchIcon className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder="Filter by name, ID, email..."
-              value={globalFilter} // Use the globalFilter state here
-              onChange={(event) => handleGlobalFilterChange(event.target.value)} // And here
+              placeholder="Filter by name..."
+              value={globalFilter} 
+              onChange={(event) => handleGlobalFilterChange(event.target.value)} 
               className="max-w-xs pl-9 h-10" 
             />
           </div>
@@ -568,47 +561,74 @@ export function MembersTable() {
                     ))}
                 </DropdownMenuContent>
             </DropdownMenu>
-            <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" disabled={table.getFilteredSelectedRowModel().rows.length === 0}>
-                    Bulk Actions <ChevronDownIcon className="ml-2 h-4 w-4" />
-                </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                <DropdownMenuLabel>For Selected ({table.getFilteredSelectedRowModel().rows.length})</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                {(['active', 'inactive', 'expired', 'pending'] as MembershipStatus[]).filter(s => s !== 'expiring soon').map(status => (
-                    <DropdownMenuItem key={status} onClick={() => handleBulkStatusUpdate(status)} className="capitalize">Set Status to {status}</DropdownMenuItem>
-                ))}
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleOpenBulkEmailDialog}>
-                    <Mail className="mr-2 h-4 w-4" /> Send Custom Email
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                  <AlertDialogTrigger asChild>
+            
+            <AlertDialog> {/* Main AlertDialog for Bulk Delete Confirmation */}
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm" disabled={selectedRowCount === 0}>
+                        Actions for Selected ({selectedRowCount}) <ChevronDownIcon className="ml-2 h-4 w-4" />
+                    </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                    <DropdownMenuLabel>Bulk Actions</DropdownMenuLabel>
                     <DropdownMenuItem 
-                        onSelect={(e) => e.preventDefault()}
-                        className="text-destructive focus:text-destructive"
-                        disabled={table.getFilteredSelectedRowModel().rows.length === 0}
+                        onClick={() => {
+                            const selectedMember = table.getFilteredSelectedRowModel().rows[0]?.original;
+                            if (selectedMember) openEditDialog(selectedMember);
+                        }}
+                        disabled={selectedRowCount !== 1}
                     >
-                      <Trash2 className="mr-2 h-4 w-4" /> Delete Selected
+                        <Edit3 className="mr-2 h-4 w-4" /> Edit Member
                     </DropdownMenuItem>
-                  </AlertDialogTrigger>
-                </DropdownMenuContent>
-            </DropdownMenu>
-            {/* AlertDialog for Bulk Delete */}
-            <AlertDialogContent>
-                <AlertDialogHeader>
-                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                <AlertDialogDescription>
-                    This action cannot be undone. This will permanently delete {table.getFilteredSelectedRowModel().rows.length} selected member(s).
-                </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={handleBulkDelete}>Delete Selected</AlertDialogAction>
-                </AlertDialogFooter>
-            </AlertDialogContent>
+                    <DropdownMenuSeparator />
+                     <DropdownMenuSub>
+                        <DropdownMenuSubTrigger>
+                            <UserCog className="mr-2 h-4 w-4" />
+                            <span>Set Status To</span>
+                        </DropdownMenuSubTrigger>
+                        <DropdownMenuPortal>
+                            <DropdownMenuSubContent>
+                            {(['active', 'inactive', 'expired', 'pending'] as MembershipStatus[]).map(status => (
+                                <DropdownMenuItem key={status} onClick={() => handleBulkStatusUpdate(status)} className="capitalize">
+                                {status === 'active' && <UserCheck className="mr-2 h-4 w-4 text-green-500" />}
+                                {status === 'inactive' && <UserX className="mr-2 h-4 w-4 text-slate-500" />}
+                                {status === 'pending' && <UserCog className="mr-2 h-4 w-4 text-yellow-500" />}
+                                {status === 'expired' && <MailWarning className="mr-2 h-4 w-4 text-red-500" />}
+                                {status}
+                                </DropdownMenuItem>
+                            ))}
+                            </DropdownMenuSubContent>
+                        </DropdownMenuPortal>
+                    </DropdownMenuSub>
+                    <DropdownMenuItem onClick={handleOpenBulkEmailDialog}>
+                        <Mail className="mr-2 h-4 w-4" /> Send Custom Email
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <AlertDialogTrigger asChild>
+                        <DropdownMenuItem 
+                            onSelect={(e) => e.preventDefault()} // Prevent menu from closing, AlertDialog handles it
+                            className="text-destructive focus:text-destructive"
+                            disabled={selectedRowCount === 0}
+                        >
+                        <Trash2 className="mr-2 h-4 w-4" /> Delete Selected ({selectedRowCount})
+                        </DropdownMenuItem>
+                    </AlertDialogTrigger>
+                    </DropdownMenuContent>
+                </DropdownMenu>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                    <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        This action cannot be undone. This will permanently delete {selectedRowCount} selected member(s).
+                    </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleBulkDelete} className="bg-destructive hover:bg-destructive/90">Delete Selected</AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
            </div>
       </div>
 
@@ -664,7 +684,7 @@ export function MembersTable() {
       </div>
       <div className="flex items-center justify-end space-x-2 py-4">
         <div className="flex-1 text-sm text-muted-foreground">
-          {table.getFilteredSelectedRowModel().rows.length} of{' '}
+          {selectedRowCount} of{' '}
           {table.getFilteredRowModel().rows.length} row(s) selected.
         </div>
         <div className="space-x-2">
@@ -687,7 +707,5 @@ export function MembersTable() {
         </div>
       </div>
     </div>
-    </AlertDialog>
   );
 }
-
