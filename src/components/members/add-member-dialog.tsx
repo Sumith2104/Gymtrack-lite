@@ -32,7 +32,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { useToast } from '@/hooks/use-toast';
 import type { Member, MembershipStatus, MembershipPlan, MembershipType, Announcement } from '@/lib/types';
-import { MOCK_MEMBERSHIP_PLANS, AVAILABLE_MEMBERSHIP_TYPES } from '@/lib/constants';
+import { MOCK_MEMBERSHIP_PLANS, AVAILABLE_MEMBERSHIP_TYPES, APP_NAME } from '@/lib/constants';
 import { cn } from '@/lib/utils';
 
 const memberStatuses: MembershipStatus[] = ['active', 'inactive', 'expired', 'pending'];
@@ -125,40 +125,39 @@ export function AddMemberDialog({ isOpen, onOpenChange, onMemberSaved, memberToE
     }
   };
 
-  const suggestMemberId = (name: string, phone: string | null | undefined) => {
+  const suggestMemberId = (name: string, phone: string | null | undefined, membershipType: MembershipType | null | undefined) => {
     if (!name && !phone) return '';
-    const namePart = name.substring(0, 4).toUpperCase();
-    const phonePart = phone ? phone.slice(-4) : Math.floor(1000 + Math.random() * 9000).toString();
-    const randomSuffix = Math.random().toString(36).substring(2, 5).toUpperCase();
-    return `${namePart}${phonePart}${randomSuffix}`.substring(0,10);
+    const namePart = name.substring(0, 3).toUpperCase();
+    const phonePart = phone ? phone.slice(-3) : Math.floor(100 + Math.random() * 900).toString();
+    const typePart = membershipType ? membershipType.substring(0,2).toUpperCase() : 'GN';
+    const randomSuffix = Math.random().toString(36).substring(2, 4).toUpperCase();
+    return `${namePart}${phonePart}${typePart}${randomSuffix}`.substring(0,10);
   };
 
   useEffect(() => {
     const subscription = form.watch((value, { name, type }) => {
       if (name === 'membershipType' && type === 'change') {
-        handleMembershipTypeChange(value.membershipType as MembershipType | null, value.joinDate);
+        // This is handled by the Select's onValueChange directly now for selectedPlan.name
       }
       if (name === 'joinDate' && type === 'change') {
         handleMembershipTypeChange(value.membershipType as MembershipType | null, value.joinDate);
       }
-      if (name === 'name' && type === 'change' && !isEditing && !form.getValues('memberId')) {
-         form.setValue('memberId', suggestMemberId(value.name || '', value.phoneNumber || ''));
-      }
-       if (name === 'phoneNumber' && type === 'change' && !isEditing && !form.getValues('memberId')) {
-         form.setValue('memberId', suggestMemberId(value.name || '', value.phoneNumber || ''));
+      if ((name === 'name' || name === 'phoneNumber' || name === 'membershipType') && type === 'change' && !isEditing && !form.formState.dirtyFields.memberId) {
+         form.setValue('memberId', suggestMemberId(value.name || '', value.phoneNumber || '', value.membershipType as MembershipType | null));
       }
     });
     return () => subscription.unsubscribe();
-  }, [form, isEditing, handleMembershipTypeChange]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form, isEditing]);
 
 
   async function onSubmit(data: MemberFormValues) {
-    const gymDatabaseId = localStorage.getItem('gymDatabaseId') || 'default_gym_db_id_mock'; // Actual Gym UUID
-    const gymFormattedId = localStorage.getItem('gymId') || 'GYM123_default'; // Formatted Gym ID
+    const gymDatabaseId = localStorage.getItem('gymDatabaseId') || 'default_gym_db_id_mock'; 
+    const gymName = localStorage.getItem('gymName') || APP_NAME;
 
     const savedMember: Member = {
       id: isEditing && memberToEdit ? memberToEdit.id : `member_${Date.now()}`,
-      gymId: gymDatabaseId, // This should be the actual gym's UUID (gyms.id)
+      gymId: gymDatabaseId, 
       ...data,
       age: data.age || null,
       phoneNumber: data.phoneNumber || null,
@@ -173,28 +172,27 @@ export function AddMemberDialog({ isOpen, onOpenChange, onMemberSaved, memberToE
 
     toast({
       title: isEditing ? 'Member Updated' : 'Member Added',
-      description: `${data.name} has been successfully ${isEditing ? 'updated' : 'registered'}. (Simulated)`,
+      description: `${data.name} has been successfully ${isEditing ? 'updated' : 'registered'}.`,
     });
 
-    if (!isEditing) {
-      // Simulate Welcome Email
-      console.log(`SIMULATING Welcome Email to: ${savedMember.email || 'N/A'}`);
+    if (!isEditing && savedMember.email) {
+      console.log(`SIMULATING Welcome Email to: ${savedMember.email}`);
       console.log(`Membership Details: ID ${savedMember.memberId}, Type: ${savedMember.membershipType || 'N/A'}, Expires: ${savedMember.expiryDate ? format(parseISO(savedMember.expiryDate), 'PP') : 'N/A'}`);
       console.log(`QR Code for check-in: [Simulated QR Code for ${savedMember.memberId}]`);
+    }
 
-      // Simulate Welcome Announcement
+    if (!isEditing) {
       const welcomeAnnouncement: Announcement = {
         id: `announcement_welcome_${savedMember.id}`,
-        gymId: gymDatabaseId, // Use actual gym DB ID
+        gymId: gymDatabaseId, 
         title: `Welcome New Member: ${savedMember.name}!`,
-        content: `Let's all give a warm welcome to ${savedMember.name} (ID: ${savedMember.memberId}), who joined us on ${format(parseISO(savedMember.joinDate!), 'PP')} with a ${savedMember.membershipType || 'new'} membership! We're excited to have them in the ${localStorage.getItem('gymName') || APP_NAME} community.`,
+        content: `Let's all give a warm welcome to ${savedMember.name} (ID: ${savedMember.memberId}), who joined us on ${format(parseISO(savedMember.joinDate!), 'PP')} with a ${savedMember.membershipType || 'new'} membership! We're excited to have them in the ${gymName} community.`,
         createdAt: new Date().toISOString(),
       };
       try {
         const existingAnnouncementsRaw = localStorage.getItem('gymAnnouncements');
         const existingAnnouncements: Announcement[] = existingAnnouncementsRaw ? JSON.parse(existingAnnouncementsRaw) : [];
         localStorage.setItem('gymAnnouncements', JSON.stringify([welcomeAnnouncement, ...existingAnnouncements]));
-        // Dispatch a storage event so other components (like AnnouncementsSection) can react if they are listening
         window.dispatchEvent(new Event('storage'));
          toast({ title: "Welcome Announcement Created", description: `An announcement for ${savedMember.name} is posted.`});
       } catch (e) {
@@ -202,7 +200,7 @@ export function AddMemberDialog({ isOpen, onOpenChange, onMemberSaved, memberToE
       }
     }
     
-    onOpenChange(false); // Close dialog
+    onOpenChange(false); 
   }
 
   return (
@@ -210,7 +208,7 @@ export function AddMemberDialog({ isOpen, onOpenChange, onMemberSaved, memberToE
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle className="font-headline flex items-center">
-            {isEditing ? <Edit className="mr-2 h-5 w-5" /> : <PlusCircle className="mr-2 h-5 w-5" />}
+            {isEditing ? <Edit className="mr-2 h-5 w-5 text-primary" /> : <PlusCircle className="mr-2 h-5 w-5 text-primary" />}
             {isEditing ? 'Edit Member Details' : 'Register New Member'}
           </DialogTitle>
           <DialogDescription>
@@ -239,7 +237,7 @@ export function AddMemberDialog({ isOpen, onOpenChange, onMemberSaved, memberToE
                 <FormItem>
                   <FormLabel>Email Address (Optional)</FormLabel>
                   <FormControl>
-                    <Input type="email" placeholder="john.doe@example.com" {...field} />
+                    <Input type="email" placeholder="john.doe@example.com" {...field} value={field.value ?? ""} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -331,11 +329,18 @@ export function AddMemberDialog({ isOpen, onOpenChange, onMemberSaved, memberToE
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Membership Type *</FormLabel>
-                  <Select onValueChange={(value) => {
-                      field.onChange(value as MembershipType);
-                      handleMembershipTypeChange(value as MembershipType | null);
+                  <Select 
+                    onValueChange={(selectedPlanId) => {
+                      const selectedPlan = MOCK_MEMBERSHIP_PLANS.find(p => p.id === selectedPlanId);
+                      if (selectedPlan) {
+                        field.onChange(selectedPlan.name as MembershipType); 
+                        handleMembershipTypeChange(selectedPlan.name as MembershipType | null, form.getValues('joinDate'));
+                      } else {
+                        field.onChange(null);
+                        handleMembershipTypeChange(null, form.getValues('joinDate'));
+                      }
                     }} 
-                    value={field.value || undefined}
+                    value={MOCK_MEMBERSHIP_PLANS.find(p => p.name === field.value)?.id || undefined}
                   >
                     <FormControl>
                       <SelectTrigger>
@@ -344,7 +349,9 @@ export function AddMemberDialog({ isOpen, onOpenChange, onMemberSaved, memberToE
                     </FormControl>
                     <SelectContent>
                       {MOCK_MEMBERSHIP_PLANS.map(plan => (
-                        <SelectItem key={plan.id} value={plan.name} className="capitalize">{plan.name} - ${plan.price} ({plan.durationMonths}m)</SelectItem>
+                        <SelectItem key={plan.id} value={plan.id} className="capitalize">
+                          {plan.name} - ${plan.price} ({plan.durationMonths ? `${plan.durationMonths}m` : 'N/A'})
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -416,7 +423,7 @@ export function AddMemberDialog({ isOpen, onOpenChange, onMemberSaved, memberToE
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {memberStatuses.filter(s => s !== 'expiring soon').map(status => ( // 'expiring soon' is derived
+                      {memberStatuses.filter(s => s !== 'expiring soon').map(status => (
                         <SelectItem key={status} value={status} className="capitalize">{status}</SelectItem>
                       ))}
                     </SelectContent>
