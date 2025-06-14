@@ -47,22 +47,17 @@ export function LoginForm() {
     const targetGym = await verifyGymOwnerCredentials(data.email, data.gymId);
 
     if (targetGym) {
-      // In a real Supabase magic link/OTP flow, Supabase handles session creation.
-      // Here, we are simulating by setting localStorage for other parts of the app.
       localStorage.setItem('isAuthenticated', 'true');
       localStorage.setItem('gymId', targetGym.formattedGymId);
       localStorage.setItem('gymOwnerEmail', targetGym.ownerEmail);
       localStorage.setItem('gymName', targetGym.name);
-      localStorage.setItem('gymDatabaseId', targetGym.id); // Actual gym UUID
+      localStorage.setItem('gymDatabaseId', targetGym.id);
 
       toast({
-        title: "Login Verification Successful",
-        description: `Welcome back to ${targetGym.name}! (Database check)`,
+        title: `Login successful for ${targetGym.name}`,
+        description: "Redirecting to dashboard",
       });
       
-      // Simulate time for user to see toast before redirect
-      // In a real magic link flow, user would click link from email.
-      // Here we'll auto-redirect after a short delay.
       setTimeout(() => {
         router.push('/dashboard');
       }, 1500);
@@ -122,11 +117,24 @@ export function LoginForm() {
             {form.formState.errors.root && (
               <p className="text-sm font-medium text-destructive">{form.formState.errors.root.message}</p>
             )}
-            <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
+             <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
               {form.formState.isSubmitting ? 'Processing...' : 'Login'}
             </Button>
           </form>
         </Form>
+        <div className="mt-4 text-center">
+            <a
+              href="#" // Replace with actual link if needed
+              className="text-sm text-muted-foreground hover:text-primary"
+              onClick={(e) => {
+                e.preventDefault();
+                // Implement forgot password logic or link to a page
+                toast({ title: "Forgot Password", description: "This feature is not yet implemented." });
+              }}
+            >
+              Forgot Password?
+            </a>
+          </div>
       </CardContent>
     </Card>
   );
