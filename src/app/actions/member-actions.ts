@@ -2,9 +2,10 @@
 'use server';
 
 import { addMonths, format } from 'date-fns';
-import type { Member, MembershipType, Announcement, MembershipPlan } from '@/lib/types';
-import { MOCK_MEMBERSHIP_PLANS, APP_NAME } from '@/lib/constants';
+import type { Member, MembershipType, Announcement, FetchedMembershipPlan } from '@/lib/types';
+import { APP_NAME } from '@/lib/constants';
 import { addMemberFormSchema, type AddMemberFormValues } from '@/lib/schemas/member-schemas';
+import { createSupabaseServerActionClient } from '@/lib/supabase/server';
 
 
 interface AddMemberServerResponse {
@@ -21,6 +22,7 @@ export async function addMember(
   gymDatabaseId: string,
   gymName: string
 ): Promise<AddMemberServerResponse> {
+  const supabase = createSupabaseServerActionClient();
   try {
     // 1. Server-side validation
     const validationResult = addMemberFormSchema.safeParse(formData);
@@ -30,53 +32,87 @@ export async function addMember(
       let errorMessages = [];
       if (fieldErrors.name) errorMessages.push(`Name: ${fieldErrors.name.join(', ')}`);
       if (fieldErrors.email) errorMessages.push(`Email: ${fieldErrors.email.join(', ')}`);
-      if (fieldErrors.membershipType) errorMessages.push(`Membership Type: ${fieldErrors.membershipType.join(', ')}`);
+      if (fieldErrors.selectedPlanUuid) errorMessages.push(`Membership Plan: ${fieldErrors.selectedPlanUuid.join(', ')}`);
       if (fieldErrors.age) errorMessages.push(`Age: ${fieldErrors.age.join(', ')}`);
       
       return { error: `Validation failed: ${errorMessages.join('; ') || 'Check inputs.'}` };
     }
 
-    const { name, email, phoneNumber, age, membershipType } = validationResult.data;
+    const { name, email, phoneNumber, age, selectedPlanUuid } = validationResult.data;
 
-    // 2. Calculate Derived Information
-    // The 'membershipType' from the form is the plan's name (e.g., "Monthly", "Premium", "Annual")
-    const selectedPlan = MOCK_MEMBERSHIP_PLANS.find(p => p.name === membershipType);
-    if (!selectedPlan) {
-      return { error: `Invalid membership type selected: '${membershipType}'. Plan details not found.` };
+    // 2. Fetch selected plan details from DB
+    const { data: planDetails, error: planError } = await supabase
+      .from('plans')
+      .select('id, plan_name, price, duration_months')
+      .eq('id', selectedPlanUuid)
+      .eq('is_active', true)
+      .single();
+
+    if (planError || !planDetails) {
+      console.error('Error fetching plan details or plan not active:', planError?.message);
+      return { error: `Invalid or inactive membership plan selected. Details: ${planError?.message || 'Plan not found.'}` };
+    }
+    
+    if (planDetails.duration_months === null || planDetails.duration_months === undefined) {
+        return { error: `Selected plan '${planDetails.plan_name}' has an invalid duration.`};
     }
 
-    const planPrice = selectedPlan.price;
-    const joinDate = new Date(); // Join date is always today
-    const expiryDate = selectedPlan.durationMonths > 0 
-      ? addMonths(joinDate, selectedPlan.durationMonths) 
-      : null;
+    const planPrice = planDetails.price;
+    const joinDate = new Date(); 
+    const expiryDate = addMonths(joinDate, planDetails.duration_months);
 
     // 3. Generate Member ID (Server-side)
-    // For simulation: Gym prefix + timestamp-based suffix. Ensure uniqueness in a real DB.
     const memberIdSuffix = Date.now().toString().slice(-6) + Math.random().toString(36).substring(2, 4).toUpperCase();
     const memberId = `${gymName.substring(0, 3).toUpperCase()}${memberIdSuffix}`.substring(0, 10);
 
     console.log(`SIMULATING: Check if Member ID "${memberId}" for gym "${gymDatabaseId}" is unique.`);
+    // In a real app, you would query your members table here.
 
-    // 4. Prepare New Member Object
-    const newMember: Member = {
-      id: `member_serveraction_${Date.now()}`, 
-      gymId: gymDatabaseId,
+    // 4. Prepare New Member Object for DB (using snake_case for Supabase)
+    const newMemberForDb = {
+      gym_id: gymDatabaseId,
+      plan_id: selectedPlanUuid, // FK to plans.id (uuid)
+      member_id: memberId, 
       name,
       email: email || null,
-      memberId, // Server-generated
-      membershipStatus: 'active', 
-      phoneNumber: phoneNumber || null,
+      membership_status: 'active', 
+      phone_number: phoneNumber || null,
       age: age || null,
-      joinDate: joinDate.toISOString(), // Server-set
-      membershipType,
-      planPrice,
-      expiryDate: expiryDate ? expiryDate.toISOString() : null,
-      createdAt: new Date().toISOString(),
-      planId: selectedPlan.id, 
+      join_date: joinDate.toISOString(), 
+      expiry_date: expiryDate.toISOString(),
+      membership_type: planDetails.plan_name as MembershipType, // Store plan name for easy display
+      // plan_price is not a direct column in members table as per schema, derived via plan_id
+      created_at: new Date().toISOString(),
     };
+    
+    // SIMULATE DB INSERTION - In real app, use Supabase client to insert `newMemberForDb`
+    // const { data: insertedMemberData, error: insertError } = await supabase
+    //   .from('members')
+    //   .insert(newMemberForDb)
+    //   .select()
+    //   .single();
+    // if (insertError) { return { error: `Failed to add member to database: ${insertError.message}`}; }
+    // const memberIdFromDb = insertedMemberData.id; // the UUID generated by DB for the member row
 
+    // For simulation, create the full member object as it would be after insertion
+    const newMember: Member = {
+        id: `member_serveraction_${Date.now()}`, // Simulated DB-generated UUID for the member row
+        gymId: gymDatabaseId,
+        planId: selectedPlanUuid,
+        memberId,
+        name,
+        email: email || null,
+        membershipStatus: 'active',
+        phoneNumber: phoneNumber || null,
+        age: age || null,
+        joinDate: joinDate.toISOString(),
+        membershipType: planDetails.plan_name as MembershipType,
+        planPrice: planPrice, // Store for client-side use
+        expiryDate: expiryDate.toISOString(),
+        createdAt: new Date().toISOString(),
+    };
     console.log('SIMULATING: Member data prepared for "insertion":', newMember);
+
 
     // 5. Post-Insertion Actions
     let emailStatus = 'No email address provided.';
@@ -89,7 +125,7 @@ export async function addMember(
         Member ID: ${newMember.memberId}
         Join Date: ${format(new Date(newMember.joinDate!), 'PP')}
         Membership Type: ${newMember.membershipType}
-        Plan Price: $${newMember.planPrice?.toFixed(2)}
+        Plan Price: ₹${newMember.planPrice?.toFixed(2)}
         Expires: ${newMember.expiryDate ? format(new Date(newMember.expiryDate), 'PP') : 'N/A'}
         \nUse this QR code for easy check-ins: ${qrCodeUrl}\n\n
         Best regards,\nThe ${gymName} Team`);
@@ -128,66 +164,88 @@ interface EditMemberServerResponse {
   error?: string;
 }
 
-// The AddMemberFormValues can be reused for edit if the fields are largely the same.
-// However, memberId is not in AddMemberFormValues, so we take it separately.
+// formData here should align with AddMemberFormValues, plus original member id
 export async function editMember(
-  memberData: Partial<Omit<Member, 'id' | 'gymId' | 'memberId'>> & { membershipType?: MembershipType }, // Use form values type
+  formData: AddMemberFormValues, // Re-using the same form values
   memberOriginalId: string, // The true UUID of the member
   gymDatabaseId: string
 ): Promise<EditMemberServerResponse> {
+    const supabase = createSupabaseServerActionClient();
     try {
-        console.log("SIMULATING: Edit member server action for memberId (UUID):", memberOriginalId, "in gymId:", gymDatabaseId, "with data:", memberData);
+        console.log("SIMULATING: Edit member server action for memberId (UUID):", memberOriginalId, "in gymId:", gymDatabaseId, "with data:", formData);
 
-        // In a real app, fetch existing member by memberOriginalId & gymDatabaseId
-        // const existingMember = await supabase.from('members').select().eq('id', memberOriginalId).eq('gym_id', gymDatabaseId).single();
-        // if (existingMember.error || !existingMember.data) return { error: "Member not found or access denied."};
-        // For simulation, we assume we have the member data or it's passed in (partially)
-        
-        // Create a base for the updated member using existing data (simulated)
-        const placeholderExistingMember: Member = {
-            id: memberOriginalId,
-            gymId: gymDatabaseId,
-            memberId: `EDIT${Date.now().toString().slice(-4)}`, // Placeholder if not editable
-            name: "Original Name",
-            email: "original@example.com",
-            membershipStatus: 'active',
-            createdAt: new Date(Date.now() - 100000000).toISOString(),
-            joinDate: new Date(Date.now() - 100000000).toISOString(),
-            membershipType: 'Monthly', // Original type
-            planPrice: 30,
-            expiryDate: addMonths(new Date(Date.now() - 100000000), 1).toISOString(),
-            planId: MOCK_MEMBERSHIP_PLANS.find(p => p.name === 'Monthly')?.id || 'plan_monthly_basic',
-        };
+        // Server-side validation of formData (excluding member's existing ID or memberId)
+        const validationResult = addMemberFormSchema.safeParse(formData);
+        if (!validationResult.success) {
+            return { error: `Validation failed: ${JSON.stringify(validationResult.error.flatten().fieldErrors)}` };
+        }
+        const { name, email, phoneNumber, age, selectedPlanUuid } = validationResult.data;
 
-        const updatedMemberData: Partial<Member> = { ...memberData };
-        
-        // If membershipType is part of memberData and has changed, recalculate plan dependent fields
-        if (memberData.membershipType && memberData.membershipType !== placeholderExistingMember.membershipType) {
-            const selectedPlan = MOCK_MEMBERSHIP_PLANS.find(p => p.name === memberData.membershipType);
-            if (selectedPlan) {
-                updatedMemberData.planPrice = selectedPlan.price;
-                updatedMemberData.planId = selectedPlan.id;
-                const joinDateForCalc = placeholderExistingMember.joinDate ? new Date(placeholderExistingMember.joinDate) : new Date();
-                updatedMemberData.expiryDate = selectedPlan.durationMonths > 0
-                    ? addMonths(joinDateForCalc, selectedPlan.durationMonths).toISOString()
-                    : null;
-            } else {
-                 return { error: `Invalid new membership type: ${memberData.membershipType}` };
-            }
+        // Fetch existing member to get non-editable fields like original member_id (user-facing) and join_date
+        // In a real app: const { data: existingMemberFromDb, error: fetchError } = await supabase.from('members').select('member_id, join_date, plan_id').eq('id', memberOriginalId).single();
+        // if (fetchError || !existingMemberFromDb) return { error: "Member not found or cannot be fetched for update."};
+        const simulatedExistingMember = { member_id: `EDIT${Date.now().toString().slice(-4)}`, join_date: new Date(Date.now() - 100000000).toISOString(), current_plan_uuid: 'some_old_plan_uuid' };
+
+
+        // Fetch details of the NEWLY selected plan
+        const { data: planDetails, error: planError } = await supabase
+          .from('plans')
+          .select('id, plan_name, price, duration_months')
+          .eq('id', selectedPlanUuid)
+          .eq('is_active', true)
+          .single();
+
+        if (planError || !planDetails) {
+            return { error: `Invalid or inactive new membership plan selected. Details: ${planError?.message || 'Plan not found.'}` };
+        }
+        if (planDetails.duration_months === null || planDetails.duration_months === undefined) {
+            return { error: `Selected new plan '${planDetails.plan_name}' has an invalid duration.`};
         }
 
-        const finalUpdatedMember: Member = {
-            ...placeholderExistingMember, // Base with original non-editable fields like ID, gymId, original memberId
-            ...updatedMemberData,         // Apply changes from form
-             // Ensure required fields have defaults if not provided by spread (though schema should enforce)
-            name: updatedMemberData.name || placeholderExistingMember.name,
-            membershipStatus: updatedMemberData.membershipStatus || placeholderExistingMember.membershipStatus,
+        const planPrice = planDetails.price;
+        const joinDateForCalc = new Date(simulatedExistingMember.join_date); // Use original join date for expiry calc
+        const expiryDate = addMonths(joinDateForCalc, planDetails.duration_months);
+
+
+        // Prepare data for DB update (snake_case)
+        const memberUpdateForDb = {
+            name,
+            email: email || null,
+            phone_number: phoneNumber || null,
+            age: age || null,
+            plan_id: selectedPlanUuid, // FK to plans.id (uuid)
+            membership_type: planDetails.plan_name as MembershipType,
+            // plan_price is not a direct column
+            expiry_date: expiryDate.toISOString(),
+            // membership_status might be part of formData if editable in this flow
+            // For now, assume status is handled separately or defaults.
+            // If AddMemberFormValues includes membershipStatus:
+            // membership_status: formData.membershipStatus || 'active', 
         };
 
+        // SIMULATE DB UPDATE
+        // const { data: updatedMemberData, error: updateError } = await supabase.from('members').update(memberUpdateForDb).eq('id', memberOriginalId).select().single();
+        // if (updateError) return { error: `Failed to update member: ${updateError.message}`};
 
+        // Construct the full Member object for client response
+        const finalUpdatedMember: Member = {
+            id: memberOriginalId,
+            gymId: gymDatabaseId,
+            memberId: simulatedExistingMember.member_id, // Keep original user-facing memberId
+            name,
+            email: email || null,
+            phoneNumber: phoneNumber || null,
+            age: age || null,
+            joinDate: simulatedExistingMember.join_date, // Keep original join date
+            planId: selectedPlanUuid,
+            membershipType: planDetails.plan_name as MembershipType,
+            planPrice: planPrice,
+            expiryDate: expiryDate.toISOString(),
+            membershipStatus: formData.membershipStatus || 'active', // If AddMemberFormValues had status
+            createdAt: new Date(Date.now() - 200000000).toISOString(), // Placeholder original createdAt
+        };
+        
         console.log("SIMULATING: Member data updated:", finalUpdatedMember);
-        // In real app: await supabase.from('members').update(finalUpdatedMemberDatabaseReady).eq('id', memberOriginalId);
-
         return { data: { updatedMember: finalUpdatedMember, message: "Member details updated (Simulated)." } };
 
     } catch (error) {

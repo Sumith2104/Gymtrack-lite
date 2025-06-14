@@ -4,8 +4,7 @@
 import { useState, useEffect } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
-import { PlusCircle, Edit, UserPlus } from 'lucide-react';
-import { addMonths, format, parseISO } from 'date-fns';
+import { UserPlus, Edit } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -27,17 +26,12 @@ import {
 import { Input } from '@/components/ui/input';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useToast } from '@/hooks/use-toast';
-import type { Member, MembershipStatus, MembershipPlan, MembershipType, Announcement } from '@/lib/types';
-import { MOCK_MEMBERSHIP_PLANS, APP_NAME } from '@/lib/constants';
+import type { Member, MembershipStatus, FetchedMembershipPlan, Announcement } from '@/lib/types';
+import { APP_NAME } from '@/lib/constants';
 import { addMember, editMember } from '@/app/actions/member-actions';
+import { getActiveMembershipPlans } from '@/app/actions/plan-actions';
 import { addMemberFormSchema, type AddMemberFormValues } from '@/lib/schemas/member-schemas';
-
-// Updated to reflect the new plan structure
-const DIALOG_MEMBERSHIP_OPTIONS: { label: MembershipType; planId: string }[] = [
-  { label: 'Basic', planId: 'plan_basic_1m' },
-  { label: 'Premium', planId: 'plan_premium_6m' },
-  { label: 'Annual', planId: 'plan_annual_12m' },
-];
+import { Skeleton } from '@/components/ui/skeleton';
 
 const memberStatuses: MembershipStatus[] = ['active', 'inactive', 'expired', 'pending'];
 
@@ -52,6 +46,8 @@ export function AddMemberDialog({ isOpen, onOpenChange, onMemberSaved, memberToE
   const { toast } = useToast();
   const [isEditing, setIsEditing] = useState(false);
   const [isSubmittingState, setIsSubmittingState] = useState(false);
+  const [availablePlans, setAvailablePlans] = useState<FetchedMembershipPlan[]>([]);
+  const [isLoadingPlans, setIsLoadingPlans] = useState(true);
 
   const form = useForm<AddMemberFormValues>({
     resolver: zodResolver(addMemberFormSchema),
@@ -60,52 +56,94 @@ export function AddMemberDialog({ isOpen, onOpenChange, onMemberSaved, memberToE
       email: '',
       phoneNumber: null,
       age: null,
-      membershipType: 'Basic', // Default to 'Basic' plan name
+      selectedPlanUuid: '', // Will be set after plans load
     },
   });
 
   useEffect(() => {
-    if (isOpen) {
+    async function fetchPlans() {
+      if (isOpen) {
+        setIsLoadingPlans(true);
+        const response = await getActiveMembershipPlans();
+        if (response.error || !response.data) {
+          toast({
+            variant: "destructive",
+            title: 'Error Fetching Plans',
+            description: response.error || "Could not load membership plans.",
+          });
+          setAvailablePlans([]);
+        } else {
+          setAvailablePlans(response.data);
+          // Set default plan if not editing and plans are available
+          if (!memberToEdit && response.data.length > 0) {
+            // Default to the first plan (often 'Basic' if sorted by price/order)
+            form.setValue('selectedPlanUuid', response.data[0].uuid);
+          }
+        }
+        setIsLoadingPlans(false);
+      }
+    }
+    fetchPlans();
+  }, [isOpen, toast, form, memberToEdit]);
+
+
+  useEffect(() => {
+    if (isOpen && availablePlans.length > 0) {
       if (memberToEdit) {
         setIsEditing(true);
-        // The membershipType in memberToEdit is the plan name (e.g., "Basic", "Premium")
-        // We need to ensure this name corresponds to one of the new MOCK_MEMBERSHIP_PLANS
-        const currentMemberPlan = MOCK_MEMBERSHIP_PLANS.find(p => p.name === memberToEdit.membershipType);
-        
         form.reset({
           name: memberToEdit.name,
           email: memberToEdit.email || '',
           phoneNumber: memberToEdit.phoneNumber,
           age: memberToEdit.age,
-          membershipType: currentMemberPlan?.name || 'Basic', // Fallback to 'Basic' if type is unfamiliar
+          selectedPlanUuid: memberToEdit.planId || (availablePlans.length > 0 ? availablePlans[0].uuid : ''),
+          // membershipStatus field if it becomes part of AddMemberFormValues for editing
+          // membershipStatus: memberToEdit.membershipStatus 
         });
       } else {
         setIsEditing(false);
         form.reset({
           name: '', email: '',
           phoneNumber: null, age: null,
-          membershipType: 'Basic', // Default to Basic plan name
+          selectedPlanUuid: availablePlans.length > 0 ? availablePlans[0].uuid : '',
         });
       }
+    } else if (isOpen && !isLoadingPlans && availablePlans.length === 0) {
+        // Handle case where no plans are loaded but dialog is open (e.g. for adding)
+        setIsEditing(false);
+        form.reset({
+            name: '', email: '',
+            phoneNumber: null, age: null,
+            selectedPlanUuid: '', // No plans to select
+        });
     }
-  }, [memberToEdit, isOpen, form]);
+  }, [memberToEdit, isOpen, form, availablePlans, isLoadingPlans]);
 
   async function onSubmit(data: AddMemberFormValues) {
     setIsSubmittingState(true);
     const gymDatabaseId = localStorage.getItem('gymDatabaseId') || 'default_gym_db_id_mock';
     const gymName = localStorage.getItem('gymName') || APP_NAME;
 
+    if (!data.selectedPlanUuid && availablePlans.length > 0) {
+        toast({ variant: "destructive", title: "Validation Error", description: "Please select a membership plan." });
+        setIsSubmittingState(false);
+        return;
+    }
+     if (availablePlans.length === 0 && !isLoadingPlans) {
+        toast({ variant: "destructive", title: "No Plans Available", description: "Cannot add member without active membership plans. Please configure plans first." });
+        setIsSubmittingState(false);
+        return;
+    }
+
+
     if (isEditing && memberToEdit) {
-      const editData = {
-        ...memberToEdit, 
-        ...data, 
-        email: data.email || null, 
-        age: data.age || null,
-        phoneNumber: data.phoneNumber || null,
-        membershipType: data.membershipType, // This is the plan name
-      };
-      
-      const response = await editMember(editData, memberToEdit.id, memberToEdit.gymId);
+      // Construct payload for editMember, potentially including membershipStatus if it's part of the form
+      const editDataPayload = { ...data };
+      // if (form.getValues('membershipStatus')) { // Check if membershipStatus is a field in your form for editing
+      //   editDataPayload.membershipStatus = form.getValues('membershipStatus');
+      // }
+
+      const response = await editMember(editDataPayload, memberToEdit.id, memberToEdit.gymId);
 
       if (response.error) {
          toast({
@@ -122,7 +160,6 @@ export function AddMemberDialog({ isOpen, onOpenChange, onMemberSaved, memberToE
         onOpenChange(false);
       }
     } else {
-      // Adding new member. data.membershipType is the plan name.
       const response = await addMember(data, gymDatabaseId, gymName);
 
       if (response.error) {
@@ -155,7 +192,8 @@ export function AddMemberDialog({ isOpen, onOpenChange, onMemberSaved, memberToE
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md bg-card text-card-foreground p-6 rounded-lg shadow-xl">
         <DialogHeader className="mb-4">
-          <DialogTitle className="text-xl font-semibold text-foreground">
+          <DialogTitle className="text-xl font-semibold text-foreground flex items-center">
+            {isEditing ? <Edit className="mr-2 h-5 w-5" /> : <UserPlus className="mr-2 h-5 w-5" />}
             {isEditing ? 'Edit Member' : 'Add New Member'}
           </DialogTitle>
           <DialogDescription className="text-sm text-muted-foreground">
@@ -184,72 +222,78 @@ export function AddMemberDialog({ isOpen, onOpenChange, onMemberSaved, memberToE
                 <FormItem>
                   <FormLabel className="text-foreground">Email</FormLabel>
                   <FormControl>
-                    <Input className="bg-input text-foreground placeholder:text-muted-foreground border-border" type="email" placeholder="Enter member's email" {...field} value={field.value ?? ""} />
+                    <Input className="bg-input text-foreground placeholder:text-muted-foreground border-border" type="email" placeholder="Enter member's email (optional)" {...field} value={field.value ?? ""} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
+             <div className="grid grid-cols-2 gap-4">
+                <FormField
+                control={form.control}
+                name="age"
+                render={({ field }) => (
+                    <FormItem>
+                    <FormLabel className="text-foreground">Age</FormLabel>
+                    <FormControl>
+                        <Input className="bg-input text-foreground placeholder:text-muted-foreground border-border" type="number" placeholder="e.g., 25 (optional)" {...field} value={field.value ?? ""} onChange={e => field.onChange(e.target.value === '' ? null : parseInt(e.target.value, 10))}/>
+                    </FormControl>
+                    <FormMessage />
+                    </FormItem>
+                )}
+                />
+                <FormField
+                control={form.control}
+                name="phoneNumber"
+                render={({ field }) => (
+                    <FormItem>
+                    <FormLabel className="text-foreground">Phone</FormLabel>
+                    <FormControl>
+                        <Input className="bg-input text-foreground placeholder:text-muted-foreground border-border" type="tel" placeholder="(optional)" {...field} value={field.value ?? ""} />
+                    </FormControl>
+                    <FormMessage />
+                    </FormItem>
+                )}
+                />
+            </div>
+            
             <FormField
               control={form.control}
-              name="age"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-foreground">Age</FormLabel>
-                  <FormControl>
-                    <Input className="bg-input text-foreground placeholder:text-muted-foreground border-border" type="number" placeholder="Enter member's age" {...field} value={field.value ?? ""} onChange={e => field.onChange(e.target.value === '' ? null : parseInt(e.target.value, 10))}/>
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="phoneNumber"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-foreground">Phone Number</FormLabel>
-                  <FormControl>
-                    <Input className="bg-input text-foreground placeholder:text-muted-foreground border-border" type="tel" placeholder="Enter member's phone number" {...field} value={field.value ?? ""} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="membershipType" // This field stores the plan NAME (e.g., "Basic")
+              name="selectedPlanUuid"
               render={({ field }) => (
                 <FormItem className="space-y-3">
-                  <FormLabel className="text-foreground">Membership Type</FormLabel>
-                  <FormControl>
-                    <RadioGroup
-                      onValueChange={(planId) => { // Value from RadioGroupItem is planId
-                        const selectedPlan = MOCK_MEMBERSHIP_PLANS.find(p => p.id === planId);
-                        if (selectedPlan) {
-                          field.onChange(selectedPlan.name); // Update form state with plan NAME
-                        }
-                      }}
-                      // To set the radio group's selected item, find the planId corresponding to the current plan NAME in the form
-                      value={MOCK_MEMBERSHIP_PLANS.find(p => p.name === field.value)?.id}
-                      className="flex flex-col space-y-1"
-                    >
-                      {DIALOG_MEMBERSHIP_OPTIONS.map((option) => {
-                        const planDetails = MOCK_MEMBERSHIP_PLANS.find(p => p.id === option.planId);
-                        return (
-                          <FormItem key={option.planId} className="flex items-center space-x-3 space-y-0">
+                  <FormLabel className="text-foreground">Membership Plan</FormLabel>
+                  {isLoadingPlans ? (
+                    <div className="space-y-2">
+                        <Skeleton className="h-5 w-3/4" />
+                        <Skeleton className="h-5 w-1/2" />
+                        <Skeleton className="h-5 w-2/3" />
+                    </div>
+                  ) : availablePlans.length === 0 ? (
+                    <p className="text-sm text-destructive">No active membership plans found. Please add plans in the system.</p>
+                  ) : (
+                    <FormControl>
+                      <RadioGroup
+                        onValueChange={field.onChange}
+                        value={field.value}
+                        className="flex flex-col space-y-1"
+                      >
+                        {availablePlans.map((plan) => (
+                          <FormItem key={plan.uuid} className="flex items-center space-x-3 space-y-0 p-2 rounded-md hover:bg-muted/50 transition-colors border border-transparent hover:border-border cursor-pointer has-[input:checked]:bg-primary/10 has-[input:checked]:border-primary">
                             <FormControl>
-                              <RadioGroupItem value={option.planId} />
+                              <RadioGroupItem value={plan.uuid} />
                             </FormControl>
-                            <FormLabel className="font-normal text-foreground">
-                              {planDetails?.name || option.label} 
-                              {planDetails && <span className="text-xs text-muted-foreground ml-2">(₹{planDetails.price} / {planDetails.durationMonths}m)</span>}
+                            <FormLabel className="font-normal text-foreground cursor-pointer w-full">
+                              {plan.name} 
+                              <span className="text-xs text-muted-foreground ml-2">
+                                (₹{plan.price.toFixed(2)} / {plan.durationMonths} {plan.durationMonths === 1 ? 'month' : 'months'})
+                              </span>
                             </FormLabel>
                           </FormItem>
-                        );
-                      })}
-                    </RadioGroup>
-                  </FormControl>
+                        ))}
+                      </RadioGroup>
+                    </FormControl>
+                  )}
                   <FormMessage />
                 </FormItem>
               )}
@@ -258,32 +302,35 @@ export function AddMemberDialog({ isOpen, onOpenChange, onMemberSaved, memberToE
             {isEditing && memberToEdit && (
                  <FormField
                     control={form.control}
-                    name="membershipStatus" // This needs to be added to AddMemberFormValues if editing can change it
+                    // name="membershipStatus" // This needs to be added to AddMemberFormValues if editing can change it
+                    name={"membershipStatus" as any} // Quick fix for type, ideally add to form schema
                     render={({ field }) => (
                         <FormItem>
                         <FormLabel className="text-foreground">Membership Status</FormLabel>
-                        <RadioGroup
-                            onValueChange={(value) => {
-                                // @ts-ignore
-                                field.onChange(value as MembershipStatus);
-                                if (memberToEdit) {
-                                  memberToEdit.membershipStatus = value as MembershipStatus;
-                                }
-                            }}
-                            value={memberToEdit.membershipStatus}
-                            className="flex flex-col space-y-1"
-                        >
-                            {memberStatuses.filter(s => s !== 'expiring soon').map(status => (
-                               <FormItem key={status} className="flex items-center space-x-3 space-y-0">
-                                <FormControl>
-                                  <RadioGroupItem value={status} />
-                                </FormControl>
-                                <FormLabel className="font-normal capitalize text-foreground">
-                                  {status}
-                                </FormLabel>
-                              </FormItem>
-                            ))}
-                        </RadioGroup>
+                         <FormControl>
+                            <RadioGroup
+                                onValueChange={(value) => {
+                                    // @ts-ignore
+                                    field.onChange(value as MembershipStatus);
+                                    if (memberToEdit) {
+                                    memberToEdit.membershipStatus = value as MembershipStatus;
+                                    }
+                                }}
+                                defaultValue={memberToEdit.membershipStatus} // Use defaultValue for uncontrolled or value for controlled
+                                className="flex flex-col space-y-1"
+                            >
+                                {memberStatuses.filter(s => s !== 'expiring soon').map(status => (
+                                <FormItem key={status} className="flex items-center space-x-3 space-y-0">
+                                    <FormControl>
+                                    <RadioGroupItem value={status} id={`status-${status}`}/>
+                                    </FormControl>
+                                    <FormLabel htmlFor={`status-${status}`} className="font-normal capitalize text-foreground">
+                                    {status}
+                                    </FormLabel>
+                                </FormItem>
+                                ))}
+                            </RadioGroup>
+                        </FormControl>
                         <FormMessage />
                         </FormItem>
                     )}
@@ -294,8 +341,12 @@ export function AddMemberDialog({ isOpen, onOpenChange, onMemberSaved, memberToE
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)} className="border-border hover:bg-muted">
                 Cancel
               </Button>
-              <Button type="submit" disabled={isSubmittingState} className="bg-primary text-primary-foreground hover:bg-primary/90 w-full sm:w-auto">
-                <UserPlus className="mr-2 h-4 w-4" />
+              <Button 
+                type="submit" 
+                disabled={isSubmittingState || isLoadingPlans || (availablePlans.length === 0 && !isEditing)} 
+                className="bg-primary text-primary-foreground hover:bg-primary/90 w-full sm:w-auto"
+              >
+                {isEditing ? <Edit className="mr-2 h-4 w-4" /> : <UserPlus className="mr-2 h-4 w-4" />}
                 {isSubmittingState ? (isEditing ? 'Saving...' : 'Adding...') : (isEditing ? 'Save Changes' : 'Add Member')}
               </Button>
             </DialogFooter>

@@ -1,7 +1,7 @@
 
 import type { NavItem } from '@/components/layout/app-header';
 import { LayoutDashboard, Users, BarChart3, ScanLine, Megaphone, Settings, Dumbbell, LogOut } from 'lucide-react';
-import type { MembershipPlan, MembershipType } from './types';
+// MOCK_MEMBERSHIP_PLANS and AVAILABLE_MEMBERSHIP_TYPES are removed as plans will be fetched from DB.
 
 export const APP_NAME = "GymTrack Lite";
 export const APP_LOGO = Dumbbell;
@@ -47,14 +47,3 @@ export const USER_NAV_LINKS = [
     action: 'logout'
   }
 ];
-
-// Updated Mock Membership Plans
-export const MOCK_MEMBERSHIP_PLANS: MembershipPlan[] = [
-  { id: 'plan_basic_1m', name: 'Basic', price: 599, durationMonths: 1, description: 'Basic access for 1 month.' },
-  { id: 'plan_premium_6m', name: 'Premium', price: 2999, durationMonths: 6, description: 'Premium access for 6 months.' },
-  { id: 'plan_annual_12m', name: 'Annual', price: 5999, durationMonths: 12, description: 'Full year access, best value.' },
-];
-
-// Available membership types for selection in forms, derived from MOCK_MEMBERSHIP_PLANS for consistency
-export const AVAILABLE_MEMBERSHIP_TYPES: MembershipType[] = Array.from(new Set(MOCK_MEMBERSHIP_PLANS.map(p => p.name)));
-
