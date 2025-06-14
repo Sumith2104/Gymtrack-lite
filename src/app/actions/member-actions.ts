@@ -8,7 +8,7 @@ import { addMemberFormSchema, type AddMemberFormValues } from '@/lib/schemas/mem
 import { createSupabaseServerActionClient } from '@/lib/supabase/server';
 import { addAnnouncementAction } from './announcement-actions'; 
 import { sendEmail } from '@/lib/email-service';
-import { formatDateIST, parseValidISO } from '@/lib/date-utils'; // Updated import
+import { formatDateIST, parseValidISO } from '@/lib/date-utils'; 
 
 interface AddMemberServerResponse {
   data?: {
@@ -73,7 +73,7 @@ export async function addMember(
 
     const joinDate = new Date();
     const expiryDate = addMonths(joinDate, planDetails.duration_months);
-    // Simplified Member ID generation
+    
     const memberIdSuffix = Date.now().toString().slice(-4) + Math.random().toString(36).substring(2, 4).toUpperCase();
     const memberId = `${gymName.substring(0, 3).toUpperCase()}${name.substring(0,1).toUpperCase()}${memberIdSuffix}`.replace(/[^A-Z0-9]/g, '').substring(0, 10);
 
@@ -143,9 +143,11 @@ export async function addMember(
     const announcementResult = await addAnnouncementAction(gymDatabaseId, announcementTitle, announcementContent);
     if (announcementResult.error) {
       console.error("Failed to create welcome announcement in DB:", announcementResult.error);
-    } else {
-      console.log("Welcome announcement created in DB:", announcementResult.newAnnouncement?.id);
+    } else if (announcementResult.newAnnouncement?.id) {
+       window.dispatchEvent(new Event('reloadAnnouncements'));
+       console.log("Welcome announcement created in DB:", announcementResult.newAnnouncement.id);
     }
+
 
     return { data: { newMember: newMemberAppFormat, emailStatus } };
 
@@ -213,6 +215,7 @@ export async function editMember(
       plan_id: selectedPlanUuid,
       membership_type: planDetails.plan_name as MembershipType,
       expiry_date: expiryDate.toISOString(),
+      // membership_status: 'active', // Status should ideally not be reset on every edit unless intended
     };
 
     const { data: updatedMemberData, error: updateError } = await supabase
@@ -366,3 +369,6 @@ export async function bulkUpdateMemberStatusAction(memberDbIds: string[], newSta
     return { successCount: 0, errorCount: memberDbIds.length, error: 'An unexpected error occurred during bulk status update.' };
   }
 }
+
+
+    

@@ -3,7 +3,6 @@
 
 import nodemailer from 'nodemailer';
 import { APP_NAME } from '@/lib/constants';
-import { formatDateIST } from '@/lib/date-utils'; // Updated import
 
 interface EmailOptions {
   to: string;
@@ -16,13 +15,13 @@ const SMTP_PORT = parseInt(process.env.SMTP_PORT || '587', 10);
 const SMTP_USER = process.env.SMTP_USER;
 const SMTP_PASS = process.env.SMTP_PASS;
 const SMTP_FROM_EMAIL = process.env.SMTP_FROM_EMAIL || `"${APP_NAME}" <noreply@example.com>`;
-// const APP_URL = process.env.APP_URL || 'http://localhost:3000'; // For logo or links if needed - currently unused
+
 
 const transporter = SMTP_HOST && SMTP_PORT && SMTP_USER && SMTP_PASS
   ? nodemailer.createTransport({
       host: SMTP_HOST,
       port: SMTP_PORT,
-      secure: SMTP_PORT === 465, // true for 465, false for other ports
+      secure: SMTP_PORT === 465, 
       auth: {
         user: SMTP_USER,
         pass: SMTP_PASS,
@@ -31,8 +30,6 @@ const transporter = SMTP_HOST && SMTP_PORT && SMTP_USER && SMTP_PASS
   : null;
 
 function getBaseEmailHtml(content: string, subject: string): string {
-  // Basic styling, can be enhanced with more CSS.
-  // Ensure APP_NAME is dynamic if it can change or is user-configurable.
   const currentYear = new Date().getFullYear();
   return `
     <!DOCTYPE html>
@@ -81,7 +78,7 @@ export async function sendEmail({ to, subject, htmlBody }: EmailOptions): Promis
     console.log(`From: ${SMTP_FROM_EMAIL}`);
     console.log(`Subject: ${subject}`);
     console.log('--- HTML Body (raw) ---');
-    console.log(htmlBody); // Log raw body before wrapping in template for direct inspection
+    console.log(htmlBody); 
     console.log('--- HTML Body (templated) ---');
     console.log(getBaseEmailHtml(htmlBody, subject));
     console.log('------------------ END EMAIL SIMULATION ------------------');
@@ -103,3 +100,5 @@ export async function sendEmail({ to, subject, htmlBody }: EmailOptions): Promis
     return { success: false, message: `Failed to send email: ${error.message}` };
   }
 }
+
+    
