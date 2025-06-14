@@ -182,15 +182,7 @@ export async function fetchTodaysCheckInsForKioskAction(gymDatabaseId: string, g
   try {
     const { data: dbCheckIns, error } = await supabase
       .from('check_ins')
-      .select(\`
-        id,
-        member_table_id,
-        check_in_time,
-        members (
-          name,
-          member_id 
-        )
-      \`)
+      .select('id, member_table_id, check_in_time, members(name, member_id)')
       .eq('gym_id', gymDatabaseId)
       .gte('check_in_time', startOfDay)
       .lte('check_in_time', endOfDay)
