@@ -53,12 +53,15 @@ import { APP_NAME } from '@/lib/constants';
 
 
 const initialData: Member[] = [
-  { id: 'member_uuid_1', memberId: 'SUMI0493P', name: 'sumith', email: 'sumithsumith4567890@gmail.com', membershipStatus: 'active', gymId: 'GYM123_default', createdAt: new Date(Date.now() - 86400000 * 10).toISOString(), joinDate: "2025-06-14T00:00:00.000Z", expiryDate: new Date(Date.now() + 86400000 * 355).toISOString(), phoneNumber: '8310870493', membershipType: 'Premium', planPrice: 300, age: 21 },
-  { id: 'member_uuid_2', memberId: 'MBR002', name: 'Bob Smith', email: 'bob@example.com', membershipStatus: 'inactive', gymId: 'GYM123_default', createdAt: new Date(Date.now() - 86400000 * 20).toISOString(), joinDate: new Date(Date.now() - 86400000 * 20).toISOString(), phoneNumber: '234-567-8901', membershipType: 'Monthly', planPrice: 30, age: 35 },
-  { id: 'member_uuid_3', memberId: 'MBR003', name: 'Carol White', email: 'carol@example.com', membershipStatus: 'expired', gymId: 'GYM123_default', createdAt: new Date(Date.now() - 86400000 * 30).toISOString(), joinDate: new Date(Date.now() - 86400000 * 30).toISOString(), expiryDate: new Date(Date.now() - 86400000 * 5).toISOString(), membershipType: 'Monthly', planPrice: 30, age: 42 },
-  { id: 'member_uuid_4', memberId: 'MBR004', name: 'David Brown', email: 'david@example.com', membershipStatus: 'active', gymId: 'GYM123_default', createdAt: new Date(Date.now() - 86400000 * 15).toISOString(), joinDate: new Date(Date.now() - 86400000 * 15).toISOString(), expiryDate: new Date(Date.now() + 86400000 * 10).toISOString(), phoneNumber: '345-678-9012', membershipType: '6-Month', planPrice: 150, age: 22 }, // Expiring soon
-  { id: 'member_uuid_5', memberId: 'MBR005', name: 'Sumith Member', email: 'sumith.member@example.com', membershipStatus: 'active', gymId: 'UOFIPOIB', createdAt: new Date().toISOString(), joinDate: new Date().toISOString(), expiryDate: new Date(Date.now() + 86400000 * 30).toISOString(), phoneNumber: '555-555-5555', membershipType: 'Annual', planPrice: 500, age: 30 },
-  { id: 'member_uuid_6', memberId: 'MBR006', name: 'Pending Penny', email: 'penny@example.com', membershipStatus: 'pending', gymId: 'GYM123_default', createdAt: new Date(Date.now() - 86400000 * 2).toISOString(), joinDate: new Date(Date.now() - 86400000 * 2).toISOString(), phoneNumber: '456-789-0123', membershipType: 'Monthly', planPrice: 30, age: 25 },
+  // Note: Ensure gymId here is the UUID (gymDatabaseId) if you want them to show up for a specific mock gym
+  // Example: Replace 'GYM123_default' with the actual UUID of your 'GYM123_default' gym from your Supabase setup
+  // For now, I'll assume 'GYM123_default_uuid' and 'UOFIPOIB_uuid' are placeholders for actual UUIDs
+  { id: 'member_uuid_1', memberId: 'SUMI0493P', name: 'sumith', email: 'sumithsumith4567890@gmail.com', membershipStatus: 'active', gymId: 'GYM123_default_uuid', createdAt: new Date(Date.now() - 86400000 * 10).toISOString(), joinDate: "2025-06-14T00:00:00.000Z", expiryDate: new Date(Date.now() + 86400000 * 355).toISOString(), phoneNumber: '8310870493', membershipType: 'Premium', planPrice: 2999, age: 21 },
+  { id: 'member_uuid_2', memberId: 'MBR002', name: 'Bob Smith', email: 'bob@example.com', membershipStatus: 'inactive', gymId: 'GYM123_default_uuid', createdAt: new Date(Date.now() - 86400000 * 20).toISOString(), joinDate: new Date(Date.now() - 86400000 * 20).toISOString(), phoneNumber: '234-567-8901', membershipType: 'Monthly', planPrice: 599, age: 35 },
+  { id: 'member_uuid_3', memberId: 'MBR003', name: 'Carol White', email: 'carol@example.com', membershipStatus: 'expired', gymId: 'GYM123_default_uuid', createdAt: new Date(Date.now() - 86400000 * 30).toISOString(), joinDate: new Date(Date.now() - 86400000 * 30).toISOString(), expiryDate: new Date(Date.now() - 86400000 * 5).toISOString(), membershipType: 'Monthly', planPrice: 599, age: 42 },
+  { id: 'member_uuid_4', memberId: 'MBR004', name: 'David Brown', email: 'david@example.com', membershipStatus: 'active', gymId: 'GYM123_default_uuid', createdAt: new Date(Date.now() - 86400000 * 15).toISOString(), joinDate: new Date(Date.now() - 86400000 * 15).toISOString(), expiryDate: new Date(Date.now() + 86400000 * 10).toISOString(), phoneNumber: '345-678-9012', membershipType: '6-Month', planPrice: 2999, age: 22 }, // Expiring soon
+  { id: 'member_uuid_5', memberId: 'MBR005', name: 'Sumith Member', email: 'sumith.member@example.com', membershipStatus: 'active', gymId: 'UOFIPOIB_uuid', createdAt: new Date().toISOString(), joinDate: new Date().toISOString(), expiryDate: new Date(Date.now() + 86400000 * 30).toISOString(), phoneNumber: '555-555-5555', membershipType: 'Annual', planPrice: 5999, age: 30 },
+  { id: 'member_uuid_6', memberId: 'MBR006', name: 'Pending Penny', email: 'penny@example.com', membershipStatus: 'pending', gymId: 'GYM123_default_uuid', createdAt: new Date(Date.now() - 86400000 * 2).toISOString(), joinDate: new Date(Date.now() - 86400000 * 2).toISOString(), phoneNumber: '456-789-0123', membershipType: 'Monthly', planPrice: 599, age: 25 },
 ];
 
 const getEffectiveMembershipStatus = (member: Member): MembershipStatus => {
@@ -80,7 +83,7 @@ export function MembersTable() {
   const [data, setData] = React.useState<Member[]>(initialData);
   const { toast } = useToast();
 
-  const [currentFormattedGymId, setCurrentFormattedGymId] = React.useState<string | null>(null);
+  const [currentGymDatabaseId, setCurrentGymDatabaseId] = React.useState<string | null>(null);
   const [isAddMemberDialogOpen, setIsAddMemberDialogOpen] = React.useState(false);
   const [memberToEdit, setMemberToEdit] = React.useState<Member | null>(null);
   
@@ -94,17 +97,27 @@ export function MembersTable() {
 
   React.useEffect(() => {
     if (typeof window !== 'undefined') {
-      const gymId = localStorage.getItem('gymId');
-      setCurrentFormattedGymId(gymId);
+      const gymDbId = localStorage.getItem('gymDatabaseId'); // Use the UUID
+      setCurrentGymDatabaseId(gymDbId);
+      // Update initial data to only show members of the current gym if desired
+      // This part is tricky with initialData as it's static.
+      // A real app would fetch data based on gymDbId.
+      // For now, we'll filter the static initialData.
+      if (gymDbId) {
+        setData(initialData.filter(m => m.gymId === gymDbId));
+      } else {
+        setData([]); // No gym selected, show no members
+      }
     }
   }, []);
   
   const gymMembers = React.useMemo(() => {
-    if (!currentFormattedGymId) return [];
+    if (!currentGymDatabaseId) return [];
+    // Filter the current `data` state, which might include newly added members
     return data
-      .filter(member => member.gymId === currentFormattedGymId)
+      .filter(member => member.gymId === currentGymDatabaseId)
       .map(member => ({ ...member, effectiveStatus: getEffectiveMembershipStatus(member) }));
-  }, [data, currentFormattedGymId]);
+  }, [data, currentGymDatabaseId]);
 
 
   const [sorting, setSorting] = React.useState<SortingState>([]);
@@ -112,6 +125,8 @@ export function MembersTable() {
   const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({
     planPrice: false,
     createdAt: false, 
+    age: false,
+    phoneNumber: false,
   });
   const [rowSelection, setRowSelection] = React.useState({});
   const [statusFilter, setStatusFilter] = React.useState<MembershipStatus | 'all'>('all');
@@ -120,12 +135,16 @@ export function MembersTable() {
   const handleMemberSaved = (savedMember: Member) => {
     setData(prev => {
       const existingIndex = prev.findIndex(m => m.id === savedMember.id);
-      if (existingIndex > -1) {
+      if (existingIndex > -1) { // Edit
         const updatedData = [...prev];
         updatedData[existingIndex] = savedMember;
         return updatedData;
+      } // Add
+      // Ensure the new member is only added to the list if it belongs to the current gym
+      if (savedMember.gymId === currentGymDatabaseId) {
+        return [savedMember, ...prev];
       }
-      return [savedMember, ...prev];
+      return prev; // If not current gym, don't add to this view's local state
     });
     setIsAddMemberDialogOpen(false);
     setMemberToEdit(null);
@@ -234,12 +253,12 @@ export function MembersTable() {
     {
       accessorKey: 'name',
       header: ({ column }) => <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}>Name <CaretSortIcon className="ml-2 h-4 w-4" /></Button>,
-      cell: ({ row }) => <div>{row.getValue('name')}</div>,
+      cell: ({ row }) => <div className="font-semibold">{row.getValue('name')}</div>,
     },
     {
       accessorKey: 'memberId',
       header: ({ column }) => <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}>Member ID <CaretSortIcon className="ml-2 h-4 w-4" /></Button>,
-      cell: ({ row }) => <div className="font-medium">{row.getValue('memberId')}</div>,
+      cell: ({ row }) => <div>{row.getValue('memberId')}</div>,
     },
     {
       accessorKey: 'email',
@@ -261,13 +280,13 @@ export function MembersTable() {
       header: 'Join Date',
       cell: ({ row }) => {
         const joinDateVal = row.getValue('joinDate') as string | null;
-        return joinDateVal && isValid(parseISO(joinDateVal)) ? format(parseISO(joinDateVal), 'd MMM yyyy') : 'N/A';
+        return joinDateVal && isValid(parseISO(joinDateVal)) ? format(parseISO(joinDateVal), 'd MMM yy') : 'N/A';
       },
     },
     {
       accessorKey: 'membershipType', 
       header: 'Type',
-      cell: ({ row }) => <div>{row.getValue('membershipType') || 'N/A'}</div>,
+      cell: ({ row }) => <div className="capitalize">{row.getValue('membershipType') || 'N/A'}</div>,
     },
     {
       accessorKey: 'effectiveStatus', 
@@ -275,19 +294,19 @@ export function MembersTable() {
       cell: ({ row }) => {
         const status = row.original.effectiveStatus;
         let badgeClass = '';
-        if (status === 'active') badgeClass = 'badge-status-active';
-        else if (status === 'inactive') badgeClass = 'bg-slate-500 hover:bg-slate-600 text-slate-100 border-slate-600';
-        else if (status === 'expired') badgeClass = 'badge-status-expired'; 
-        else if (status === 'pending') badgeClass = 'bg-yellow-500 hover:bg-yellow-600 text-white border-yellow-600';
-        else if (status === 'expiring soon') badgeClass = 'badge-status-expiring-soon';
-        return <Badge className={`capitalize ${badgeClass}`}>{status}</Badge>;
+        if (status === 'active') badgeClass = 'bg-green-500/20 text-green-700 border-green-500/30 hover:bg-green-500/30 dark:bg-green-500/10 dark:text-green-400 dark:border-green-500/20 dark:hover:bg-green-500/20';
+        else if (status === 'inactive') badgeClass = 'bg-slate-500/20 text-slate-700 border-slate-500/30 hover:bg-slate-500/30 dark:bg-slate-500/10 dark:text-slate-400 dark:border-slate-500/20 dark:hover:bg-slate-500/20';
+        else if (status === 'expired') badgeClass = 'bg-red-500/20 text-red-700 border-red-500/30 hover:bg-red-500/30 dark:bg-red-500/10 dark:text-red-400 dark:border-red-500/20 dark:hover:bg-red-500/20'; 
+        else if (status === 'pending') badgeClass = 'bg-yellow-500/20 text-yellow-700 border-yellow-500/30 hover:bg-yellow-500/30 dark:bg-yellow-500/10 dark:text-yellow-400 dark:border-yellow-500/20 dark:hover:bg-yellow-500/20';
+        else if (status === 'expiring soon') badgeClass = 'bg-orange-500/20 text-orange-700 border-orange-500/30 hover:bg-orange-500/30 dark:bg-orange-500/10 dark:text-orange-400 dark:border-orange-500/20 dark:hover:bg-orange-500/20';
+        return <Badge variant="outline" className={`capitalize ${badgeClass}`}>{status}</Badge>;
       },
       filterFn: (row, id, value) => value === 'all' || value.includes(row.original.effectiveStatus),
     },
     {
       id: 'actions', 
-      header: 'Overview',
-      enableHiding: true, 
+      header: 'Overview', // Header text matching image
+      enableHiding: true, // Keep as true to allow hiding via Columns dropdown
       cell: ({ row }) => {
         const member = row.original;
         return (
@@ -332,7 +351,7 @@ export function MembersTable() {
     {
       accessorKey: 'planPrice',
       header: 'Price',
-      cell: ({ row }) => row.getValue('planPrice') ? `$${Number(row.getValue('planPrice')).toFixed(2)}` : 'N/A',
+      cell: ({ row }) => row.getValue('planPrice') ? `₹${Number(row.getValue('planPrice')).toFixed(2)}` : 'N/A',
       enableHiding: true,
     },
     {
@@ -347,7 +366,7 @@ export function MembersTable() {
   ];
 
   const table = useReactTable({
-    data: gymMembers,
+    data: gymMembers, // Use the filtered gymMembers
     columns,
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
@@ -364,7 +383,7 @@ export function MembersTable() {
       rowSelection,
     },
     initialState: {
-      pagination: { pageSize: 10 } 
+      pagination: { pageSize: 8 } 
     }
   });
   
@@ -465,6 +484,7 @@ export function MembersTable() {
                     checked={column.getIsVisible()}
                     onCheckedChange={(value) => column.toggleVisibility(!!value)}
                   >
+                    {/* Simple way to format ID for display, can be improved */}
                     {column.id.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
                   </DropdownMenuCheckboxItem>
                 ))}
@@ -500,7 +520,7 @@ export function MembersTable() {
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
                 {headerGroup.headers.map((header) => (
-                  <TableHead key={header.id} className="whitespace-nowrap">
+                  <TableHead key={header.id} className="whitespace-nowrap px-3 py-3 text-sm">
                     {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
                   </TableHead>
                 ))}
@@ -512,7 +532,7 @@ export function MembersTable() {
               table.getRowModel().rows.map((row) => (
                 <TableRow key={row.id} data-state={row.getIsSelected() && 'selected'}>
                   {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id} className="whitespace-nowrap">
+                    <TableCell key={cell.id} className="whitespace-nowrap px-3 py-3 text-sm">
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </TableCell>
                   ))}
@@ -521,7 +541,7 @@ export function MembersTable() {
             ) : (
               <TableRow>
                 <TableCell colSpan={columns.length} className="h-24 text-center">
-                  {currentFormattedGymId ? `No members found for gym ${currentFormattedGymId} matching current filters.` : 'Loading gym data or select a gym...'}
+                  {currentGymDatabaseId ? `No members found for this gym matching current filters.` : 'Loading gym data or select a gym...'}
                 </TableCell>
               </TableRow>
             )}
@@ -555,3 +575,4 @@ export function MembersTable() {
     </div>
   );
 }
+

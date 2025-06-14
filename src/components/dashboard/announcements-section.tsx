@@ -25,13 +25,14 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 
+// Fallback announcements, useful if localStorage is empty or for a new user
 const MOCK_FALLBACK_ANNOUNCEMENTS: Announcement[] = [
   {
     id: 'announcement-fallback-1',
     title: 'Welcome to GymTrack Lite!',
     content: 'This is your announcements section. Important updates and news will appear here.',
     createdAt: new Date(Date.now() - 86400000 * 1).toISOString(),
-    gymId: 'GYM123_default', // Default gym, or ensure this matches a known mock gym ID
+    gymId: 'GYM123_default_uuid', // Use a placeholder UUID or ensure this gymId is one the user might have
   },
 ];
 
@@ -48,43 +49,42 @@ export function AnnouncementsSection({ className }: { className?: string }) {
     setError(null);
     try {
       if (typeof window !== 'undefined') {
-        const gymIdFromStorage = localStorage.getItem('gymDatabaseId');
+        const gymIdFromStorage = localStorage.getItem('gymDatabaseId'); // This is the UUID
         setCurrentGymDbId(gymIdFromStorage);
 
         const announcementsRaw = localStorage.getItem('gymAnnouncements');
         let allAnnouncements: Announcement[] = announcementsRaw ? JSON.parse(announcementsRaw) : [];
         
-        // Filter announcements by the current gym ID
+        // Filter announcements by the current gym's database ID (UUID)
         const relevantAnnouncements = allAnnouncements.filter(ann => ann.gymId === gymIdFromStorage);
 
-        if (relevantAnnouncements.length === 0 && !gymIdFromStorage) {
-           // No specific gym logged in, show fallback for a default mock gym
-           setAnnouncements(MOCK_FALLBACK_ANNOUNCEMENTS.filter(a => a.gymId === 'GYM123_default'));
-        } else if (relevantAnnouncements.length === 0 && gymIdFromStorage) {
-           // Specific gym logged in, but no announcements for them
-           setAnnouncements([]);
-        } else {
+        if (gymIdFromStorage && relevantAnnouncements.length > 0) {
           setAnnouncements(relevantAnnouncements);
+        } else if (gymIdFromStorage && relevantAnnouncements.length === 0) {
+          // Logged into a specific gym, but no announcements for them
+          setAnnouncements([]);
+        } else {
+           // No specific gym logged in, or gymIdFromStorage is null
+           // Show fallback for a generic default mock gym, or an empty list
+           // For consistency, if no gymId, perhaps show nothing or a "login to see announcements"
+           setAnnouncements([]); // Default to empty if no gymId
         }
       } else {
-        // Fallback if localStorage is not available (e.g. server-side rendering attempt, though this is 'use client')
-        setAnnouncements(MOCK_FALLBACK_ANNOUNCEMENTS.filter(a => a.gymId === 'GYM123_default'));
+        setAnnouncements([]); // Fallback if localStorage is not available
       }
     } catch (e: any) {
       console.error("Error loading announcements from localStorage:", e);
       setError("Could not load announcements.");
-      // Fallback on error
-      setAnnouncements(MOCK_FALLBACK_ANNOUNCEMENTS.filter(a => a.gymId === 'GYM123_default'));
+      setAnnouncements([]); // Fallback on error
     } finally {
       setIsLoading(false);
-      setSelectedAnnouncements([]); // Clear selection on reload
+      setSelectedAnnouncements([]);
     }
   }, []);
 
   useEffect(() => {
     loadAnnouncements();
-    // Listen for storage changes to update announcements if they are modified elsewhere
-    // (e.g., new member welcome announcement, or announcement created from dedicated page)
+    
     const handleStorageChange = (event: StorageEvent) => {
       if (event.key === 'gymAnnouncements' || event.key === 'gymDatabaseId') {
         loadAnnouncements();
@@ -100,11 +100,10 @@ export function AnnouncementsSection({ className }: { className?: string }) {
     .sort((a, b) => {
         const dateA = parseISO(a.createdAt);
         const dateB = parseISO(b.createdAt);
-        // Handle invalid dates gracefully by pushing them to the end
         if (!isValid(dateA) && isValid(dateB)) return 1;
         if (isValid(dateA) && !isValid(dateB)) return -1;
         if (!isValid(dateA) && !isValid(dateB)) return 0;
-        return dateB.getTime() - dateA.getTime(); // Sort newest first
+        return dateB.getTime() - dateA.getTime();
     });
 
   const handleSelectAnnouncement = (id: string, checked: boolean) => {
@@ -120,15 +119,15 @@ export function AnnouncementsSection({ className }: { className?: string }) {
     }
     try {
       const announcementsRaw = localStorage.getItem('gymAnnouncements');
-      let allAnnouncements: Announcement[] = announcementsRaw ? JSON.parse(announcementsRaw) : [];
-      // Filter out the selected announcements
-      const remainingAnnouncements = allAnnouncements.filter(ann => !selectedAnnouncements.includes(ann.id));
+      let allAnnouncementsStored: Announcement[] = announcementsRaw ? JSON.parse(announcementsRaw) : [];
+      
+      const remainingAnnouncements = allAnnouncementsStored.filter(ann => !selectedAnnouncements.includes(ann.id));
       localStorage.setItem('gymAnnouncements', JSON.stringify(remainingAnnouncements));
       
       // Update local state to reflect deletion
       setAnnouncements(prev => prev.filter(ann => !selectedAnnouncements.includes(ann.id)));
-      setSelectedAnnouncements([]); // Clear selection
-      window.dispatchEvent(new Event('storage')); // Notify other parts of the app of a change
+      setSelectedAnnouncements([]); 
+      // window.dispatchEvent(new Event('storage')); // Already handled by loadAnnouncements on storage event
 
       toast({ title: "Announcements Deleted", description: `${selectedAnnouncements.length} announcement(s) removed.`});
     } catch (e) {
@@ -218,3 +217,4 @@ export function AnnouncementsSection({ className }: { className?: string }) {
     </Card>
   );
 }
+
