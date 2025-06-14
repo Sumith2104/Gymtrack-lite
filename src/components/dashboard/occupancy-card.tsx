@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Users, AlertCircle } from 'lucide-react';
@@ -9,17 +9,19 @@ import { ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from '
 import { cn } from '@/lib/utils';
 import { getCurrentOccupancy } from '@/app/actions/dashboard-actions';
 import { Skeleton } from '@/components/ui/skeleton';
+import { createSupabaseBrowserClient } from '@/lib/supabase/client';
+import type { RealtimeChannel } from '@supabase/supabase-js';
 
-const MAX_CAPACITY = 100; // Example max capacity, consider making this dynamic in the future
+const MAX_CAPACITY = 100; 
 
 const chartConfig = {
   occupied: {
     label: "Occupied",
-    color: "hsl(var(--primary))", // Gold
+    color: "hsl(var(--primary))", 
   },
   available: {
     label: "Available",
-    color: "hsl(var(--muted))", // A muted color from theme
+    color: "hsl(var(--muted))", 
   },
 } satisfies ChartConfig;
 
@@ -28,39 +30,79 @@ export function OccupancyCard({ className }: { className?: string }) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [gymDbId, setGymDbId] = useState<string | null>(null);
+  const channelRef = useRef<RealtimeChannel | null>(null);
+  const supabase = createSupabaseBrowserClient();
+
+  const fetchAndSetOccupancy = async (id: string) => {
+    const data = await getCurrentOccupancy(id);
+    if (data.error) {
+      setError(data.error);
+    } else {
+      setOccupancy(data.currentOccupancy);
+    }
+  };
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const id = localStorage.getItem('gymDatabaseId');
       setGymDbId(id);
+      if (id) {
+        setIsLoading(true);
+        setError(null);
+        fetchAndSetOccupancy(id).finally(() => setIsLoading(false));
+      } else {
+        setIsLoading(false);
+        // setError("Gym ID not found. Please log in again.");
+      }
     }
   }, []);
 
   useEffect(() => {
-    if (!gymDbId) {
-      setIsLoading(false);
-      // setError("Gym ID not found. Please log in again."); // Optional: show error if no gymId
+    if (!gymDbId || !supabase) {
       return;
     }
 
-    setIsLoading(true);
-    setError(null);
-    getCurrentOccupancy(gymDbId)
-      .then(data => {
-        if (data.error) {
-          setError(data.error);
-        } else {
-          setOccupancy(data.currentOccupancy);
+    // Clean up previous channel if gymDbId changes
+    if (channelRef.current) {
+      supabase.removeChannel(channelRef.current);
+      channelRef.current = null;
+    }
+    
+    const newChannel = supabase
+      .channel(`occupancy-updates-${gymDbId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*', // Listen to INSERT, UPDATE, DELETE
+          schema: 'public',
+          table: 'check_ins',
+          filter: `gym_id=eq.${gymDbId}`,
+        },
+        (payload) => {
+          console.log('OccupancyCard: Change received on check_ins table!', payload);
+          fetchAndSetOccupancy(gymDbId); // Re-fetch on any change
         }
-      })
-      .catch(err => {
-        console.error("OccupancyCard fetch error:", err);
-        setError("Failed to load occupancy data.");
-      })
-      .finally(() => {
-        setIsLoading(false);
+      )
+      .subscribe((status, err) => {
+        if (status === 'SUBSCRIBED') {
+          console.log(`OccupancyCard: Subscribed to check_ins changes for gym ${gymDbId}`);
+        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          console.error(`OccupancyCard: Subscription error for gym ${gymDbId}:`, status, err);
+          // Optionally, you could try to re-subscribe or notify the user
+        }
       });
-  }, [gymDbId]); // Refetch if gymDbId changes (e.g. user logs into different gym - not applicable here but good practice)
+
+    channelRef.current = newChannel;
+
+    return () => {
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current)
+          .then(() => console.log(`OccupancyCard: Unsubscribed from gym ${gymDbId}`))
+          .catch(err => console.error(`OccupancyCard: Error unsubscribing from gym ${gymDbId}`, err));
+        channelRef.current = null;
+      }
+    };
+  }, [gymDbId, supabase]);
 
 
   const chartData = [

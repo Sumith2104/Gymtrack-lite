@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import type { DailyCheckIns } from '@/lib/types';
@@ -10,6 +10,8 @@ import { ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from '
 import { cn } from '@/lib/utils';
 import { getDailyCheckInTrends } from '@/app/actions/dashboard-actions';
 import { Skeleton } from '@/components/ui/skeleton';
+import { createSupabaseBrowserClient } from '@/lib/supabase/client';
+import type { RealtimeChannel } from '@supabase/supabase-js';
 
 const chartConfig = {
   checkIns: {
@@ -23,61 +25,90 @@ export function CheckinTrendsChart({ className }: { className?: string }) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [gymDbId, setGymDbId] = useState<string | null>(null);
+  const channelRef = useRef<RealtimeChannel | null>(null);
+  const supabase = createSupabaseBrowserClient();
 
+  const fetchAndSetTrends = async (id: string) => {
+    const data = await getDailyCheckInTrends(id);
+    if (data.error) {
+      setError(data.error);
+      // Set to empty state on error
+      const emptyDays: DailyCheckIns[] = Array(7).fill(null).map((_, i) => {
+          const date = new Date();
+          date.setDate(date.getDate() - (6 - i));
+          return { date: date.toLocaleDateString('en-US', { weekday: 'short' }).substring(0,3), count: 0 };
+      });
+      setChartData(emptyDays);
+    } else {
+      setChartData(data.trends);
+    }
+  };
+  
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const id = localStorage.getItem('gymDatabaseId');
       setGymDbId(id);
+      if (id) {
+        setIsLoading(true);
+        setError(null);
+        fetchAndSetTrends(id).finally(() => setIsLoading(false));
+      } else {
+        setIsLoading(false);
+        const emptyDays: DailyCheckIns[] = Array(7).fill(null).map((_, i) => {
+            const date = new Date();
+            date.setDate(date.getDate() - (6-i));
+            return { date: date.toLocaleDateString('en-US', { weekday: 'short' }).substring(0,3), count: 0 };
+        });
+        setChartData(emptyDays);
+      }
     }
   }, []);
 
   useEffect(() => {
-    if (!gymDbId) {
-        setIsLoading(false);
-        // setError("Gym ID not found. Please log in again."); // Optional
-        // Initialize with empty days for placeholder
-        const emptyDays: DailyCheckIns[] = [];
-        for (let i = 6; i >= 0; i--) {
-            const date = new Date();
-            date.setDate(date.getDate() - i);
-            emptyDays.push({ date: date.toLocaleDateString('en-US', { weekday: 'short' }).substring(0,3), count: 0 });
-        }
-        setChartData(emptyDays);
-        return;
+    if (!gymDbId || !supabase) {
+      return;
     }
 
-    setIsLoading(true);
-    setError(null);
-    getDailyCheckInTrends(gymDbId)
-      .then(data => {
-        if (data.error) {
-          setError(data.error);
-           const emptyDays: DailyCheckIns[] = [];
-            for (let i = 6; i >= 0; i--) {
-                const date = new Date();
-                date.setDate(date.getDate() - i);
-                emptyDays.push({ date: date.toLocaleDateString('en-US', { weekday: 'short' }).substring(0,3), count: 0 });
-            }
-          setChartData(emptyDays); // Show empty chart on error
-        } else {
-          setChartData(data.trends);
+    if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
+    }
+
+    const newChannel = supabase
+      .channel(`checkin-trends-updates-${gymDbId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT', // Primarily interested in new check-ins for trends
+          schema: 'public',
+          table: 'check_ins',
+          filter: `gym_id=eq.${gymDbId}`,
+        },
+        (payload) => {
+          console.log('CheckinTrendsChart: New check_in received!', payload);
+          fetchAndSetTrends(gymDbId); // Re-fetch trends on new check-in
         }
-      })
-      .catch(err => {
-        console.error("CheckinTrendsChart fetch error:", err);
-        setError("Failed to load check-in trends.");
-        const emptyDays: DailyCheckIns[] = [];
-        for (let i = 6; i >= 0; i--) {
-            const date = new Date();
-            date.setDate(date.getDate() - i);
-            emptyDays.push({ date: date.toLocaleDateString('en-US', { weekday: 'short' }).substring(0,3), count: 0 });
+      )
+      .subscribe((status, err) => {
+         if (status === 'SUBSCRIBED') {
+          console.log(`CheckinTrendsChart: Subscribed to check_ins inserts for gym ${gymDbId}`);
+        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          console.error(`CheckinTrendsChart: Subscription error for gym ${gymDbId}:`, status, err);
         }
-        setChartData(emptyDays);
-      })
-      .finally(() => {
-        setIsLoading(false);
       });
-  }, [gymDbId]);
+    
+    channelRef.current = newChannel;
+
+    return () => {
+      if (channelRef.current) {
+         supabase.removeChannel(channelRef.current)
+          .then(() => console.log(`CheckinTrendsChart: Unsubscribed from gym ${gymDbId}`))
+          .catch(e => console.error(`CheckinTrendsChart: Error unsubscribing from gym ${gymDbId}`, e));
+        channelRef.current = null;
+      }
+    };
+  }, [gymDbId, supabase]);
+
 
   return (
     <Card className={cn("shadow-lg", className)}>
