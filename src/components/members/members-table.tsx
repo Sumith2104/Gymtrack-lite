@@ -101,8 +101,6 @@ export function MembersTable() {
   const [isBulkEmailDialogOpen, setIsBulkEmailDialogOpen] = React.useState(false);
   const [bulkEmailRecipients, setBulkEmailRecipients] = React.useState<Member[]>([]);
   
-  const [memberToDelete, setMemberToDelete] = React.useState<Member | null>(null);
-  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = React.useState(false);
   const [isBulkDeleteConfirmOpen, setIsBulkDeleteConfirmOpen] = React.useState(false);
 
 
@@ -117,7 +115,7 @@ export function MembersTable() {
       setData(response.data.map(m => ({ ...m, effectiveStatus: getEffectiveMembershipStatus(m) })));
     }
     setIsLoadingMembers(false);
-    setRowSelection({}); // Clear selection on reload
+    setRowSelection({}); 
   }, []);
 
   React.useEffect(() => {
@@ -135,7 +133,7 @@ export function MembersTable() {
   }, [loadMembers]);
   
   const gymMembers = React.useMemo(() => {
-    if (!currentGymDatabaseId) return []; // Ensure we don't filter if gym ID isn't set yet
+    if (!currentGymDatabaseId) return []; 
     return data.filter(member => member.gymId === currentGymDatabaseId);
   }, [data, currentGymDatabaseId]);
 
@@ -154,9 +152,7 @@ export function MembersTable() {
 
   const handleMemberSaved = (savedMember: Member) => {
     if (currentGymDatabaseId) {
-        // Check if member's gymId matches current gym before adding to local state or re-fetching
         if (savedMember.gymId === currentGymDatabaseId) {
-          // Optimistic update or re-fetch
           const memberExists = data.some(m => m.id === savedMember.id);
           if (memberExists) {
             setData(prevData => prevData.map(m => m.id === savedMember.id ? {...savedMember, effectiveStatus: getEffectiveMembershipStatus(savedMember) } : m));
@@ -164,8 +160,6 @@ export function MembersTable() {
             setData(prevData => [{...savedMember, effectiveStatus: getEffectiveMembershipStatus(savedMember)}, ...prevData]);
           }
         }
-        // If using a full re-fetch strategy, it would be:
-        // loadMembers(currentGymDatabaseId);
     }
     setIsAddMemberDialogOpen(false);
     setMemberToEdit(null);
@@ -181,22 +175,15 @@ export function MembersTable() {
     setIsAddMemberDialogOpen(true);
   };
   
-  const confirmDeleteMember = (member: Member) => {
-    setMemberToDelete(member);
-    setIsDeleteConfirmOpen(true);
-  };
-
-  const executeDeleteMember = async () => {
-    if (!memberToDelete || !currentGymDatabaseId) return;
-    const response = await deleteMemberAction(memberToDelete.id);
+  const executeDeleteMember = async (memberToDeleteNow: Member) => {
+    if (!memberToDeleteNow || !currentGymDatabaseId) return;
+    const response = await deleteMemberAction(memberToDeleteNow.id);
     if (response.success) {
-      toast({ title: "Member Deleted", description: `${memberToDelete.name} has been removed.` });
-      loadMembers(currentGymDatabaseId); // Re-fetch to update the list
+      toast({ title: "Member Deleted", description: `${memberToDeleteNow.name} has been removed.` });
+      loadMembers(currentGymDatabaseId); 
     } else {
       toast({ variant: "destructive", title: "Error Deleting Member", description: response.error });
     }
-    setIsDeleteConfirmOpen(false);
-    setMemberToDelete(null);
   };
 
   const handleManualStatusUpdate = async (member: Member, newStatus: MembershipStatus) => {
@@ -208,8 +195,8 @@ export function MembersTable() {
 
     const response = await updateMemberStatusAction(member.id, newStatus);
     if (response.updatedMember) {
-        toast({ title: "Status Updated", description: `${member.name}'s status changed to ${newStatus}. (Simulated email notification)` });
-        loadMembers(currentGymDatabaseId); // Re-fetch
+        toast({ title: "Status Updated", description: `${member.name}'s status changed to ${newStatus}.` });
+        loadMembers(currentGymDatabaseId); 
         console.log(`SIMULATING: Email notification to ${member.email} about status change to ${newStatus}.`);
     } else {
         toast({ variant: "destructive", title: "Error Updating Status", description: response.error });
@@ -237,7 +224,7 @@ export function MembersTable() {
     const memberIdsToDelete = selectedRows.map(row => row.original.id);
     const response = await deleteMembersAction(memberIdsToDelete);
     
-    toast({ title: "Bulk Delete Processed", description: `${response.successCount} member(s) targeted for deletion. ${response.errorCount > 0 ? `${response.errorCount} failed. Error: ${response.error}` : (response.error ? `Error: ${response.error}` : '')}` });
+    toast({ title: "Bulk Delete Processed", description: `${response.successCount} member(s) deleted. ${response.errorCount > 0 ? `${response.errorCount} failed. Error: ${response.error}` : (response.error ? `Error: ${response.error}` : '')}` });
     
     if (response.successCount > 0) {
         loadMembers(currentGymDatabaseId); 
@@ -396,15 +383,28 @@ export function MembersTable() {
                 </DropdownMenuPortal>
               </DropdownMenuSub>
               <DropdownMenuSeparator />
-              <AlertDialogTrigger asChild>
-                <DropdownMenuItem 
-                    onSelect={(e) => e.preventDefault()} 
-                    onClick={() => confirmDeleteMember(member)}
-                    className="text-destructive focus:text-destructive focus:bg-destructive/10"
-                >
-                  <Trash2 className="mr-2 h-4 w-4" /> Delete Member
-                </DropdownMenuItem>
-              </AlertDialogTrigger>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <DropdownMenuItem 
+                      onSelect={(e) => e.preventDefault()} 
+                      className="text-destructive focus:text-destructive focus:bg-destructive/10"
+                  >
+                    <Trash2 className="mr-2 h-4 w-4" /> Delete Member
+                  </DropdownMenuItem>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                    <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        This action cannot be undone. This will permanently delete {member.name}.
+                    </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={() => executeDeleteMember(member)} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </DropdownMenuContent>
           </DropdownMenu>
         );
@@ -493,20 +493,6 @@ export function MembersTable() {
             }}
         />
       )}
-       <AlertDialog open={isDeleteConfirmOpen} onOpenChange={setIsDeleteConfirmOpen}>
-          <AlertDialogContent>
-              <AlertDialogHeader>
-              <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-              <AlertDialogDescription>
-                  This action cannot be undone. This will permanently delete {memberToDelete?.name || 'the selected member'}.
-              </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-              <AlertDialogCancel onClick={() => setMemberToDelete(null)}>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={executeDeleteMember} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
-              </AlertDialogFooter>
-          </AlertDialogContent>
-      </AlertDialog>
       <AlertDialog open={isBulkDeleteConfirmOpen} onOpenChange={setIsBulkDeleteConfirmOpen}>
           <AlertDialogContent>
               <AlertDialogHeader>
@@ -633,13 +619,15 @@ export function MembersTable() {
                         <Mail className="mr-2 h-4 w-4" /> Send Custom Email
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
-                     <DropdownMenuItem 
-                        onSelect={(e) => { e.preventDefault(); if (selectedRowCount > 0) setIsBulkDeleteConfirmOpen(true); }}
-                        className="text-destructive focus:text-destructive"
-                        disabled={selectedRowCount === 0}
-                    >
-                        <Trash2 className="mr-2 h-4 w-4" /> Delete Selected ({selectedRowCount})
-                    </DropdownMenuItem>
+                    <AlertDialogTrigger asChild>
+                         <DropdownMenuItem 
+                            onSelect={(e) => { e.preventDefault(); if (selectedRowCount > 0) setIsBulkDeleteConfirmOpen(true); }}
+                            className="text-destructive focus:text-destructive"
+                            disabled={selectedRowCount === 0}
+                        >
+                            <Trash2 className="mr-2 h-4 w-4" /> Delete Selected ({selectedRowCount})
+                        </DropdownMenuItem>
+                    </AlertDialogTrigger>
                     </DropdownMenuContent>
                 </DropdownMenu>
            </div>
@@ -722,3 +710,4 @@ export function MembersTable() {
     </div>
   );
 }
+
