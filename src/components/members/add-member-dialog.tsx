@@ -32,7 +32,8 @@ import { useToast } from '@/hooks/use-toast';
 import type { Member, MembershipStatus, MembershipPlan, MembershipType, Announcement } from '@/lib/types';
 import { MOCK_MEMBERSHIP_PLANS, APP_NAME } from '@/lib/constants';
 import { cn } from '@/lib/utils';
-import { addMember, addMemberFormSchema, type AddMemberFormValues } from '@/app/actions/member-actions';
+import { addMember } from '@/app/actions/member-actions';
+import { addMemberFormSchema, type AddMemberFormValues } from '@/lib/schemas/member-schemas';
 
 
 const memberStatuses: MembershipStatus[] = ['active', 'inactive', 'expired', 'pending'];
@@ -121,16 +122,16 @@ export function AddMemberDialog({ isOpen, onOpenChange, onMemberSaved, memberToE
     }
   };
 
-  const handleMembershipTypeChange = (selectedPlanId: string | null | undefined) => {
-    const selectedPlan = MOCK_MEMBERSHIP_PLANS.find(p => p.id === selectedPlanId);
-    form.setValue('membershipType', selectedPlan?.name as MembershipType);
+  const handleMembershipTypeChange = (selectedPlanName: MembershipType | null | undefined) => {
+    const selectedPlan = MOCK_MEMBERSHIP_PLANS.find(p => p.name === selectedPlanName);
+    form.setValue('membershipType', selectedPlanName as MembershipType); // Ensure form state is updated
     updateCalculatedFields(selectedPlan, form.getValues('joinDate'));
   };
   
   const handleJoinDateChange = (date: Date | undefined) => {
       form.setValue('joinDate', date || new Date());
-      const currentMembershipTypeId = MOCK_MEMBERSHIP_PLANS.find(p=>p.name === form.getValues('membershipType'))?.id;
-      const selectedPlan = MOCK_MEMBERSHIP_PLANS.find(p => p.id === currentMembershipTypeId);
+      const currentMembershipTypeName = form.getValues('membershipType');
+      const selectedPlan = MOCK_MEMBERSHIP_PLANS.find(p=>p.name === currentMembershipTypeName);
       updateCalculatedFields(selectedPlan, date);
   };
 
@@ -345,13 +346,19 @@ export function AddMemberDialog({ isOpen, onOpenChange, onMemberSaved, memberToE
             />
             <FormField
               control={form.control}
-              name="membershipType"
-              render={({ field }) => ( // field here refers to 'membershipType' which is plan.name
+              name="membershipType" // This field in the form stores plan.name (MembershipType)
+              render={({ field }) => ( 
                 <FormItem>
                   <FormLabel>Membership Type *</FormLabel>
                   <Select 
-                    onValueChange={(selectedPlanId) => handleMembershipTypeChange(selectedPlanId)}
-                    value={MOCK_MEMBERSHIP_PLANS.find(p => p.name === field.value)?.id || undefined}
+                    onValueChange={(selectedPlanId) => { // onValueChange now gives plan.id
+                      const selectedPlan = MOCK_MEMBERSHIP_PLANS.find(p => p.id === selectedPlanId);
+                      if (selectedPlan) {
+                        field.onChange(selectedPlan.name); // Update form with plan.name
+                        handleMembershipTypeChange(selectedPlan.name); // Pass plan.name to handler
+                      }
+                    }}
+                    value={MOCK_MEMBERSHIP_PLANS.find(p => p.name === field.value)?.id || undefined} // Select value should be plan.id
                   >
                     <FormControl>
                       <SelectTrigger>
@@ -390,7 +397,7 @@ export function AddMemberDialog({ isOpen, onOpenChange, onMemberSaved, memberToE
                 />
             </FormItem>
 
-            {isEditing && ( // Only show status field when editing
+            {isEditing && memberToEdit && ( // Only show status field when editing
                  <FormField
                     control={form.control}
                     name="membershipStatus" // This needs to be added to AddMemberFormValues if editing can change it
@@ -398,14 +405,19 @@ export function AddMemberDialog({ isOpen, onOpenChange, onMemberSaved, memberToE
                         <FormItem>
                         <FormLabel>Membership Status *</FormLabel>
                         <Select 
-                            onValueChange={field.onChange} 
-                            // @ts-ignore
-                            value={memberToEdit?.membershipStatus} // Use actual member status for edit
+                            onValueChange={(value) => {
+                                // @ts-ignore
+                                field.onChange(value as MembershipStatus);
+                                // If you need to update memberToEdit directly or trigger other side effects
+                                if (memberToEdit) {
+                                  memberToEdit.membershipStatus = value as MembershipStatus;
+                                }
+                            }}
+                            value={memberToEdit.membershipStatus} // Use actual member status for edit
                         >
                             <FormControl>
                             <SelectTrigger>
-                                {/* @ts-ignore */}
-                                <SelectValue placeholder={memberToEdit?.membershipStatus || "Select status"} />
+                                <SelectValue placeholder={memberToEdit.membershipStatus || "Select status"} />
                             </SelectTrigger>
                             </FormControl>
                             <SelectContent>
@@ -434,3 +446,5 @@ export function AddMemberDialog({ isOpen, onOpenChange, onMemberSaved, memberToE
     </Dialog>
   );
 }
+
+    
