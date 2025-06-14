@@ -23,6 +23,7 @@ import { useToast } from '@/hooks/use-toast';
 import { generateMotivationalQuote, type MotivationalQuoteInput } from '@/ai/flows/generate-motivational-quote';
 import type { Member, FormattedCheckIn } from '@/lib/types';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { cn } from '@/lib/utils';
 
 const checkinSchema = z.object({
   identifier: z.string().min(1, { message: 'Member ID or QR code data is required.' }),
@@ -249,7 +250,7 @@ export function CheckinForm({ className, onSuccessfulCheckin, todaysCheckins }: 
 
   if (isScanning) {
     return (
-      <Card className={`max-w-lg shadow-2xl w-full ${className}`}>
+      <Card className={cn("w-full shadow-2xl", className)}>
         <CardHeader className="text-center">
           <CardTitle className="text-3xl font-headline">Scan QR Code</CardTitle>
           <CardDescription>Point your QR code at the camera.</CardDescription>
@@ -280,7 +281,7 @@ export function CheckinForm({ className, onSuccessfulCheckin, todaysCheckins }: 
 
 
   return (
-    <Card className={`max-w-lg shadow-2xl w-full ${className}`}>
+    <Card className={cn("w-full shadow-2xl", className)}>
       <CardHeader className="text-center">
         <CardTitle className="text-3xl font-headline">Member Check-in</CardTitle>
         <CardDescription>Enter Member ID or Scan QR</CardDescription>

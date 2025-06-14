@@ -76,16 +76,14 @@ export default function KioskPage() {
         <div className="mt-3 h-1 w-24 bg-primary rounded-full ml-0"></div>
       </div>
 
-      <div className="w-full flex flex-col items-center gap-6 xl:gap-8">
+      <div className="w-full flex flex-col gap-6 xl:gap-8">
         <CheckinForm 
           onSuccessfulCheckin={handleSuccessfulCheckin} 
           todaysCheckins={todaysCheckins}
-          // No className="w-full" here, rely on internal max-w-lg and items-center
         />
         <RecentCheckinsCard 
           newCheckinEntry={newlyAddedCheckin}
           initialCheckins={allRecentCheckins.filter(ci => ci.gymName === kioskGymName)}
-          // No className="w-full" here
         />
       </div>
       

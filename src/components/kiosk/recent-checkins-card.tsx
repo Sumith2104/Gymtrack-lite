@@ -56,7 +56,7 @@ export function RecentCheckinsCard({ newCheckinEntry, initialCheckins, className
   };
 
   return (
-    <Card className={cn("max-w-lg shadow-lg w-full", className)}>
+    <Card className={cn("shadow-lg w-full", className)}>
       <CardHeader>
         <div className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-xl font-headline">Recent Check-ins</CardTitle>
