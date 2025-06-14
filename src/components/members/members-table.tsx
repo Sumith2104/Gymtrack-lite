@@ -53,7 +53,8 @@ import type { Member, MembershipStatus, AttendanceSummary } from '@/lib/types';
 import { AddMemberDialog } from './add-member-dialog';
 import { AttendanceOverviewDialog } from './attendance-overview-dialog';
 import { BulkEmailDialog } from './bulk-email-dialog';
-import { fetchMembers, deleteMemberAction, updateMemberStatusAction, deleteMembersAction, bulkUpdateMemberStatusAction } from '@/app/actions/member-actions';
+import { fetchMembers, deleteMemberAction, updateMemberStatusAction, deleteMembersAction, bulkUpdateMemberStatusAction, sendBulkCustomEmailAction } from '@/app/actions/member-actions';
+import { APP_NAME } from '@/lib/constants';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   AlertDialog,
@@ -347,66 +348,66 @@ export function MembersTable() {
       cell: ({ row }) => {
         const member = row.original;
         return (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="h-8 w-8 p-0">
-                <span className="sr-only">Open menu</span>
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuLabel>Member Actions</DropdownMenuLabel>
-              <DropdownMenuItem onClick={() => openEditDialog(member)}>
-                <Edit3 className="mr-2 h-4 w-4" /> Edit Details
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleViewAttendance(member)}>
-                <FileText className="mr-2 h-4 w-4" /> Attendance Summary
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuSub>
-                <DropdownMenuSubTrigger>
-                    <UserCog className="mr-2 h-4 w-4" />
-                    <span>Change Status</span>
-                </DropdownMenuSubTrigger>
-                <DropdownMenuPortal>
-                    <DropdownMenuSubContent>
-                        {(['active', 'inactive', 'pending', 'expired'] as MembershipStatus[]).map(s => (
-                            <DropdownMenuItem key={s} onClick={() => handleManualStatusUpdate(member, s)} disabled={s === member.membershipStatus || s === 'expiring soon'}>
-                            {s === 'active' && <UserCheck className="mr-2 h-4 w-4 text-green-500" />}
-                            {s === 'inactive' && <UserX className="mr-2 h-4 w-4 text-slate-500" />}
-                            {s === 'pending' && <UserCog className="mr-2 h-4 w-4 text-yellow-500" />}
-                            {s === 'expired' && <MailWarning className="mr-2 h-4 w-4 text-red-500" />}
-                            Set to {s.charAt(0).toUpperCase() + s.slice(1)}
-                            </DropdownMenuItem>
-                        ))}
-                    </DropdownMenuSubContent>
-                </DropdownMenuPortal>
-              </DropdownMenuSub>
-              <DropdownMenuSeparator />
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <DropdownMenuItem 
-                      onSelect={(e) => e.preventDefault()} 
-                      className="text-destructive focus:text-destructive focus:bg-destructive/10"
-                  >
-                    <Trash2 className="mr-2 h-4 w-4" /> Delete Member
-                  </DropdownMenuItem>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                    <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                        This action cannot be undone. This will permanently delete {member.name}.
-                    </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={() => executeDeleteMember(member)} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <AlertDialog>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="h-8 w-8 p-0">
+                  <span className="sr-only">Open menu</span>
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuLabel>Member Actions</DropdownMenuLabel>
+                <DropdownMenuItem onClick={() => openEditDialog(member)}>
+                  <Edit3 className="mr-2 h-4 w-4" /> Edit Details
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleViewAttendance(member)}>
+                  <FileText className="mr-2 h-4 w-4" /> Attendance Summary
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger>
+                      <UserCog className="mr-2 h-4 w-4" />
+                      <span>Change Status</span>
+                  </DropdownMenuSubTrigger>
+                  <DropdownMenuPortal>
+                      <DropdownMenuSubContent>
+                          {(['active', 'inactive', 'pending', 'expired'] as MembershipStatus[]).map(s => (
+                              <DropdownMenuItem key={s} onClick={() => handleManualStatusUpdate(member, s)} disabled={s === member.membershipStatus || s === 'expiring soon'}>
+                              {s === 'active' && <UserCheck className="mr-2 h-4 w-4 text-green-500" />}
+                              {s === 'inactive' && <UserX className="mr-2 h-4 w-4 text-slate-500" />}
+                              {s === 'pending' && <UserCog className="mr-2 h-4 w-4 text-yellow-500" />}
+                              {s === 'expired' && <MailWarning className="mr-2 h-4 w-4 text-red-500" />}
+                              Set to {s.charAt(0).toUpperCase() + s.slice(1)}
+                              </DropdownMenuItem>
+                          ))}
+                      </DropdownMenuSubContent>
+                  </DropdownMenuPortal>
+                </DropdownMenuSub>
+                <DropdownMenuSeparator />
+                  <AlertDialogTrigger asChild>
+                    <DropdownMenuItem 
+                        onSelect={(e) => e.preventDefault()} 
+                        className="text-destructive focus:text-destructive focus:bg-destructive/10"
+                    >
+                      <Trash2 className="mr-2 h-4 w-4" /> Delete Member
+                    </DropdownMenuItem>
+                  </AlertDialogTrigger>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                <AlertDialogDescription>
+                    This action cannot be undone. This will permanently delete {member.name}.
+                </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={() => executeDeleteMember(member)} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         );
       },
     },
@@ -481,14 +482,24 @@ export function MembersTable() {
             isOpen={isBulkEmailDialogOpen}
             onOpenChange={setIsBulkEmailDialogOpen}
             recipients={bulkEmailRecipients}
-            onSend={(subject, body) => {
-                toast({ title: "Bulk Email Sent (Simulated)", description: `Email with subject "${subject}" sent to ${bulkEmailRecipients.length} members.`});
-                console.log("SIMULATING Bulk Email:", {subject, body, recipients: bulkEmailRecipients.map(r => r.email)});
-                if (bulkEmailRecipients.length === 1 && bulkEmailRecipients[0].memberId) {
-                    const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(bulkEmailRecipients[0].memberId)}`;
-                    console.log(`SIMULATING: QR Code for ${bulkEmailRecipients[0].memberId} would be included: ${qrCodeUrl}`);
+            onSend={async (subject, body) => {
+                if (bulkEmailRecipients.length === 0 || !currentGymDatabaseId) {
+                    toast({ variant: "destructive", title: "Error", description: "No recipients or gym context."});
+                    return;
                 }
-                setBulkEmailRecipients([]); 
+                const gymName = localStorage.getItem('gymName') || APP_NAME;
+                const memberDbIds = bulkEmailRecipients.map(r => r.id);
+                const response = await sendBulkCustomEmailAction(memberDbIds, subject, body, gymName);
+
+                if (response.error) {
+                    toast({ variant: "destructive", title: "Email Sending Error", description: response.error });
+                } else {
+                    toast({
+                        title: "Bulk Email Processed",
+                        description: `Emails attempted: ${response.attempted}. Successful: ${response.successful}. No email address: ${response.noEmailAddress}. Failed: ${response.failed}.`
+                    });
+                }
+                setBulkEmailRecipients([]);
                 setRowSelection({});
             }}
         />
@@ -564,70 +575,70 @@ export function MembersTable() {
             </DropdownMenu>
             
             <AlertDialog open={isBulkDeleteConfirmOpen} onOpenChange={setIsBulkDeleteConfirmOpen}>
-                <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                    <Button variant="outline" size="sm" disabled={selectedRowCount === 0}>
-                        Actions for Selected ({selectedRowCount}) <ChevronDownIcon className="ml-2 h-4 w-4" />
-                    </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                    <DropdownMenuLabel>Bulk Actions</DropdownMenuLabel>
-                    <DropdownMenuItem 
-                        onClick={() => {
-                            const selectedMember = table.getFilteredSelectedRowModel().rows[0]?.original;
-                            if (selectedMember) openEditDialog(selectedMember);
-                        }}
-                        disabled={selectedRowCount !== 1}
-                    >
-                        <Edit3 className="mr-2 h-4 w-4" /> Edit Member
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                     <DropdownMenuSub>
-                        <DropdownMenuSubTrigger>
-                            <UserCog className="mr-2 h-4 w-4" />
-                            <span>Set Status To</span>
-                        </DropdownMenuSubTrigger>
-                        <DropdownMenuPortal>
-                            <DropdownMenuSubContent>
-                            {(['active', 'inactive', 'expired', 'pending'] as MembershipStatus[]).map(status => (
-                                <DropdownMenuItem key={status} onClick={() => handleBulkStatusUpdate(status)} className="capitalize">
-                                {status === 'active' && <UserCheck className="mr-2 h-4 w-4 text-green-500" />}
-                                {status === 'inactive' && <UserX className="mr-2 h-4 w-4 text-slate-500" />}
-                                {status === 'pending' && <UserCog className="mr-2 h-4 w-4 text-yellow-500" />}
-                                {status === 'expired' && <MailWarning className="mr-2 h-4 w-4 text-red-500" />}
-                                {status}
-                                </DropdownMenuItem>
-                            ))}
-                            </DropdownMenuSubContent>
-                        </DropdownMenuPortal>
-                    </DropdownMenuSub>
-                    <DropdownMenuItem onClick={handleOpenBulkEmailDialog} disabled={selectedRowCount === 0}>
-                        <Mail className="mr-2 h-4 w-4" /> Send Custom Email
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <AlertDialogTrigger asChild>
-                         <DropdownMenuItem 
-                            onSelect={(e) => { e.preventDefault(); if (selectedRowCount > 0) setIsBulkDeleteConfirmOpen(true); }}
-                            className="text-destructive focus:text-destructive"
-                            disabled={selectedRowCount === 0}
-                        >
-                            <Trash2 className="mr-2 h-4 w-4" /> Delete Selected ({selectedRowCount})
-                        </DropdownMenuItem>
-                    </AlertDialogTrigger>
-                    </DropdownMenuContent>
-                </DropdownMenu>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                    <AlertDialogTitle>Confirm Bulk Deletion</AlertDialogTitle>
-                    <AlertDialogDescription>
-                        This action cannot be undone. This will permanently delete {selectedRowCount} selected member(s).
-                    </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                    <AlertDialogCancel onClick={() => setIsBulkDeleteConfirmOpen(false)}>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleBulkDelete} className="bg-destructive hover:bg-destructive/90">Delete Selected</AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
+              <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" disabled={selectedRowCount === 0}>
+                      Actions for Selected ({selectedRowCount}) <ChevronDownIcon className="ml-2 h-4 w-4" />
+                  </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                  <DropdownMenuLabel>Bulk Actions</DropdownMenuLabel>
+                  <DropdownMenuItem 
+                      onClick={() => {
+                          const selectedMember = table.getFilteredSelectedRowModel().rows[0]?.original;
+                          if (selectedMember) openEditDialog(selectedMember);
+                      }}
+                      disabled={selectedRowCount !== 1}
+                  >
+                      <Edit3 className="mr-2 h-4 w-4" /> Edit Member
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                    <DropdownMenuSub>
+                      <DropdownMenuSubTrigger>
+                          <UserCog className="mr-2 h-4 w-4" />
+                          <span>Set Status To</span>
+                      </DropdownMenuSubTrigger>
+                      <DropdownMenuPortal>
+                          <DropdownMenuSubContent>
+                          {(['active', 'inactive', 'expired', 'pending'] as MembershipStatus[]).map(status => (
+                              <DropdownMenuItem key={status} onClick={() => handleBulkStatusUpdate(status)} className="capitalize">
+                              {status === 'active' && <UserCheck className="mr-2 h-4 w-4 text-green-500" />}
+                              {status === 'inactive' && <UserX className="mr-2 h-4 w-4 text-slate-500" />}
+                              {status === 'pending' && <UserCog className="mr-2 h-4 w-4 text-yellow-500" />}
+                              {status === 'expired' && <MailWarning className="mr-2 h-4 w-4 text-red-500" />}
+                              {status}
+                              </DropdownMenuItem>
+                          ))}
+                          </DropdownMenuSubContent>
+                      </DropdownMenuPortal>
+                  </DropdownMenuSub>
+                  <DropdownMenuItem onClick={handleOpenBulkEmailDialog} disabled={selectedRowCount === 0}>
+                      <Mail className="mr-2 h-4 w-4" /> Send Custom Email
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <AlertDialogTrigger asChild>
+                        <DropdownMenuItem 
+                          onSelect={(e) => { e.preventDefault(); if (selectedRowCount > 0) setIsBulkDeleteConfirmOpen(true); }}
+                          className="text-destructive focus:text-destructive"
+                          disabled={selectedRowCount === 0}
+                      >
+                          <Trash2 className="mr-2 h-4 w-4" /> Delete Selected ({selectedRowCount})
+                      </DropdownMenuItem>
+                  </AlertDialogTrigger>
+                  </DropdownMenuContent>
+              </DropdownMenu>
+              <AlertDialogContent>
+                  <AlertDialogHeader>
+                  <AlertDialogTitle>Confirm Bulk Deletion</AlertDialogTitle>
+                  <AlertDialogDescription>
+                      This action cannot be undone. This will permanently delete {selectedRowCount} selected member(s).
+                  </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                  <AlertDialogCancel onClick={() => setIsBulkDeleteConfirmOpen(false)}>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleBulkDelete} className="bg-destructive hover:bg-destructive/90">Delete Selected</AlertDialogAction>
+                  </AlertDialogFooter>
+              </AlertDialogContent>
             </AlertDialog>
            </div>
       </div>
@@ -709,3 +720,4 @@ export function MembersTable() {
     </div>
   );
 }
+

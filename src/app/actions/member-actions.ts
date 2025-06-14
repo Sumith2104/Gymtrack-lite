@@ -140,12 +140,19 @@ export async function addMember(
     const announcementTitle = `Welcome New Member: ${newMemberAppFormat.name}!`;
     const announcementContent = `Let's all give a warm welcome to ${newMemberAppFormat.name} (ID: ${newMemberAppFormat.memberId}), who joined us on ${newMemberAppFormat.joinDate ? formatDateIST(newMemberAppFormat.joinDate, 'PPP') : 'a recent date'} with a ${newMemberAppFormat.membershipType || 'new'} membership! We're excited to have them in the ${gymName} community.`;
     
-    const announcementResult = await addAnnouncementAction(gymDatabaseId, announcementTitle, announcementContent);
-    if (announcementResult.error) {
-      console.error("Failed to create welcome announcement in DB:", announcementResult.error);
-    } else if (announcementResult.newAnnouncement?.id) {
-       window.dispatchEvent(new Event('reloadAnnouncements'));
-       console.log("Welcome announcement created in DB:", announcementResult.newAnnouncement.id);
+    // Check if running in a browser context before dispatching event
+    if (typeof window !== 'undefined') {
+      const announcementResult = await addAnnouncementAction(gymDatabaseId, announcementTitle, announcementContent);
+      if (announcementResult.error) {
+        console.error("Failed to create welcome announcement in DB:", announcementResult.error);
+      } else if (announcementResult.newAnnouncement?.id) {
+         window.dispatchEvent(new Event('reloadAnnouncements'));
+         console.log("Welcome announcement created in DB:", announcementResult.newAnnouncement.id);
+      }
+    } else {
+        // Handle case where not in browser (e.g. if this action could be called server-side only)
+        // For now, we assume it's client-initiated server action context where localStorage is available for gymDatabaseId
+        console.log("Skipping announcement event dispatch: not in browser context or addAnnouncementAction issue.");
     }
 
 
@@ -371,4 +378,78 @@ export async function bulkUpdateMemberStatusAction(memberDbIds: string[], newSta
 }
 
 
+export async function sendBulkCustomEmailAction(
+  memberDbIds: string[], 
+  subject: string, 
+  body: string,
+  gymName: string
+): Promise<{ attempted: number; successful: number; noEmailAddress: number; failed: number; error?: string }> {
+  if (!memberDbIds || memberDbIds.length === 0) {
+    return { attempted: 0, successful: 0, noEmailAddress: 0, failed: 0, error: "No member IDs provided for email." };
+  }
+  if (!subject || !body) {
+    return { attempted: 0, successful: 0, noEmailAddress: 0, failed: 0, error: "Subject and body are required for email." };
+  }
+  
+  const supabase = createSupabaseServerActionClient();
+  let attempted = 0;
+  let successful = 0;
+  let noEmailAddress = 0;
+  let failed = 0;
+
+  try {
+    const { data: members, error: fetchError } = await supabase
+      .from('members')
+      .select('id, name, email, member_id') // Fetch member_id for QR code
+      .in('id', memberDbIds);
+
+    if (fetchError) {
+      console.error('Error fetching members for bulk email:', fetchError.message);
+      return { attempted, successful, noEmailAddress, failed, error: `Failed to fetch member details: ${fetchError.message}` };
+    }
+
+    if (!members || members.length === 0) {
+      return { attempted, successful, noEmailAddress, failed, error: "No matching members found for the provided IDs." };
+    }
+
+    for (const member of members) {
+      if (member.email) {
+        attempted++;
+        let emailHtmlBody = `<p>Dear ${member.name || 'Member'},</p><p>${body.replace(/\n/g, '<br />')}</p>`;
+
+        // Add QR code if only one recipient and they have a memberId
+        if (memberDbIds.length === 1 && member.member_id) {
+          const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(member.member_id)}`;
+          emailHtmlBody += `
+            <p>Your Member ID QR Code:</p>
+            <div class="qr-code">
+              <img src="${qrCodeUrl}" alt="Membership QR Code" />
+            </div>
+          `;
+        }
+        
+        emailHtmlBody += `<p>Regards,<br/>The ${gymName} Team</p>`;
+
+        const emailResult = await sendEmail({
+          to: member.email,
+          subject: subject,
+          htmlBody: emailHtmlBody,
+        });
+
+        if (emailResult.success) {
+          successful++;
+        } else {
+          failed++;
+        }
+      } else {
+        noEmailAddress++;
+      }
+    }
+    return { attempted, successful, noEmailAddress, failed };
+
+  } catch (e: any) {
+    console.error('Unexpected error in sendBulkCustomEmailAction:', e.message);
+    return { attempted, successful, noEmailAddress, failed, error: 'An unexpected error occurred while sending emails.' };
+  }
+}
     
