@@ -18,7 +18,7 @@ export interface Member {
   planId?: string | null; // uuid, FK to plans.id - corresponds to MembershipPlan.id
   memberId: string; // User-defined member identifier (e.g., MBR001)
   name: string;
-  email: string;
+  email?: string | null; // Make email optional as per spec
   membershipStatus: MembershipStatus;
   createdAt: string; // timestamptz
   age?: number | null;

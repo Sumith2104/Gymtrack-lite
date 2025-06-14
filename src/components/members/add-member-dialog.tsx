@@ -3,8 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useForm, Controller } from 'react-hook-form';
-import * as z from 'zod';
+import { useForm } from 'react-hook-form';
 import { PlusCircle, CalendarIcon as CalendarIconLucide, Edit } from 'lucide-react';
 import { addMonths, format, parseISO } from 'date-fns';
 
@@ -16,7 +15,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@/components/ui/dialog';
 import {
   Form,
@@ -32,27 +30,12 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { useToast } from '@/hooks/use-toast';
 import type { Member, MembershipStatus, MembershipPlan, MembershipType, Announcement } from '@/lib/types';
-import { MOCK_MEMBERSHIP_PLANS, AVAILABLE_MEMBERSHIP_TYPES, APP_NAME } from '@/lib/constants';
+import { MOCK_MEMBERSHIP_PLANS, APP_NAME } from '@/lib/constants';
 import { cn } from '@/lib/utils';
+import { addMember, addMemberFormSchema, type AddMemberFormValues } from '@/app/actions/member-actions';
+
 
 const memberStatuses: MembershipStatus[] = ['active', 'inactive', 'expired', 'pending'];
-
-const memberSchema = z.object({
-  name: z.string().min(2, { message: 'Name must be at least 2 characters.' }).max(100),
-  email: z.string().email({ message: 'Invalid email address.' }).optional().or(z.literal('')),
-  memberId: z.string().min(3, { message: 'Member ID must be at least 3 characters.' }).max(20),
-  membershipStatus: z.enum(memberStatuses as [MembershipStatus, ...MembershipStatus[]]),
-  phoneNumber: z.string().optional().nullable(),
-  age: z.coerce.number().int().positive().optional().nullable(),
-  joinDate: z.date().nullable(),
-  expiryDate: z.date().nullable().optional(),
-  membershipType: z.custom<MembershipType>((val) => AVAILABLE_MEMBERSHIP_TYPES.includes(val as MembershipType), {
-    message: "Invalid membership type",
-  }).nullable(),
-  planPrice: z.coerce.number().nonnegative().optional().nullable(),
-});
-
-type MemberFormValues = z.infer<typeof memberSchema>;
 
 interface AddMemberDialogProps {
   isOpen: boolean;
@@ -64,69 +47,96 @@ interface AddMemberDialogProps {
 export function AddMemberDialog({ isOpen, onOpenChange, onMemberSaved, memberToEdit }: AddMemberDialogProps) {
   const { toast } = useToast();
   const [isEditing, setIsEditing] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const form = useForm<MemberFormValues>({
-    resolver: zodResolver(memberSchema),
+  const form = useForm<AddMemberFormValues>({
+    resolver: zodResolver(addMemberFormSchema),
     defaultValues: {
       name: '',
       email: '',
       memberId: '',
-      membershipStatus: 'active',
       phoneNumber: null,
       age: null,
       joinDate: new Date(),
-      expiryDate: null,
-      membershipType: null,
-      planPrice: null,
+      membershipType: MOCK_MEMBERSHIP_PLANS[0]?.name || undefined, // Default to first plan type
     },
   });
-
+  
+  // Effect to handle pre-filling form for editing or resetting for adding
   useEffect(() => {
-    if (memberToEdit && isOpen) {
-      setIsEditing(true);
-      form.reset({
-        name: memberToEdit.name,
-        email: memberToEdit.email || '',
-        memberId: memberToEdit.memberId,
-        membershipStatus: memberToEdit.membershipStatus,
-        phoneNumber: memberToEdit.phoneNumber,
-        age: memberToEdit.age,
-        joinDate: memberToEdit.joinDate ? parseISO(memberToEdit.joinDate) : new Date(),
-        expiryDate: memberToEdit.expiryDate ? parseISO(memberToEdit.expiryDate) : null,
-        membershipType: memberToEdit.membershipType,
-        planPrice: memberToEdit.planPrice,
-      });
-    } else {
-      setIsEditing(false);
-      form.reset({ // Reset to defaults for adding new member
-        name: '', email: '', memberId: '', membershipStatus: 'active',
-        phoneNumber: null, age: null, joinDate: new Date(),
-        expiryDate: null, membershipType: null, planPrice: null,
-      });
+    if (isOpen) {
+      if (memberToEdit) {
+        setIsEditing(true);
+        form.reset({
+          name: memberToEdit.name,
+          email: memberToEdit.email || '',
+          memberId: memberToEdit.memberId,
+          phoneNumber: memberToEdit.phoneNumber,
+          age: memberToEdit.age,
+          joinDate: memberToEdit.joinDate ? parseISO(memberToEdit.joinDate) : new Date(),
+          membershipType: memberToEdit.membershipType || MOCK_MEMBERSHIP_PLANS[0]?.name,
+          // Plan price & expiry date are re-calculated based on type and join date
+        });
+        // Trigger calculation for existing member
+        const initialPlan = MOCK_MEMBERSHIP_PLANS.find(p => p.name === (memberToEdit.membershipType || MOCK_MEMBERSHIP_PLANS[0]?.name));
+        const initialJoinDate = memberToEdit.joinDate ? parseISO(memberToEdit.joinDate) : new Date();
+        if (initialPlan && initialJoinDate) {
+            updateCalculatedFields(initialPlan, initialJoinDate);
+        }
+
+      } else {
+        setIsEditing(false);
+        form.reset({
+          name: '', email: '', memberId: '',
+          phoneNumber: null, age: null, joinDate: new Date(),
+          membershipType: MOCK_MEMBERSHIP_PLANS[0]?.name,
+        });
+        // Trigger calculation for new member default
+         const defaultPlan = MOCK_MEMBERSHIP_PLANS.find(p => p.name === MOCK_MEMBERSHIP_PLANS[0]?.name);
+         if (defaultPlan) {
+            updateCalculatedFields(defaultPlan, new Date());
+         }
+         if (!form.formState.dirtyFields.memberId) {
+            form.setValue('memberId', suggestMemberId('', null, MOCK_MEMBERSHIP_PLANS[0]?.name));
+         }
+      }
     }
   }, [memberToEdit, isOpen, form]);
 
 
-  const handleMembershipTypeChange = (selectedTypeName: MembershipType | null, joinDateValue?: Date | null) => {
-    const selectedPlan = MOCK_MEMBERSHIP_PLANS.find(p => p.name === selectedTypeName);
+  const updateCalculatedFields = (selectedPlan: MembershipPlan | undefined, joinDateValue: Date | null | undefined) => {
     const joinDate = joinDateValue instanceof Date ? joinDateValue : (form.getValues('joinDate') instanceof Date ? form.getValues('joinDate') : new Date());
 
     if (selectedPlan && joinDate) {
-      form.setValue('planPrice', selectedPlan.price);
+      form.setValue('planPrice' as any, selectedPlan.price, { shouldValidate: true }); // 'planPrice' is not in AddMemberFormValues, handled by server
       if (selectedPlan.durationMonths > 0) {
         const newExpiryDate = addMonths(joinDate, selectedPlan.durationMonths);
-        form.setValue('expiryDate', newExpiryDate);
+        form.setValue('expiryDate' as any, newExpiryDate, { shouldValidate: true }); // 'expiryDate' is not in AddMemberFormValues
       } else {
-        form.setValue('expiryDate', null); // For plans with no fixed duration like 'Other' or certain Class Passes
+        form.setValue('expiryDate' as any, null, { shouldValidate: true });
       }
     } else {
-      form.setValue('planPrice', null);
-      form.setValue('expiryDate', null);
+      form.setValue('planPrice' as any, null, { shouldValidate: true });
+      form.setValue('expiryDate' as any, null, { shouldValidate: true });
     }
   };
 
+  const handleMembershipTypeChange = (selectedPlanId: string | null | undefined) => {
+    const selectedPlan = MOCK_MEMBERSHIP_PLANS.find(p => p.id === selectedPlanId);
+    form.setValue('membershipType', selectedPlan?.name as MembershipType);
+    updateCalculatedFields(selectedPlan, form.getValues('joinDate'));
+  };
+  
+  const handleJoinDateChange = (date: Date | undefined) => {
+      form.setValue('joinDate', date || new Date());
+      const currentMembershipTypeId = MOCK_MEMBERSHIP_PLANS.find(p=>p.name === form.getValues('membershipType'))?.id;
+      const selectedPlan = MOCK_MEMBERSHIP_PLANS.find(p => p.id === currentMembershipTypeId);
+      updateCalculatedFields(selectedPlan, date);
+  };
+
+
   const suggestMemberId = (name: string, phone: string | null | undefined, membershipType: MembershipType | null | undefined) => {
-    if (!name && !phone) return '';
+    if (!name && !phone && !membershipType) return '';
     const namePart = name.substring(0, 3).toUpperCase();
     const phonePart = phone ? phone.slice(-3) : Math.floor(100 + Math.random() * 900).toString();
     const typePart = membershipType ? membershipType.substring(0,2).toUpperCase() : 'GN';
@@ -135,72 +145,81 @@ export function AddMemberDialog({ isOpen, onOpenChange, onMemberSaved, memberToE
   };
 
   useEffect(() => {
-    const subscription = form.watch((value, { name, type }) => {
-      if (name === 'membershipType' && type === 'change') {
-        // This is handled by the Select's onValueChange directly now for selectedPlan.name
-      }
-      if (name === 'joinDate' && type === 'change') {
-        handleMembershipTypeChange(value.membershipType as MembershipType | null, value.joinDate);
-      }
-      if ((name === 'name' || name === 'phoneNumber' || name === 'membershipType') && type === 'change' && !isEditing && !form.formState.dirtyFields.memberId) {
+    const subscription = form.watch((value, { name: fieldName, type }) => {
+      if ((fieldName === 'name' || fieldName === 'phoneNumber' || fieldName === 'membershipType') && type === 'change' && !isEditing && !form.formState.dirtyFields.memberId) {
          form.setValue('memberId', suggestMemberId(value.name || '', value.phoneNumber || '', value.membershipType as MembershipType | null));
       }
     });
     return () => subscription.unsubscribe();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form, isEditing]);
 
 
-  async function onSubmit(data: MemberFormValues) {
-    const gymDatabaseId = localStorage.getItem('gymDatabaseId') || 'default_gym_db_id_mock'; 
+  async function onSubmit(data: AddMemberFormValues) {
+    setIsSubmitting(true);
+    const gymDatabaseId = localStorage.getItem('gymDatabaseId') || 'default_gym_db_id_mock';
     const gymName = localStorage.getItem('gymName') || APP_NAME;
 
-    const savedMember: Member = {
-      id: isEditing && memberToEdit ? memberToEdit.id : `member_${Date.now()}`,
-      gymId: gymDatabaseId, 
-      ...data,
-      age: data.age || null,
-      phoneNumber: data.phoneNumber || null,
-      joinDate: data.joinDate ? data.joinDate.toISOString() : new Date().toISOString(),
-      expiryDate: data.expiryDate ? data.expiryDate.toISOString() : null,
-      membershipType: data.membershipType || null,
-      planPrice: data.planPrice || null,
-      createdAt: isEditing && memberToEdit ? memberToEdit.createdAt : new Date().toISOString(),
-    };
-
-    onMemberSaved(savedMember);
-
-    toast({
-      title: isEditing ? 'Member Updated' : 'Member Added',
-      description: `${data.name} has been successfully ${isEditing ? 'updated' : 'registered'}.`,
-    });
-
-    if (!isEditing && savedMember.email) {
-      console.log(`SIMULATING Welcome Email to: ${savedMember.email}`);
-      console.log(`Membership Details: ID ${savedMember.memberId}, Type: ${savedMember.membershipType || 'N/A'}, Expires: ${savedMember.expiryDate ? format(parseISO(savedMember.expiryDate), 'PP') : 'N/A'}`);
-      console.log(`QR Code for check-in: [Simulated QR Code for ${savedMember.memberId}]`);
-    }
-
-    if (!isEditing) {
-      const welcomeAnnouncement: Announcement = {
-        id: `announcement_welcome_${savedMember.id}`,
-        gymId: gymDatabaseId, 
-        title: `Welcome New Member: ${savedMember.name}!`,
-        content: `Let's all give a warm welcome to ${savedMember.name} (ID: ${savedMember.memberId}), who joined us on ${format(parseISO(savedMember.joinDate!), 'PP')} with a ${savedMember.membershipType || 'new'} membership! We're excited to have them in the ${gymName} community.`,
-        createdAt: new Date().toISOString(),
+    if (isEditing && memberToEdit) {
+      // Simulate edit: In a real app, call an editMember server action
+      console.log("SIMULATING: Edit member with data:", data);
+      const updatedMember: Member = {
+        ...memberToEdit,
+        ...data,
+        email: data.email || null,
+        age: data.age || null,
+        phoneNumber: data.phoneNumber || null,
+        joinDate: data.joinDate ? data.joinDate.toISOString() : new Date().toISOString(),
+        membershipType: data.membershipType || null,
+        // Recalculate planPrice and expiryDate based on current logic if membershipType or joinDate changed
       };
-      try {
-        const existingAnnouncementsRaw = localStorage.getItem('gymAnnouncements');
-        const existingAnnouncements: Announcement[] = existingAnnouncementsRaw ? JSON.parse(existingAnnouncementsRaw) : [];
-        localStorage.setItem('gymAnnouncements', JSON.stringify([welcomeAnnouncement, ...existingAnnouncements]));
-        window.dispatchEvent(new Event('storage'));
-         toast({ title: "Welcome Announcement Created", description: `An announcement for ${savedMember.name} is posted.`});
-      } catch (e) {
-        console.error("Failed to save welcome announcement to localStorage:", e);
+      const selectedPlan = MOCK_MEMBERSHIP_PLANS.find(p => p.name === updatedMember.membershipType);
+      if (selectedPlan && updatedMember.joinDate) {
+          updatedMember.planPrice = selectedPlan.price;
+          updatedMember.planId = selectedPlan.id;
+          if (selectedPlan.durationMonths > 0) {
+              updatedMember.expiryDate = addMonths(parseISO(updatedMember.joinDate), selectedPlan.durationMonths).toISOString();
+          } else {
+              updatedMember.expiryDate = null;
+          }
+      }
+      onMemberSaved(updatedMember);
+      toast({
+        title: 'Member Updated',
+        description: `${updatedMember.name} has been successfully updated. (Simulated)`,
+      });
+      onOpenChange(false);
+
+    } else {
+      // Adding new member
+      const response = await addMember(data, gymDatabaseId, gymName);
+
+      if (response.error) {
+        toast({
+          variant: "destructive",
+          title: 'Error Adding Member',
+          description: response.error,
+        });
+      } else if (response.data) {
+        onMemberSaved(response.data.newMember);
+
+        // Save welcome announcement to localStorage
+        try {
+          const existingAnnouncementsRaw = localStorage.getItem('gymAnnouncements');
+          const existingAnnouncements: Announcement[] = existingAnnouncementsRaw ? JSON.parse(existingAnnouncementsRaw) : [];
+          localStorage.setItem('gymAnnouncements', JSON.stringify([response.data.welcomeAnnouncement, ...existingAnnouncements]));
+          window.dispatchEvent(new Event('storage')); // Notify other parts of app
+        } catch (e) {
+          console.error("Failed to save welcome announcement to localStorage:", e);
+        }
+        
+        toast({
+          title: 'Member Added Successfully!',
+          description: `${response.data.newMember.name} registered. ${response.data.emailStatus} Announcement posted.`,
+        });
+        onOpenChange(false);
       }
     }
-    
-    onOpenChange(false); 
+    setIsSubmitting(false);
   }
 
   return (
@@ -243,6 +262,7 @@ export function AddMemberDialog({ isOpen, onOpenChange, onMemberSaved, memberToE
                 </FormItem>
               )}
             />
+             {/* Display only field for Member ID, as it's auto-suggested/handled */}
             <FormField
               control={form.control}
               name="memberId"
@@ -250,7 +270,7 @@ export function AddMemberDialog({ isOpen, onOpenChange, onMemberSaved, memberToE
                 <FormItem>
                   <FormLabel>Member ID * <span className="text-xs text-muted-foreground">(Auto-suggested for new members)</span></FormLabel>
                   <FormControl>
-                    <Input placeholder="MBR001" {...field} />
+                    <Input placeholder="MBR001" {...field} readOnly={!isEditing && form.formState.dirtyFields.memberId !== true}/>
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -311,7 +331,7 @@ export function AddMemberDialog({ isOpen, onOpenChange, onMemberSaved, memberToE
                       <Calendar
                         mode="single"
                         selected={field.value}
-                        onSelect={field.onChange}
+                        onSelect={(date) => handleJoinDateChange(date)}
                         disabled={(date) =>
                           date > new Date() || date < new Date("1900-01-01")
                         }
@@ -326,20 +346,11 @@ export function AddMemberDialog({ isOpen, onOpenChange, onMemberSaved, memberToE
             <FormField
               control={form.control}
               name="membershipType"
-              render={({ field }) => (
+              render={({ field }) => ( // field here refers to 'membershipType' which is plan.name
                 <FormItem>
                   <FormLabel>Membership Type *</FormLabel>
                   <Select 
-                    onValueChange={(selectedPlanId) => {
-                      const selectedPlan = MOCK_MEMBERSHIP_PLANS.find(p => p.id === selectedPlanId);
-                      if (selectedPlan) {
-                        field.onChange(selectedPlan.name as MembershipType); 
-                        handleMembershipTypeChange(selectedPlan.name as MembershipType | null, form.getValues('joinDate'));
-                      } else {
-                        field.onChange(null);
-                        handleMembershipTypeChange(null, form.getValues('joinDate'));
-                      }
-                    }} 
+                    onValueChange={(selectedPlanId) => handleMembershipTypeChange(selectedPlanId)}
                     value={MOCK_MEMBERSHIP_PLANS.find(p => p.name === field.value)?.id || undefined}
                   >
                     <FormControl>
@@ -359,85 +370,62 @@ export function AddMemberDialog({ isOpen, onOpenChange, onMemberSaved, memberToE
                 </FormItem>
               )}
             />
-            <FormField
-              control={form.control}
-              name="planPrice"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Plan Price</FormLabel>
-                  <FormControl>
-                    <Input type="number" placeholder="e.g., 49.99" {...field} value={field.value ?? ""} readOnly className="bg-muted/50" />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="expiryDate"
-              render={({ field }) => (
-                <FormItem className="flex flex-col">
-                  <FormLabel>Expiry Date</FormLabel>
-                   <Popover>
-                    <PopoverTrigger asChild>
-                      <FormControl>
-                        <Button
-                          variant={"outline"}
-                          className={cn(
-                            "w-full pl-3 text-left font-normal",
-                            !field.value && "text-muted-foreground"
-                          )}
+             {/* These are shown for info, calculated based on selections */}
+            <FormItem>
+                <FormLabel>Plan Price (Calculated)</FormLabel>
+                <Input 
+                    type="text" 
+                    value={form.getValues('planPrice' as any) ? `$${Number(form.getValues('planPrice' as any)).toFixed(2)}` : 'N/A'} 
+                    readOnly 
+                    className="bg-muted/50" 
+                />
+            </FormItem>
+            <FormItem>
+                <FormLabel>Expiry Date (Calculated)</FormLabel>
+                <Input 
+                    type="text" 
+                    value={form.getValues('expiryDate' as any) ? format(form.getValues('expiryDate' as any), 'PPP') : 'N/A'} 
+                    readOnly 
+                    className="bg-muted/50" 
+                />
+            </FormItem>
+
+            {isEditing && ( // Only show status field when editing
+                 <FormField
+                    control={form.control}
+                    name="membershipStatus" // This needs to be added to AddMemberFormValues if editing can change it
+                    render={({ field }) => (
+                        <FormItem>
+                        <FormLabel>Membership Status *</FormLabel>
+                        <Select 
+                            onValueChange={field.onChange} 
+                            // @ts-ignore
+                            value={memberToEdit?.membershipStatus} // Use actual member status for edit
                         >
-                          {field.value ? (
-                            format(field.value, "PPP")
-                          ) : (
-                            <span>Pick expiry date or auto-calculated</span>
-                          )}
-                          <CalendarIconLucide className="ml-auto h-4 w-4 opacity-50" />
-                        </Button>
-                      </FormControl>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={field.value}
-                        onSelect={field.onChange}
-                        initialFocus
-                      />
-                    </PopoverContent>
-                  </Popover>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="membershipStatus"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Membership Status *</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select status" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {memberStatuses.filter(s => s !== 'expiring soon').map(status => (
-                        <SelectItem key={status} value={status} className="capitalize">{status}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+                            <FormControl>
+                            <SelectTrigger>
+                                {/* @ts-ignore */}
+                                <SelectValue placeholder={memberToEdit?.membershipStatus || "Select status"} />
+                            </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                            {memberStatuses.filter(s => s !== 'expiring soon').map(status => (
+                                <SelectItem key={status} value={status} className="capitalize">{status}</SelectItem>
+                            ))}
+                            </SelectContent>
+                        </Select>
+                        <FormMessage />
+                        </FormItem>
+                    )}
+                />
+            )}
+
             <DialogFooter className="pt-4">
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={form.formState.isSubmitting}>
-                {form.formState.isSubmitting ? (isEditing ? 'Saving...' : 'Adding...') : (isEditing ? 'Save Changes' : 'Add Member')}
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting ? (isEditing ? 'Saving...' : 'Adding...') : (isEditing ? 'Save Changes' : 'Add Member')}
               </Button>
             </DialogFooter>
           </form>
