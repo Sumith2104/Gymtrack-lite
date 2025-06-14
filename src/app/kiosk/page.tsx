@@ -43,14 +43,9 @@ export default function KioskPage() {
       setKioskGymId(formattedId);
       setCurrentGymDatabaseId(dbId);
 
-      // Filter mock initial checkins for the current gym (using formattedId for mock matching)
-      // In a real app, you'd fetch based on dbId
       const gymSpecificInitialCheckins = MOCK_INITIAL_CHECKINS.filter(
-        // Example: if GYM123_default is the Kiosk ID for 'Default Gym'
-        // This logic needs to be robust if gymName in MOCK_INITIAL_CHECKINS is not perfectly aligned
-        // For now, simple filter or assume all mocks are for one gym if gymName is consistent
         checkin => (formattedId === 'GYM123_default' && checkin.gymName === 'Default Gym') || 
-                   (formattedId === 'UOFIPOIB' && checkin.gymName === 'Sumith Test Kiosk') // Adjust as needed
+                   (formattedId === 'UOFIPOIB' && checkin.gymName === 'Sumith Test Kiosk')
       );
       setAllRecentCheckins(gymSpecificInitialCheckins);
     }
@@ -66,7 +61,7 @@ export default function KioskPage() {
 
   const handleSuccessfulCheckin = (checkinEntry: FormattedCheckIn) => {
     setAllRecentCheckins((prevCheckins) => [checkinEntry, ...prevCheckins]);
-    setNewlyAddedCheckin(checkinEntry); // For RecentCheckinsCard to pick up
+    setNewlyAddedCheckin(checkinEntry);
   };
 
   return (
@@ -85,12 +80,12 @@ export default function KioskPage() {
         <CheckinForm 
           onSuccessfulCheckin={handleSuccessfulCheckin} 
           todaysCheckins={todaysCheckins}
-          className="w-full" 
+          className="w-full"
         />
         <RecentCheckinsCard 
           newCheckinEntry={newlyAddedCheckin}
-          initialCheckins={allRecentCheckins.filter(ci => ci.gymName === kioskGymName)} // Pass only relevant initial checkins
-          className="w-full" 
+          initialCheckins={allRecentCheckins.filter(ci => ci.gymName === kioskGymName)}
+          className="w-full"
         />
       </div>
       
