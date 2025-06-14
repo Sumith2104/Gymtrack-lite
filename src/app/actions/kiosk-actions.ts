@@ -2,8 +2,9 @@
 'use server';
 
 import { createSupabaseServerActionClient } from '@/lib/supabase/server';
-import type { Member, FormattedCheckIn, CheckIn } from '@/lib/types';
-import { sendEmail, formatDateIST } from '@/lib/email-service';
+import type { Member, FormattedCheckIn, CheckIn, MembershipType } from '@/lib/types';
+import { sendEmail } from '@/lib/email-service';
+import { formatDateIST, parseValidISO } from '@/lib/date-utils'; // Updated import
 import { generateMotivationalQuote, type MotivationalQuoteInput } from '@/ai/flows/generate-motivational-quote';
 import { addHours } from 'date-fns';
 
@@ -16,13 +17,13 @@ function mapDbMemberToAppMember(dbMember: any): Member {
     memberId: dbMember.member_id,
     name: dbMember.name,
     email: dbMember.email,
-    membershipStatus: dbMember.membership_status,
+    membershipStatus: dbMember.membership_status as MembershipStatus,
     createdAt: dbMember.created_at,
     age: dbMember.age,
     phoneNumber: dbMember.phone_number,
     joinDate: dbMember.join_date,
     expiryDate: dbMember.expiry_date,
-    membershipType: planDetails?.plan_name || 'Other',
+    membershipType: planDetails?.plan_name as MembershipType || 'Other',
     planPrice: planDetails?.price || 0,
   };
 }
@@ -98,6 +99,7 @@ export async function recordCheckInAction(memberTableUuid: string, gymDatabaseId
         member_table_id: memberTableUuid,
         gym_id: gymDatabaseId,
         check_in_time: checkInTime,
+        created_at: new Date().toISOString(),
       });
 
     if (error) {
@@ -123,8 +125,11 @@ export async function sendCheckInEmailAction(
   }
 
   try {
-    const checkInTime = new Date(checkInTimeISO);
-    const projectedCheckoutTime = addHours(checkInTime, 2);
+    const checkInTimeDate = parseValidISO(checkInTimeISO); 
+    if (!checkInTimeDate) {
+      return { success: false, message: "Invalid check-in time provided for email." };
+    }
+    const projectedCheckoutTime = addHours(checkInTimeDate, 2);
 
     let quote = "Keep pushing your limits! Every rep counts."; // Default quote
     try {
@@ -142,7 +147,7 @@ export async function sendCheckInEmailAction(
       <p>Hi ${member.name},</p>
       <p>Your check-in at ${gymName} is confirmed!</p>
       <ul>
-        <li><strong>Checked-in At:</strong> ${formatDateIST(checkInTime)}</li>
+        <li><strong>Checked-in At:</strong> ${formatDateIST(checkInTimeDate)}</li>
         <li><strong>Projected Check-out:</strong> ${formatDateIST(projectedCheckoutTime)}</li>
       </ul>
       <p>Your motivational boost for today:</p>
@@ -176,7 +181,9 @@ export async function fetchTodaysCheckInsForKioskAction(gymDatabaseId: string, g
     const { data: dbCheckIns, error } = await supabase
       .from('check_ins')
       .select(\`
-        *,
+        id,
+        member_table_id,
+        check_in_time,
         members (
           name,
           member_id 

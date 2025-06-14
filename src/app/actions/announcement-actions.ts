@@ -2,22 +2,28 @@
 'use server';
 
 import { createSupabaseServerActionClient } from '@/lib/supabase/server';
-import type { Announcement, Member } from '@/lib/types';
-import { sendEmail, formatDateIST } from '@/lib/email-service';
-import { differenceInDays, parseISO, isValid } from 'date-fns';
+import type { Announcement, Member, MembershipStatus } from '@/lib/types';
+import { sendEmail } from '@/lib/email-service';
+import { formatDateIST, parseValidISO } from '@/lib/date-utils'; // Updated import
+import { differenceInDays, isValid } from 'date-fns';
 
 // Helper function to determine effective status, similar to one in members-table
 // This is simplified for email filtering and might need adjustment for perfect parity
 function getEffectiveMembershipStatusForEmail(member: Pick<Member, 'membershipStatus' | 'expiryDate'>): MembershipStatus {
   if (member.membershipStatus === 'active' && member.expiryDate) {
-    const expiry = parseISO(member.expiryDate);
-    if (isValid(expiry)) {
+    const expiry = parseValidISO(member.expiryDate);
+    if (expiry && isValid(expiry)) {
       const daysUntilExpiry = differenceInDays(expiry, new Date());
       if (daysUntilExpiry <= 14 && daysUntilExpiry >= 0) return 'expiring soon';
       if (daysUntilExpiry < 0) return 'expired'; // This member wouldn't be 'active' to begin with if properly managed
     }
   }
-  return member.membershipStatus;
+  // Explicitly cast to MembershipStatus if the input status is one of the valid enum values.
+  const validStatuses: MembershipStatus[] = ['active', 'inactive', 'expired', 'pending', 'expiring soon'];
+  if (validStatuses.includes(member.membershipStatus as MembershipStatus)) {
+    return member.membershipStatus as MembershipStatus;
+  }
+  return 'inactive'; // Default or handle as error
 }
 
 interface AddAnnouncementResponse {
@@ -39,7 +45,7 @@ export async function addAnnouncementAction(gymId: string, title: string, conten
   try {
     const { data, error } = await supabase
       .from('announcements')
-      .insert({ gym_id: gymId, title, content, created_at: new Date().toISOString() })
+      .insert({ gym_id: gymId, title, content, created_at: new Date().toISOString(), updated_at: new Date().toISOString() })
       .select()
       .single();
 
@@ -66,8 +72,9 @@ export async function addAnnouncementAction(gymId: string, title: string, conten
     const { data: membersToEmail, error: memberFetchError } = await supabase
       .from('members')
       .select('name, email, membership_status, expiry_date') // Need expiry_date for 'expiring soon'
-      .eq('gym_id', gymId)
-      .in('membership_status', ['active']); // Fetch active, then filter for 'expiring soon'
+      .eq('gym_id', gymId);
+      // Fetch all then filter by effective status in code, as 'expiring soon' is derived
+      // .in('membership_status', ['active']); // Fetch active, then filter for 'expiring soon'
 
     if (memberFetchError) {
       console.error("Error fetching members for announcement email:", memberFetchError.message);
@@ -77,7 +84,11 @@ export async function addAnnouncementAction(gymId: string, title: string, conten
       const gymName = gymDetails.data?.name || 'Your Gym';
 
       for (const member of membersToEmail) {
-        const effectiveStatus = getEffectiveMembershipStatusForEmail(member as any); // Cast as Pick<Member,...>
+        // Ensure member object has the necessary fields before passing to getEffectiveMembershipStatusForEmail
+        const effectiveStatus = getEffectiveMembershipStatusForEmail({
+          membershipStatus: member.membership_status as MembershipStatus, // Cast string to MembershipStatus
+          expiryDate: member.expiry_date,
+        });
         
         if (member.email && (effectiveStatus === 'active' || effectiveStatus === 'expiring soon')) {
           attempted++;
@@ -87,7 +98,7 @@ export async function addAnnouncementAction(gymId: string, title: string, conten
             <p>A new announcement has been posted at ${gymName}:</p>
             <h2>${newAnnouncement.title}</h2>
             <p><em>Posted on: ${formatDateIST(newAnnouncement.createdAt)}</em></p>
-            <div style="padding: 10px; border-left: 3px solid #FFD700; margin: 10px 0; background-color: #f9f9f9;">
+            <div class="announcement-content">
               ${newAnnouncement.content.replace(/\n/g, '<br />')}
             </div>
             <p>Please check the dashboard for more details.</p>
