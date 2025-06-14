@@ -493,21 +493,6 @@ export function MembersTable() {
             }}
         />
       )}
-      <AlertDialog open={isBulkDeleteConfirmOpen} onOpenChange={setIsBulkDeleteConfirmOpen}>
-          <AlertDialogContent>
-              <AlertDialogHeader>
-              <AlertDialogTitle>Confirm Bulk Deletion</AlertDialogTitle>
-              <AlertDialogDescription>
-                  This action cannot be undone. This will permanently delete {selectedRowCount} selected member(s).
-              </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={handleBulkDelete} className="bg-destructive hover:bg-destructive/90">Delete Selected</AlertDialogAction>
-              </AlertDialogFooter>
-          </AlertDialogContent>
-      </AlertDialog>
-
 
       <div className="flex items-center justify-between gap-2 flex-wrap mb-4">
         <div className="flex items-center gap-2">
@@ -578,6 +563,7 @@ export function MembersTable() {
                 </DropdownMenuContent>
             </DropdownMenu>
             
+            <AlertDialog open={isBulkDeleteConfirmOpen} onOpenChange={setIsBulkDeleteConfirmOpen}>
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                     <Button variant="outline" size="sm" disabled={selectedRowCount === 0}>
@@ -630,6 +616,19 @@ export function MembersTable() {
                     </AlertDialogTrigger>
                     </DropdownMenuContent>
                 </DropdownMenu>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                    <AlertDialogTitle>Confirm Bulk Deletion</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        This action cannot be undone. This will permanently delete {selectedRowCount} selected member(s).
+                    </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                    <AlertDialogCancel onClick={() => setIsBulkDeleteConfirmOpen(false)}>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleBulkDelete} className="bg-destructive hover:bg-destructive/90">Delete Selected</AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
            </div>
       </div>
 
@@ -710,4 +709,3 @@ export function MembersTable() {
     </div>
   );
 }
-
