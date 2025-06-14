@@ -12,18 +12,15 @@ const isValidMembershipType = (val: any): val is MembershipType => {
 };
 
 // Schema for validating new member form data (used on client and server)
+// MemberID and JoinDate are removed as they are now server-generated.
 export const addMemberFormSchema = z.object({
   name: z.string().min(2, { message: 'Name must be at least 2 characters.' }).max(100),
   email: z.string().email({ message: 'Invalid email address.' }).optional().or(z.literal('')),
-  memberId: z.string().min(3, { message: 'Member ID must be at least 3 characters.' }).max(20),
-  // membershipStatus is defaulted to 'active' on server, not part of form directly for new add
   phoneNumber: z.string().optional().nullable(),
   age: z.coerce.number().int().positive().optional().nullable(),
-  joinDate: z.date({ required_error: "Join date is required."}), // Will be converted to string later
-  membershipType: z.custom<MembershipType>(isValidMembershipType, { 
+  membershipType: z.custom<MembershipType>(isValidMembershipType, {
     message: "Invalid membership type. Please select a valid plan.",
   }),
-  // planPrice and expiryDate are calculated on server
 });
 
 export type AddMemberFormValues = z.infer<typeof addMemberFormSchema>;
