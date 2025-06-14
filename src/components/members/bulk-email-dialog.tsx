@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react'; // Changed import
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
@@ -59,7 +59,7 @@ export function BulkEmailDialog({ isOpen, onOpenChange, recipients, onSend }: Bu
   const isSingleRecipient = recipientCount === 1;
 
   // Reset includeQrCode if recipient count changes from 1 to many or vice-versa while dialog is open
-  React.useEffect(() => {
+  useEffect(() => { // Changed from React.useEffect
     if (isOpen) {
       if (!isSingleRecipient) {
         form.setValue('includeQrCode', false);
