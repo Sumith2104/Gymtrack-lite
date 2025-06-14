@@ -1,35 +1,74 @@
 
 'use client';
 
-import { Pie, PieChart, ResponsiveContainer, Cell, Legend } from 'recharts';
+import { useState, useEffect } from 'react';
+import { Pie, PieChart, ResponsiveContainer, Cell } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Users } from 'lucide-react'; // Changed icon to Users or similar
+import { Users, AlertCircle } from 'lucide-react'; 
 import { ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from '@/components/ui/chart';
-import type { Member, MembershipType } from '@/lib/types'; // Assuming Member and MembershipType are defined
-import { MOCK_MEMBERSHIP_PLANS } from '@/lib/constants'; // Use for types/labels
+import type { MembershipType } from '@/lib/types';
+import { getMembershipDistribution } from '@/app/actions/analytics-actions';
+import { Skeleton } from '@/components/ui/skeleton';
 
-// Mock data - in a real app, aggregate this from your members data
-// This should count members for each membershipType
-const mockMemberDataForDistribution: { type: MembershipType, count: number }[] = [
-  { type: 'Annual', count: 75 },
-  { type: 'Monthly', count: 120 },
-  { type: 'Premium', count: 40 }, // Assuming "Premium" can be distinct type or a version of Annual/Monthly
-  { type: '6-Month', count: 30 },
-  { type: 'Class Pass', count: 25 },
-  { type: 'Other', count: 10 },
-];
 
-// Dynamically create chartConfig based on MOCK_MEMBERSHIP_PLANS or distinct types in data
-const chartConfig = mockMemberDataForDistribution.reduce((acc, item, index) => {
-  acc[item.type.toLowerCase().replace(/\s+/g, '_')] = { // e.g., 'class_pass'
-    label: item.type,
-    color: `hsl(var(--chart-${(index % 5) + 1}))`, // Cycle through chart colors
-  };
-  return acc;
-}, {} as ChartConfig);
-
+interface MembershipDistributionData {
+  type: MembershipType;
+  count: number;
+}
 
 export function MembershipDistributionChart() {
+  const [chartData, setChartData] = useState<MembershipDistributionData[]>([]);
+  const [chartConfig, setChartConfig] = useState<ChartConfig>({});
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [gymDbId, setGymDbId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const id = localStorage.getItem('gymDatabaseId');
+      setGymDbId(id);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!gymDbId) {
+      setIsLoading(false);
+      // setError("Gym ID not found. Cannot load membership distribution.");
+      setChartData([]); // Show empty state or placeholder if no gym ID
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+    getMembershipDistribution(gymDbId)
+      .then(response => {
+        if (response.error) {
+          setError(response.error);
+          setChartData([]);
+        } else {
+          setChartData(response.data);
+          // Dynamically create chartConfig based on fetched data
+          const newChartConfig = response.data.reduce((acc, item, index) => {
+            const key = item.type.toLowerCase().replace(/\s+/g, '_') || `type_${index}`;
+            acc[key] = {
+              label: item.type,
+              color: `hsl(var(--chart-${(index % 5) + 1}))`,
+            };
+            return acc;
+          }, {} as ChartConfig);
+          setChartConfig(newChartConfig);
+        }
+      })
+      .catch(err => {
+        console.error("MembershipDistributionChart fetch error:", err);
+        setError("Failed to load membership distribution data.");
+        setChartData([]);
+      })
+      .finally(() => {
+        setIsLoading(false);
+      });
+  }, [gymDbId]);
+
   return (
     <Card className="shadow-lg">
       <CardHeader>
@@ -40,34 +79,50 @@ export function MembershipDistributionChart() {
         <CardDescription>Breakdown of members by their plan type</CardDescription>
       </CardHeader>
       <CardContent>
-        <ChartContainer config={chartConfig} className="h-[300px] w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-              <ChartTooltip
-                cursor={false}
-                content={<ChartTooltipContent hideLabel />}
-              />
-              <Pie
-                data={mockMemberDataForDistribution}
-                dataKey="count"
-                nameKey="type" // This is the key for the name of the slice (e.g., "Annual")
-                cx="50%"
-                cy="50%"
-                outerRadius={100}
-                innerRadius={60}
-                labelLine={false}
-              >
-                {mockMemberDataForDistribution.map((entry) => (
-                  <Cell 
-                    key={`cell-${entry.type}`} 
-                    fill={chartConfig[entry.type.toLowerCase().replace(/\s+/g, '_') as keyof typeof chartConfig]?.color || "hsl(var(--muted))"} 
-                  />
-                ))}
-              </Pie>
-               <ChartLegend content={<ChartLegendContent nameKey="type" />} />
-            </PieChart>
-          </ResponsiveContainer>
-        </ChartContainer>
+        {isLoading ? (
+          <div className="h-[300px] w-full flex items-center justify-center">
+            <Skeleton className="h-[200px] w-[200px] rounded-full" />
+          </div>
+        ) : error ? (
+          <div className="h-[300px] w-full flex flex-col items-center justify-center text-destructive">
+            <AlertCircle className="h-12 w-12 mb-2" />
+            <p className="text-sm text-center">Error loading distribution.</p>
+            <p className="text-xs text-center mt-1">{error}</p>
+          </div>
+        ) : chartData.length === 0 ? (
+          <div className="h-[300px] w-full flex items-center justify-center text-muted-foreground">
+            No membership data available for this gym.
+          </div>
+        ) : (
+          <ChartContainer config={chartConfig} className="h-[300px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <ChartTooltip
+                  cursor={false}
+                  content={<ChartTooltipContent hideLabel />}
+                />
+                <Pie
+                  data={chartData}
+                  dataKey="count"
+                  nameKey="type" 
+                  cx="50%"
+                  cy="50%"
+                  outerRadius={100}
+                  innerRadius={60}
+                  labelLine={false}
+                >
+                  {chartData.map((entry) => (
+                    <Cell 
+                      key={`cell-${entry.type}`} 
+                      fill={chartConfig[entry.type.toLowerCase().replace(/\s+/g, '_') as keyof typeof chartConfig]?.color || "hsl(var(--muted))"} 
+                    />
+                  ))}
+                </Pie>
+                 <ChartLegend content={<ChartLegendContent nameKey="type" />} />
+              </PieChart>
+            </ResponsiveContainer>
+          </ChartContainer>
+        )}
       </CardContent>
     </Card>
   );

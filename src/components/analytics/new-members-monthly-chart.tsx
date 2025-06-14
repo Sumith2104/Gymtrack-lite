@@ -1,43 +1,68 @@
 
 'use client';
 
+import { useState, useEffect } from 'react';
 import { Line, LineChart, ResponsiveContainer, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { UserPlus } from 'lucide-react';
+import { UserPlus, AlertCircle } from 'lucide-react';
 import { ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
-import { format } from 'date-fns';
+import { getNewMembersMonthly } from '@/app/actions/analytics-actions';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface MonthlyNewMembers {
-  month: string; // Format: "Jan", "Feb", etc.
+  month: string; 
   count: number;
 }
-
-// Generate mock data for new members per month for the current year
-const generateMonthlyNewMembersData = (): MonthlyNewMembers[] => {
-  const data: MonthlyNewMembers[] = [];
-  const currentMonth = new Date().getMonth(); // 0-11
-  const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-  
-  for (let i = 0; i <= 11; i++) { // Iterate through all 12 months
-    data.push({
-      month: monthNames[i],
-      // Assign 0 for future months, random for past/current
-      count: i <= currentMonth ? Math.floor(Math.random() * 20) + 5 : 0, 
-    });
-  }
-  return data;
-};
-
-const chartData: MonthlyNewMembers[] = generateMonthlyNewMembersData();
 
 const chartConfig = {
   newMembers: {
     label: "New Members",
-    color: "hsl(var(--chart-2))", // Use a different chart color
+    color: "hsl(var(--chart-2))", 
   },
 } satisfies ChartConfig;
 
 export function NewMembersMonthlyChart() {
+  const [chartData, setChartData] = useState<MonthlyNewMembers[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [gymDbId, setGymDbId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const id = localStorage.getItem('gymDatabaseId');
+      setGymDbId(id);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!gymDbId) {
+      setIsLoading(false);
+      // setError("Gym ID not found. Cannot load monthly new members.");
+      setChartData(Array(12).fill(0).map((_, i) => ({ month: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][i], count: 0 })));
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+    getNewMembersMonthly(gymDbId)
+      .then(response => {
+        if (response.error) {
+          setError(response.error);
+          setChartData(Array(12).fill(0).map((_, i) => ({ month: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][i], count: 0 })));
+        } else {
+          setChartData(response.data);
+        }
+      })
+      .catch(err => {
+        console.error("NewMembersMonthlyChart fetch error:", err);
+        setError("Failed to load monthly new members data.");
+        setChartData(Array(12).fill(0).map((_, i) => ({ month: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][i], count: 0 })));
+      })
+      .finally(() => {
+        setIsLoading(false);
+      });
+  }, [gymDbId]);
+
   return (
     <Card className="shadow-lg">
       <CardHeader>
@@ -48,41 +73,53 @@ export function NewMembersMonthlyChart() {
         <CardDescription>Number of new members who joined each month this year</CardDescription>
       </CardHeader>
       <CardContent>
-        <ChartContainer config={chartConfig} className="h-[300px] w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={chartData} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border) / 0.5)" />
-              <XAxis
-                dataKey="month"
-                tickLine={false}
-                axisLine={false}
-                tickMargin={8}
-                fontSize={12}
-              />
-              <YAxis 
-                tickLine={false}
-                axisLine={false}
-                tickMargin={8}
-                fontSize={12}
-                allowDecimals={false}
-                domain={[0, 'dataMax + 5']}
-              />
-              <ChartTooltip
-                cursor={false}
-                content={<ChartTooltipContent indicator="dot" />}
-                formatter={(value, name, props) => [`${value} new members in ${props.payload.month}`, null]}
-              />
-              <Line
-                type="monotone"
-                dataKey="count"
-                stroke="var(--color-newMembers)"
-                strokeWidth={2}
-                dot={{ r: 3, fill: "var(--color-newMembers)", strokeWidth:1, stroke: "hsl(var(--background))" }}
-                activeDot={{ r: 5, strokeWidth: 2 }}
-              />
-            </LineChart>
-          </ResponsiveContainer>
-        </ChartContainer>
+        {isLoading ? (
+          <div className="h-[300px] w-full flex items-center justify-center">
+            <Skeleton className="h-full w-full" />
+          </div>
+        ) : error ? (
+          <div className="h-[300px] w-full flex flex-col items-center justify-center text-destructive">
+            <AlertCircle className="h-12 w-12 mb-2" />
+            <p className="text-sm text-center">Error loading monthly data.</p>
+            <p className="text-xs text-center mt-1">{error}</p>
+          </div>
+        ) : (
+          <ChartContainer config={chartConfig} className="h-[300px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={chartData} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border) / 0.5)" />
+                <XAxis
+                  dataKey="month"
+                  tickLine={false}
+                  axisLine={false}
+                  tickMargin={8}
+                  fontSize={12}
+                />
+                <YAxis 
+                  tickLine={false}
+                  axisLine={false}
+                  tickMargin={8}
+                  fontSize={12}
+                  allowDecimals={false}
+                  domain={[0, 'dataMax + 5']}
+                />
+                <ChartTooltip
+                  cursor={false}
+                  content={<ChartTooltipContent indicator="dot" />}
+                  formatter={(value, name, props) => [`${value} new members in ${props.payload.month}`, null]}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="count"
+                  stroke="var(--color-newMembers)"
+                  strokeWidth={2}
+                  dot={{ r: 3, fill: "var(--color-newMembers)", strokeWidth:1, stroke: "hsl(var(--background))" }}
+                  activeDot={{ r: 5, strokeWidth: 2 }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </ChartContainer>
+        )}
       </CardContent>
     </Card>
   );
