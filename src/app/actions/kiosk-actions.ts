@@ -2,7 +2,7 @@
 'use server';
 
 import { createSupabaseServerActionClient } from '@/lib/supabase/server';
-import type { Member, FormattedCheckIn, CheckIn, MembershipType } from '@/lib/types';
+import type { Member, FormattedCheckIn, CheckIn, MembershipType, MembershipStatus } from '@/lib/types';
 import { sendEmail } from '@/lib/email-service';
 import { formatDateIST, parseValidISO } from '@/lib/date-utils'; // Updated import
 import { generateMotivationalQuote, type MotivationalQuoteInput } from '@/ai/flows/generate-motivational-quote';
@@ -131,7 +131,7 @@ export async function sendCheckInEmailAction(
     }
     const projectedCheckoutTime = addHours(checkInTimeDate, 2);
 
-    let quote = "Keep pushing your limits! Every rep counts."; // Default quote
+    let quote = "Sweat now, shine later. Make every rep count!"; // Default quote matching image
     try {
       const quoteInput: MotivationalQuoteInput = { memberId: member.memberId, memberName: member.name };
       const motivation = await generateMotivationalQuote(quoteInput);
@@ -143,17 +143,19 @@ export async function sendCheckInEmailAction(
     }
 
     const emailSubject = `Check-in Confirmed at ${gymName}!`;
+    const formattedCheckInTime = `${formatDateIST(checkInTimeDate, 'p')} (IST)`;
+    const formattedProjectedCheckoutTime = `${formatDateIST(projectedCheckoutTime, 'p')} (IST)`;
+    
     const emailHtmlBody = `
-      <p>Hi ${member.name},</p>
-      <p>Your check-in at ${gymName} is confirmed!</p>
-      <ul>
-        <li><strong>Checked-in At:</strong> ${formatDateIST(checkInTimeDate)}</li>
-        <li><strong>Projected Check-out:</strong> ${formatDateIST(projectedCheckoutTime)}</li>
-      </ul>
-      <p>Your motivational boost for today:</p>
-      <p><em>"${quote}"</em></p>
-      <p>Have a great workout!</p>
-      <p>The ${gymName} Team</p>
+      <p style="font-size: 1.1em; color: #FFD700; font-weight: bold;">Hi ${member.name},</p>
+      <p>You've successfully checked in at ${gymName}!</p>
+      <p><strong>Check-in Time:</strong> ${formattedCheckInTime}</p>
+      <p><strong>Projected Check-out Time:</strong> ${formattedProjectedCheckoutTime}</p>
+      <p>Enjoy your workout!</p>
+      <hr style="border: none; border-top: 1px solid #444; margin: 20px 0;">
+      <p style="font-style: italic;">"${quote}"</p>
+      <br>
+      <p>Best regards,<br/>The ${gymName} Team</p>
     `;
 
     return await sendEmail({
@@ -217,3 +219,4 @@ export async function fetchTodaysCheckInsForKioskAction(gymDatabaseId: string, g
     return { checkIns: [], error: 'Failed to fetch today\'s check-ins.' };
   }
 }
+
