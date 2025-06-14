@@ -103,6 +103,7 @@ export function MembersTable() {
   
   const [memberToDelete, setMemberToDelete] = React.useState<Member | null>(null);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = React.useState(false);
+  const [isBulkDeleteConfirmOpen, setIsBulkDeleteConfirmOpen] = React.useState(false);
 
 
   const loadMembers = React.useCallback(async (gymId: string) => {
@@ -116,6 +117,7 @@ export function MembersTable() {
       setData(response.data.map(m => ({ ...m, effectiveStatus: getEffectiveMembershipStatus(m) })));
     }
     setIsLoadingMembers(false);
+    setRowSelection({}); // Clear selection on reload
   }, []);
 
   React.useEffect(() => {
@@ -127,6 +129,7 @@ export function MembersTable() {
       } else {
         setIsLoadingMembers(false);
         setData([]); 
+        setFetchMembersError("Gym ID not found in local storage. Please log in again.");
       }
     }
   }, [loadMembers]);
@@ -150,7 +153,7 @@ export function MembersTable() {
 
   const handleMemberSaved = (savedMember: Member) => {
     if (currentGymDatabaseId) {
-      loadMembers(currentGymDatabaseId);
+      loadMembers(currentGymDatabaseId); // Re-fetch to ensure data consistency
     }
     setIsAddMemberDialogOpen(false);
     setMemberToEdit(null);
@@ -214,7 +217,9 @@ export function MembersTable() {
   const handleBulkDelete = async () => {
     const selectedRows = table.getFilteredSelectedRowModel().rows;
     if (selectedRows.length === 0) {
-      toast({ title: "No members selected", variant: "destructive", description: "Please select members to delete." });
+      // This case should be handled by disabling the button, but as a safeguard:
+      // toast({ title: "No members selected", variant: "destructive", description: "Please select members to delete." });
+      setIsBulkDeleteConfirmOpen(false); // Ensure dialog closes if somehow triggered
       return;
     }
     const memberIdsToDelete = selectedRows.map(row => row.original.id);
@@ -224,8 +229,11 @@ export function MembersTable() {
     
     if (response.successCount > 0 && currentGymDatabaseId) {
         loadMembers(currentGymDatabaseId); 
+    } else if (response.successCount === 0 && response.error) {
+        // Error handled by toast, no need to reload if nothing changed
     }
-    setRowSelection({});
+    setRowSelection({}); // Clear selection after action
+    setIsBulkDeleteConfirmOpen(false);
   };
 
   const handleBulkStatusUpdate = async (newStatus: MembershipStatus) => {
@@ -235,7 +243,7 @@ export function MembersTable() {
     }
     const selectedRows = table.getFilteredSelectedRowModel().rows;
      if (selectedRows.length === 0) {
-      toast({ title: "No members selected", variant: "destructive", description: "Please select members to update." });
+      // toast({ title: "No members selected", variant: "destructive", description: "Please select members to update." });
       return;
     }
     const memberIdsToUpdate = selectedRows.map(row => row.original.id);
@@ -252,7 +260,7 @@ export function MembersTable() {
   const handleOpenBulkEmailDialog = () => {
     const selectedRows = table.getFilteredSelectedRowModel().rows;
     if (selectedRows.length === 0) {
-      toast({ title: "No members selected", variant: "destructive", description: "Please select members to email." });
+      // toast({ title: "No members selected", variant: "destructive", description: "Please select members to email." });
       return;
     }
     setBulkEmailRecipients(selectedRows.map(row => row.original));
@@ -270,7 +278,6 @@ export function MembersTable() {
           checked={table.getIsAllPageRowsSelected() || (table.getIsSomePageRowsSelected() && 'indeterminate')}
           onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
           aria-label="Select all"
-          className="border-primary-foreground/50 data-[state=checked]:bg-primary data-[state=checked]:border-primary"
         />
       ),
       cell: ({ row }) => (
@@ -278,7 +285,6 @@ export function MembersTable() {
           checked={row.getIsSelected()}
           onCheckedChange={(value) => row.toggleSelected(!!value)}
           aria-label="Select row"
-          className="border-primary-foreground/50 data-[state=checked]:bg-primary data-[state=checked]:border-primary"
         />
       ),
       enableSorting: false,
@@ -382,7 +388,7 @@ export function MembersTable() {
               <DropdownMenuSeparator />
               <AlertDialogTrigger asChild>
                 <DropdownMenuItem 
-                    onSelect={(e) => e.preventDefault()} // Prevent menu closing immediately
+                    onSelect={(e) => e.preventDefault()} 
                     onClick={() => confirmDeleteMember(member)}
                     className="text-destructive focus:text-destructive focus:bg-destructive/10"
                 >
@@ -477,20 +483,34 @@ export function MembersTable() {
             }}
         />
       )}
-        <AlertDialog open={isDeleteConfirmOpen} onOpenChange={setIsDeleteConfirmOpen}>
-            <AlertDialogContent>
-                <AlertDialogHeader>
-                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                <AlertDialogDescription>
-                    This action cannot be undone. This will permanently delete {memberToDelete?.name || 'the selected member'}.
-                </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                <AlertDialogCancel onClick={() => setMemberToDelete(null)}>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={executeDeleteMember} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
-                </AlertDialogFooter>
-            </AlertDialogContent>
-        </AlertDialog>
+       <AlertDialog open={isDeleteConfirmOpen} onOpenChange={setIsDeleteConfirmOpen}>
+          <AlertDialogContent>
+              <AlertDialogHeader>
+              <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+              <AlertDialogDescription>
+                  This action cannot be undone. This will permanently delete {memberToDelete?.name || 'the selected member'}.
+              </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => setMemberToDelete(null)}>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={executeDeleteMember} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
+              </AlertDialogFooter>
+          </AlertDialogContent>
+      </AlertDialog>
+      <AlertDialog open={isBulkDeleteConfirmOpen} onOpenChange={setIsBulkDeleteConfirmOpen}>
+          <AlertDialogContent>
+              <AlertDialogHeader>
+              <AlertDialogTitle>Confirm Bulk Deletion</AlertDialogTitle>
+              <AlertDialogDescription>
+                  This action cannot be undone. This will permanently delete {selectedRowCount} selected member(s).
+              </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={handleBulkDelete} className="bg-destructive hover:bg-destructive/90">Delete Selected</AlertDialogAction>
+              </AlertDialogFooter>
+          </AlertDialogContent>
+      </AlertDialog>
 
 
       <div className="flex items-center justify-between gap-2 flex-wrap mb-4">
@@ -535,7 +555,7 @@ export function MembersTable() {
        <div className="flex items-center justify-between gap-2 mb-4">
           <div>
             {currentGymDatabaseId && !isLoadingMembers && (
-                 <Button variant="ghost" size="sm" onClick={() => loadMembers(currentGymDatabaseId)}>
+                 <Button variant="ghost" size="sm" onClick={() => {if(currentGymDatabaseId) loadMembers(currentGymDatabaseId);}}>
                     <RefreshCw className="mr-2 h-4 w-4" /> Refresh List
                 </Button>
             )}
@@ -562,7 +582,6 @@ export function MembersTable() {
                 </DropdownMenuContent>
             </DropdownMenu>
             
-            <AlertDialog> {/* Main AlertDialog for Bulk Delete Confirmation */}
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                     <Button variant="outline" size="sm" disabled={selectedRowCount === 0}>
@@ -600,35 +619,19 @@ export function MembersTable() {
                             </DropdownMenuSubContent>
                         </DropdownMenuPortal>
                     </DropdownMenuSub>
-                    <DropdownMenuItem onClick={handleOpenBulkEmailDialog}>
+                    <DropdownMenuItem onClick={handleOpenBulkEmailDialog} disabled={selectedRowCount === 0}>
                         <Mail className="mr-2 h-4 w-4" /> Send Custom Email
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
-                    <AlertDialogTrigger asChild>
-                        <DropdownMenuItem 
-                            onSelect={(e) => e.preventDefault()} // Prevent menu from closing, AlertDialog handles it
-                            className="text-destructive focus:text-destructive"
-                            disabled={selectedRowCount === 0}
-                        >
+                     <DropdownMenuItem 
+                        onSelect={(e) => { e.preventDefault(); if (selectedRowCount > 0) setIsBulkDeleteConfirmOpen(true); }}
+                        className="text-destructive focus:text-destructive"
+                        disabled={selectedRowCount === 0}
+                    >
                         <Trash2 className="mr-2 h-4 w-4" /> Delete Selected ({selectedRowCount})
-                        </DropdownMenuItem>
-                    </AlertDialogTrigger>
+                    </DropdownMenuItem>
                     </DropdownMenuContent>
                 </DropdownMenu>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                    <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                        This action cannot be undone. This will permanently delete {selectedRowCount} selected member(s).
-                    </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleBulkDelete} className="bg-destructive hover:bg-destructive/90">Delete Selected</AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
-
            </div>
       </div>
 
