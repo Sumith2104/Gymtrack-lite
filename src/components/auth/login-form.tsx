@@ -122,19 +122,6 @@ export function LoginForm() {
             </Button>
           </form>
         </Form>
-        <div className="mt-4 text-center">
-            <a
-              href="#" // Replace with actual link if needed
-              className="text-sm text-muted-foreground hover:text-primary"
-              onClick={(e) => {
-                e.preventDefault();
-                // Implement forgot password logic or link to a page
-                toast({ title: "Forgot Password", description: "This feature is not yet implemented." });
-              }}
-            >
-              Forgot Password?
-            </a>
-          </div>
       </CardContent>
     </Card>
   );
