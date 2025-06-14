@@ -382,7 +382,8 @@ export async function sendBulkCustomEmailAction(
   memberDbIds: string[], 
   subject: string, 
   body: string,
-  gymName: string
+  gymName: string,
+  includeQrCode: boolean // New parameter
 ): Promise<{ attempted: number; successful: number; noEmailAddress: number; failed: number; error?: string }> {
   if (!memberDbIds || memberDbIds.length === 0) {
     return { attempted: 0, successful: 0, noEmailAddress: 0, failed: 0, error: "No member IDs provided for email." };
@@ -400,7 +401,7 @@ export async function sendBulkCustomEmailAction(
   try {
     const { data: members, error: fetchError } = await supabase
       .from('members')
-      .select('id, name, email, member_id') // Fetch member_id for QR code
+      .select('id, name, email, member_id') 
       .in('id', memberDbIds);
 
     if (fetchError) {
@@ -417,8 +418,8 @@ export async function sendBulkCustomEmailAction(
         attempted++;
         let emailHtmlBody = `<p>Dear ${member.name || 'Member'},</p><p>${body.replace(/\n/g, '<br />')}</p>`;
 
-        // Add QR code if only one recipient and they have a memberId
-        if (memberDbIds.length === 1 && member.member_id) {
+        // Add QR code ONLY if it's a single recipient AND includeQrCode is true AND they have a memberId
+        if (memberDbIds.length === 1 && includeQrCode && member.member_id) {
           const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(member.member_id)}`;
           emailHtmlBody += `
             <p>Your Member ID QR Code:</p>

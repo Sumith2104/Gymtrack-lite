@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
-import { Mail, Send, Info } from 'lucide-react';
+import { Mail, Send, Info, CheckSquare, Square } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -26,12 +26,14 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { Checkbox } from '@/components/ui/checkbox';
 import type { Member } from '@/lib/types';
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
 
 const emailSchema = z.object({
   subject: z.string().min(3, { message: 'Subject must be at least 3 characters.' }).max(100),
   body: z.string().min(10, { message: 'Email body must be at least 10 characters.' }).max(2000),
+  includeQrCode: z.boolean().default(false),
 });
 
 type EmailFormValues = z.infer<typeof emailSchema>;
@@ -40,7 +42,7 @@ interface BulkEmailDialogProps {
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
   recipients: Member[];
-  onSend: (subject: string, body: string) => void;
+  onSend: (subject: string, body: string, includeQrCode: boolean) => void;
 }
 
 export function BulkEmailDialog({ isOpen, onOpenChange, recipients, onSend }: BulkEmailDialogProps) {
@@ -49,28 +51,41 @@ export function BulkEmailDialog({ isOpen, onOpenChange, recipients, onSend }: Bu
     defaultValues: {
       subject: '',
       body: '',
+      includeQrCode: false,
     },
   });
 
   const recipientCount = recipients.length;
   const isSingleRecipient = recipientCount === 1;
 
+  // Reset includeQrCode if recipient count changes from 1 to many or vice-versa while dialog is open
+  React.useEffect(() => {
+    if (isOpen) {
+      if (!isSingleRecipient) {
+        form.setValue('includeQrCode', false);
+      }
+    } else {
+        form.reset(); // Reset form completely when dialog closes
+    }
+  }, [isSingleRecipient, isOpen, form]);
+
+
   async function onSubmit(data: EmailFormValues) {
-    onSend(data.subject, data.body);
+    onSend(data.subject, data.body, data.includeQrCode && isSingleRecipient); // Ensure QR only sent if single recipient and checked
     form.reset();
     onOpenChange(false);
   }
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => {
-      if (!open) form.reset(); // Reset form if dialog is closed
+      if (!open) form.reset();
       onOpenChange(open);
     }}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center font-headline">
             <Mail className="mr-2 h-5 w-5 text-primary" />
-            Compose Bulk Email
+            Compose Email
           </DialogTitle>
           <DialogDescription>
             Send an email to {recipientCount} selected member(s).
@@ -78,15 +93,6 @@ export function BulkEmailDialog({ isOpen, onOpenChange, recipients, onSend }: Bu
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4">
-            {isSingleRecipient && (
-                 <Alert className="border-primary/50 bg-primary/5">
-                    <Info className="h-4 w-4 !text-primary" />
-                    <AlertTitle className="text-primary/90">Note for Single Recipient</AlertTitle>
-                    <AlertDescription className="text-primary/80">
-                        The member's QR code for check-in can be included in this email (simulated).
-                    </AlertDescription>
-                </Alert>
-            )}
             <FormField
               control={form.control}
               name="subject"
@@ -118,6 +124,32 @@ export function BulkEmailDialog({ isOpen, onOpenChange, recipients, onSend }: Bu
                 </FormItem>
               )}
             />
+
+            {isSingleRecipient && (
+              <FormField
+                control={form.control}
+                name="includeQrCode"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-center space-x-3 space-y-0 rounded-md border p-3 shadow-sm bg-muted/50">
+                    <FormControl>
+                      <Checkbox
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                        disabled={!isSingleRecipient}
+                        id="includeQrCode"
+                      />
+                    </FormControl>
+                    <div className="space-y-1 leading-none">
+                      <FormLabel htmlFor="includeQrCode" className="font-medium cursor-pointer text-foreground/80">
+                        Include Member ID QR Code for Check-in
+                      </FormLabel>
+                      <FormMessage />
+                    </div>
+                  </FormItem>
+                )}
+              />
+            )}
+            
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                 Cancel

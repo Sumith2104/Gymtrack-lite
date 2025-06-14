@@ -385,14 +385,14 @@ export function MembersTable() {
                   </DropdownMenuPortal>
                 </DropdownMenuSub>
                 <DropdownMenuSeparator />
-                  <AlertDialogTrigger asChild>
-                    <DropdownMenuItem 
-                        onSelect={(e) => e.preventDefault()} 
-                        className="text-destructive focus:text-destructive focus:bg-destructive/10"
-                    >
-                      <Trash2 className="mr-2 h-4 w-4" /> Delete Member
-                    </DropdownMenuItem>
-                  </AlertDialogTrigger>
+                <AlertDialogTrigger asChild>
+                  <DropdownMenuItem 
+                      onSelect={(e) => e.preventDefault()} 
+                      className="text-destructive focus:text-destructive focus:bg-destructive/10"
+                  >
+                    <Trash2 className="mr-2 h-4 w-4" /> Delete Member
+                  </DropdownMenuItem>
+                </AlertDialogTrigger>
               </DropdownMenuContent>
             </DropdownMenu>
             <AlertDialogContent>
@@ -477,19 +477,19 @@ export function MembersTable() {
           attendanceSummary={mockAttendanceData}
         />
       )}
-      {bulkEmailRecipients.length > 0 && (
+      {isBulkEmailDialogOpen && (
         <BulkEmailDialog
             isOpen={isBulkEmailDialogOpen}
             onOpenChange={setIsBulkEmailDialogOpen}
             recipients={bulkEmailRecipients}
-            onSend={async (subject, body) => {
+            onSend={async (subject, body, includeQrCode) => {
                 if (bulkEmailRecipients.length === 0 || !currentGymDatabaseId) {
                     toast({ variant: "destructive", title: "Error", description: "No recipients or gym context."});
                     return;
                 }
                 const gymName = localStorage.getItem('gymName') || APP_NAME;
                 const memberDbIds = bulkEmailRecipients.map(r => r.id);
-                const response = await sendBulkCustomEmailAction(memberDbIds, subject, body, gymName);
+                const response = await sendBulkCustomEmailAction(memberDbIds, subject, body, gymName, includeQrCode);
 
                 if (response.error) {
                     toast({ variant: "destructive", title: "Email Sending Error", description: response.error });
@@ -552,29 +552,29 @@ export function MembersTable() {
                 </Button>
             )}
           </div>
-           <div className="flex items-center gap-2">
-            <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm">
-                    Columns <ChevronDownIcon className="ml-2 h-4 w-4" />
-                </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                {table.getAllColumns().filter((column) => column.getCanHide())
-                    .map((column) => (
-                    <DropdownMenuCheckboxItem
-                        key={column.id}
-                        className="capitalize"
-                        checked={column.getIsVisible()}
-                        onCheckedChange={(value) => column.toggleVisibility(!!value)}
-                    >
-                        {column.id.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
-                    </DropdownMenuCheckboxItem>
-                    ))}
-                </DropdownMenuContent>
-            </DropdownMenu>
-            
-            <AlertDialog open={isBulkDeleteConfirmOpen} onOpenChange={setIsBulkDeleteConfirmOpen}>
+          <AlertDialog>
+            <div className="flex items-center gap-2">
+              <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm">
+                      Columns <ChevronDownIcon className="ml-2 h-4 w-4" />
+                  </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                  {table.getAllColumns().filter((column) => column.getCanHide())
+                      .map((column) => (
+                      <DropdownMenuCheckboxItem
+                          key={column.id}
+                          className="capitalize"
+                          checked={column.getIsVisible()}
+                          onCheckedChange={(value) => column.toggleVisibility(!!value)}
+                      >
+                          {column.id.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
+                      </DropdownMenuCheckboxItem>
+                      ))}
+                  </DropdownMenuContent>
+              </DropdownMenu>
+              
               <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                   <Button variant="outline" size="sm" disabled={selectedRowCount === 0}>
@@ -627,20 +627,20 @@ export function MembersTable() {
                   </AlertDialogTrigger>
                   </DropdownMenuContent>
               </DropdownMenu>
-              <AlertDialogContent>
-                  <AlertDialogHeader>
-                  <AlertDialogTitle>Confirm Bulk Deletion</AlertDialogTitle>
-                  <AlertDialogDescription>
-                      This action cannot be undone. This will permanently delete {selectedRowCount} selected member(s).
-                  </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                  <AlertDialogCancel onClick={() => setIsBulkDeleteConfirmOpen(false)}>Cancel</AlertDialogCancel>
-                  <AlertDialogAction onClick={handleBulkDelete} className="bg-destructive hover:bg-destructive/90">Delete Selected</AlertDialogAction>
-                  </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-           </div>
+            </div>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                <AlertDialogTitle>Confirm Bulk Deletion</AlertDialogTitle>
+                <AlertDialogDescription>
+                    This action cannot be undone. This will permanently delete {selectedRowCount} selected member(s).
+                </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                <AlertDialogCancel onClick={() => setIsBulkDeleteConfirmOpen(false)}>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={handleBulkDelete} className="bg-destructive hover:bg-destructive/90">Delete Selected</AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
       </div>
 
       <div className="rounded-md border overflow-x-auto"> 
@@ -720,4 +720,3 @@ export function MembersTable() {
     </div>
   );
 }
-
