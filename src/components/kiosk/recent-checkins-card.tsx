@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -10,8 +9,8 @@ import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import type { FormattedCheckIn } from '@/lib/types';
-import { format } from 'date-fns';
-import { ListChecks, Search, CalendarIcon, X } from 'lucide-react';
+import { format, parseISO } from 'date-fns';
+import { ListChecks, Search, CalendarIcon as CalendarIconLucide, X } from 'lucide-react'; // Renamed to avoid conflict
 import { cn } from '@/lib/utils';
 
 interface RecentCheckinsCardProps {
@@ -20,20 +19,23 @@ interface RecentCheckinsCardProps {
   className?: string;
 }
 
+interface GroupedCheckIns {
+  [dateKey: string]: FormattedCheckIn[];
+}
+
 export function RecentCheckinsCard({ newCheckinEntry, initialCheckins, className }: RecentCheckinsCardProps) {
   const [displayedCheckins, setDisplayedCheckins] = useState<FormattedCheckIn[]>([]);
   const [filterTerm, setFilterTerm] = useState('');
   const [filterDate, setFilterDate] = useState<Date | undefined>(undefined);
 
   useEffect(() => {
-    // Initialize with initialCheckins, sorted by most recent
-    setDisplayedCheckins([...initialCheckins].sort((a, b) => b.checkInTime.getTime() - a.checkInTime.getTime()));
+    setDisplayedCheckins([...initialCheckins].sort((a, b) => new Date(b.checkInTime).getTime() - new Date(a.checkInTime).getTime()));
   }, [initialCheckins]);
   
   useEffect(() => {
     if (newCheckinEntry) {
       setDisplayedCheckins((prevCheckins) => 
-        [newCheckinEntry, ...prevCheckins].sort((a, b) => b.checkInTime.getTime() - a.checkInTime.getTime())
+        [newCheckinEntry, ...prevCheckins].sort((a, b) => new Date(b.checkInTime).getTime() - new Date(a.checkInTime).getTime())
       );
     }
   }, [newCheckinEntry]);
@@ -44,12 +46,29 @@ export function RecentCheckinsCard({ newCheckinEntry, initialCheckins, className
         checkin.memberName.toLowerCase().includes(filterTerm.toLowerCase()) ||
         checkin.memberId.toLowerCase().includes(filterTerm.toLowerCase());
       
+      const checkinDate = new Date(checkin.checkInTime);
       const matchesDate = !filterDate || 
-        format(checkin.checkInTime, 'yyyy-MM-dd') === format(filterDate, 'yyyy-MM-dd');
+        format(checkinDate, 'yyyy-MM-dd') === format(filterDate, 'yyyy-MM-dd');
         
       return matchesTerm && matchesDate;
     });
   }, [displayedCheckins, filterTerm, filterDate]);
+
+  const groupedCheckins = useMemo(() => {
+    return filteredCheckins.reduce((acc: GroupedCheckIns, checkin) => {
+      const checkinDate = new Date(checkin.checkInTime);
+      const dateKey = format(checkinDate, 'yyyy-MM-dd');
+      if (!acc[dateKey]) {
+        acc[dateKey] = [];
+      }
+      acc[dateKey].push(checkin);
+      return acc;
+    }, {});
+  }, [filteredCheckins]);
+
+  const sortedDateKeys = useMemo(() => {
+    return Object.keys(groupedCheckins).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
+  }, [groupedCheckins]);
 
   const clearDateFilter = () => {
     setFilterDate(undefined);
@@ -62,7 +81,7 @@ export function RecentCheckinsCard({ newCheckinEntry, initialCheckins, className
           <CardTitle className="text-xl font-headline">Recent Check-ins</CardTitle>
           <ListChecks className="h-6 w-6 text-primary" />
         </div>
-        <CardDescription>Live feed of member arrivals.</CardDescription>
+        <CardDescription>A log of the latest member check-ins, grouped by date. Filter by name, ID, or date.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="flex flex-col sm:flex-row gap-2">
@@ -70,7 +89,7 @@ export function RecentCheckinsCard({ newCheckinEntry, initialCheckins, className
             <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               type="text"
-              placeholder="Filter by Name or Member ID..."
+              placeholder="Filter by name or ID..."
               value={filterTerm}
               onChange={(e) => setFilterTerm(e.target.value)}
               className="pl-9 h-10"
@@ -85,8 +104,8 @@ export function RecentCheckinsCard({ newCheckinEntry, initialCheckins, className
                   !filterDate && "text-muted-foreground"
                 )}
               >
-                <CalendarIcon className="mr-2 h-4 w-4" />
-                {filterDate ? format(filterDate, "PPP") : <span>Filter by date</span>}
+                <CalendarIconLucide className="mr-2 h-4 w-4" />
+                {filterDate ? format(filterDate, "PPP") : <span>Pick a date</span>}
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0">
@@ -105,33 +124,47 @@ export function RecentCheckinsCard({ newCheckinEntry, initialCheckins, className
             </Button>
           )}
         </div>
+        
+        {/* Column Headers */}
+        <div className="hidden md:flex px-3 py-2 border-b border-border">
+          <div className="flex-1 font-semibold text-sm text-muted-foreground">Member Name</div>
+          <div className="w-32 text-center font-semibold text-sm text-muted-foreground">Member ID</div>
+          <div className="w-32 text-right font-semibold text-sm text-muted-foreground">Date</div>
+        </div>
 
-        <ScrollArea className="h-[300px] pr-3 border rounded-md">
-          {filteredCheckins.length === 0 ? (
+        <ScrollArea className="h-[300px] pr-1">
+          {sortedDateKeys.length === 0 ? (
             <p className="text-muted-foreground text-center py-10">
-              No check-ins match your filters or no check-ins yet.
+              No check-ins match your filters or no check-ins yet for this gym.
             </p>
           ) : (
-            filteredCheckins.map((checkin, index) => (
-              <div key={`${checkin.memberTableId}-${checkin.checkInTime.toISOString()}-${index}`}>
-                <div className="p-3 hover:bg-muted/50 transition-colors rounded-md">
-                  <div className="flex justify-between items-center">
-                    <h3 className="font-semibold text-sm text-primary">
-                      {checkin.memberName}
-                    </h3>
-                    <p className="text-xs text-muted-foreground">
-                      {format(checkin.checkInTime, "p")}
-                    </p>
-                  </div>
-                  <div className="flex justify-between items-center text-xs">
-                    <p className="text-foreground/80">ID: {checkin.memberId}</p>
-                     <p className="text-muted-foreground">
-                       {format(checkin.checkInTime, "MMM d, yyyy")}
-                     </p>
-                  </div>
-                   <p className="text-xs text-muted-foreground/70">Gym: {checkin.gymName}</p>
+            sortedDateKeys.map((dateKey) => (
+              <div key={dateKey} className="mb-4">
+                <h3 className="text-md font-semibold text-primary px-3 py-2 bg-muted/30 rounded-t-md flex items-center">
+                  <CalendarIconLucide className="mr-2 h-4 w-4" />
+                  {format(parseISO(dateKey), "d MMM yyyy")}
+                </h3>
+                <div className="border border-t-0 rounded-b-md border-border/50">
+                  {groupedCheckins[dateKey].map((checkin, index) => (
+                    <div key={`${checkin.memberTableId}-${new Date(checkin.checkInTime).toISOString()}-${index}`}>
+                      <div className="flex flex-col md:flex-row items-start md:items-center p-3 hover:bg-muted/50 transition-colors rounded-md">
+                        <div className="flex-1 mb-1 md:mb-0">
+                          <p className="font-medium text-sm text-foreground">
+                            {checkin.memberName}
+                          </p>
+                          <p className="md:hidden text-xs text-muted-foreground">ID: {checkin.memberId}</p>
+                        </div>
+                        <div className="w-full md:w-32 md:text-center text-xs text-muted-foreground">
+                          <span className="md:hidden font-medium text-foreground/80">ID: </span>{checkin.memberId}
+                        </div>
+                        <div className="w-full md:w-32 md:text-right text-xs text-muted-foreground">
+                           <span className="md:hidden font-medium text-foreground/80">Checked-in: </span>{format(new Date(checkin.checkInTime), "PP p")}
+                        </div>
+                      </div>
+                      {index < groupedCheckins[dateKey].length - 1 && <Separator className="my-0 bg-border/30" />}
+                    </div>
+                  ))}
                 </div>
-                {index < filteredCheckins.length - 1 && <Separator className="my-1 bg-border/50" />}
               </div>
             ))
           )}
