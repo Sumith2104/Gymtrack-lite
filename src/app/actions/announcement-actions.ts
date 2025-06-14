@@ -4,8 +4,14 @@
 import { createSupabaseServerActionClient } from '@/lib/supabase/server';
 import type { Announcement, Member, MembershipStatus } from '@/lib/types';
 import { sendEmail } from '@/lib/email-service';
-import { formatDateIST, parseValidISO } from '@/lib/date-utils'; // Updated import
+import { formatDateIST, parseValidISO } from '@/lib/date-utils';
 import { differenceInDays, isValid } from 'date-fns';
+import * as z from 'zod';
+
+const announcementActionSchema = z.object({
+  title: z.string().min(3, { message: 'Title must be at least 3 characters.' }).max(100),
+  content: z.string().min(10, { message: 'Content must be at least 10 characters.' }).max(1000),
+});
 
 // Helper function to determine effective status, similar to one in members-table
 // This is simplified for email filtering and might need adjustment for perfect parity
@@ -38,14 +44,28 @@ interface AddAnnouncementResponse {
 }
 
 export async function addAnnouncementAction(gymId: string, title: string, content: string): Promise<AddAnnouncementResponse> {
-  if (!gymId || !title || !content) {
-    return { error: "Gym ID, title, and content are required to add an announcement." };
+  if (!gymId) { // gymId check remains
+    return { error: "Gym ID is required to add an announcement." };
   }
+
+  // Server-side validation
+  const validationResult = announcementActionSchema.safeParse({ title, content });
+  if (!validationResult.success) {
+    const fieldErrors = validationResult.error.flatten().fieldErrors;
+    let errorMessages = Object.entries(fieldErrors)
+      .map(([key, messages]) => `${key}: ${(messages as string[]).join(', ')}`)
+      .join('; ');
+    return { error: `Validation failed: ${errorMessages || 'Check inputs.'}` };
+  }
+
+  const validatedTitle = validationResult.data.title;
+  const validatedContent = validationResult.data.content;
+
   const supabase = createSupabaseServerActionClient();
   try {
     const { data, error } = await supabase
       .from('announcements')
-      .insert({ gym_id: gymId, title, content, created_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+      .insert({ gym_id: gymId, title: validatedTitle, content: validatedContent, created_at: new Date().toISOString(), updated_at: new Date().toISOString() })
       .select()
       .single();
 
@@ -71,33 +91,30 @@ export async function addAnnouncementAction(gymId: string, title: string, conten
 
     const { data: membersToEmail, error: memberFetchError } = await supabase
       .from('members')
-      .select('name, email, membership_status, expiry_date') // Need expiry_date for 'expiring soon'
+      .select('name, email, membership_status, expiry_date') 
       .eq('gym_id', gymId);
-      // Fetch all then filter by effective status in code, as 'expiring soon' is derived
-      // .in('membership_status', ['active']); // Fetch active, then filter for 'expiring soon'
-
+      
     if (memberFetchError) {
       console.error("Error fetching members for announcement email:", memberFetchError.message);
-      // Continue without email broadcast or return an error specific to email part
     } else if (membersToEmail && membersToEmail.length > 0) {
       const gymDetails = await supabase.from('gyms').select('name').eq('id', gymId).single();
       const gymName = gymDetails.data?.name || 'Your Gym';
 
       for (const member of membersToEmail) {
-        // Ensure member object has the necessary fields before passing to getEffectiveMembershipStatusForEmail
         const effectiveStatus = getEffectiveMembershipStatusForEmail({
-          membershipStatus: member.membership_status as MembershipStatus, // Cast string to MembershipStatus
+          membershipStatus: member.membership_status as MembershipStatus,
           expiryDate: member.expiry_date,
         });
         
         if (member.email && (effectiveStatus === 'active' || effectiveStatus === 'expiring soon')) {
           attempted++;
           const emailSubject = `New Announcement from ${gymName}: ${newAnnouncement.title}`;
+          // Use 'PP' format for email date: e.g., "Aug 15, 2023"
           const emailHtmlBody = `
             <p>Dear ${member.name || 'Member'},</p>
             <p>A new announcement has been posted at ${gymName}:</p>
             <h2>${newAnnouncement.title}</h2>
-            <p><em>Posted on: ${formatDateIST(newAnnouncement.createdAt)}</em></p>
+            <p><em>Posted on: ${formatDateIST(newAnnouncement.createdAt, 'PP')}</em></p>
             <div class="announcement-content">
               ${newAnnouncement.content.replace(/\n/g, '<br />')}
             </div>

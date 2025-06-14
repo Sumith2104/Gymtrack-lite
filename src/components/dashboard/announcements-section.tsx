@@ -7,7 +7,8 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import type { Announcement } from '@/lib/types';
 import { Megaphone, AlertCircle, Trash2, RefreshCw } from 'lucide-react';
-import { formatDistanceToNow, parseISO, isValid } from 'date-fns';
+import { parseISO, isValid } from 'date-fns';
+import { formatDateIST } from '@/lib/date-utils'; // Updated import
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -165,7 +166,7 @@ export function AnnouncementsSection({ className }: { className?: string }) {
                     <div className="flex-1">
                         <label htmlFor={`ann-${announcement.id}`} className="font-semibold text-sm text-primary cursor-pointer hover:underline">{announcement.title}</label>
                         <p className="text-xs text-muted-foreground mb-1">
-                            {isValid(parseISO(announcement.createdAt)) ? formatDistanceToNow(parseISO(announcement.createdAt), { addSuffix: true }) : 'Invalid date'}
+                            {formatDateIST(announcement.createdAt, 'd MMM yyyy')}
                         </p>
                         <p className="text-sm text-foreground/80 whitespace-pre-wrap leading-relaxed">{announcement.content}</p>
                     </div>

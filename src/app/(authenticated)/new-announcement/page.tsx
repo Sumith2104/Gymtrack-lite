@@ -43,21 +43,21 @@ const quickTemplates: QuickTemplate[] = [
     id: 'schedule_change',
     label: 'Class Schedule Change',
     title: 'Class Schedule Update',
-    content: (date) => \`Dear members,\n\nPlease note a change to our class schedule effective ${date ? date : 'soon'}.\n\n[Describe change, e.g., 'The 6 PM Yoga class on Mondays will now start at 6:15 PM.']\n\nCheck the app or website for the full updated schedule.\n\nBest regards,\n${APP_NAME} Team\`,
+    content: (date) => `Dear members,\n\nPlease note a change to our class schedule effective ${date ? date : 'soon'}.\n\n[Describe change, e.g., 'The 6 PM Yoga class on Mondays will now start at 6:15 PM.']\n\nCheck the app or website for the full updated schedule.\n\nBest regards,\n${APP_NAME} Team`,
     dateSensitive: true,
   },
   {
     id: 'holiday_closure',
     label: 'Holiday Closure',
     title: 'Holiday Closure Announcement',
-    content: (date) => \`Hi everyone,\n\nJust a reminder that the gym will be closed on ${date ? date : '[Holiday Date]'} for the [Holiday Name] holiday.\n\nWe will resume normal hours on [Reopening Date].\n\nEnjoy the holiday!\n\nSincerely,\n${APP_NAME} Management\`,
+    content: (date) => `Hi everyone,\n\nJust a reminder that the gym will be closed on ${date ? date : '[Holiday Date]'} for the [Holiday Name] holiday.\n\nWe will resume normal hours on [Reopening Date].\n\nEnjoy the holiday!\n\nSincerely,\n${APP_NAME} Management`,
     dateSensitive: true,
   },
   {
     id: 'new_equipment',
     label: 'New Equipment',
     title: 'Exciting News: New Equipment Arrived!',
-    content: () => \`Great news, fitness enthusiasts!\n\nWe've just added new [Type of Equipment, e.g., 'state-of-the-art treadmills'] to the gym floor!\n\nCome check them out and elevate your workout.\n\nSee you at the gym,\nYour ${APP_NAME} Team\`,
+    content: () => `Great news, fitness enthusiasts!\n\nWe've just added new [Type of Equipment, e.g., 'state-of-the-art treadmills'] to the gym floor!\n\nCome check them out and elevate your workout.\n\nSee you at the gym,\nYour ${APP_NAME} Team`,
   },
 ];
 
@@ -77,7 +77,7 @@ export default function NewAnnouncementPage() {
     let content = template.content();
     if (template.dateSensitive) {
       const tomorrow = addDays(new Date(), 1);
-      content = template.content(format(tomorrow, 'PPPP'));
+      content = template.content(format(tomorrow, 'd MMM yyyy')); // Updated format
     }
     form.reset({ title: template.title, content: content });
   };
@@ -106,12 +106,12 @@ export default function NewAnnouncementPage() {
     let emailFeedback = "Email broadcast initiated.";
     if (response.emailBroadcastResult) {
         const { attempted, successful, noEmailAddress, failed } = response.emailBroadcastResult;
-        emailFeedback = \`Announcement published. Emails: ${successful}/${attempted} sent. No address for ${noEmailAddress}. Failed: ${failed}.\`;
+        emailFeedback = `Announcement published. Emails: ${successful}/${attempted} sent. No address for ${noEmailAddress}. Failed: ${failed}.`;
     }
     
     toast({
       title: 'Announcement Published!',
-      description: \`"${data.title}" is now live. ${emailFeedback}\`,
+      description: `"${data.title}" is now live. ${emailFeedback}`,
     });
     form.reset();
     router.push('/dashboard'); 
