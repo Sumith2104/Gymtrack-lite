@@ -65,7 +65,7 @@ export async function addAnnouncementAction(gymId: string, title: string, conten
   try {
     const { data, error } = await supabase
       .from('announcements')
-      .insert({ gym_id: gymId, title: validatedTitle, content: validatedContent, created_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+      .insert({ gym_id: gymId, title: validatedTitle, content: validatedContent, created_at: new Date().toISOString() })
       .select()
       .single();
 
@@ -80,7 +80,6 @@ export async function addAnnouncementAction(gymId: string, title: string, conten
         title: data.title,
         content: data.content,
         createdAt: data.created_at,
-        updatedAt: data.updated_at,
     };
 
     // Email broadcast logic
@@ -156,7 +155,7 @@ export async function fetchAnnouncementsAction(gymId: string): Promise<{ data?: 
   try {
     const { data: dbAnnouncements, error } = await supabase
       .from('announcements')
-      .select('*')
+      .select('id, gym_id, title, content, created_at') // Explicitly select columns, excluding updated_at
       .eq('gym_id', gymId)
       .order('created_at', { ascending: false });
 
@@ -174,7 +173,6 @@ export async function fetchAnnouncementsAction(gymId: string): Promise<{ data?: 
         title: dbAnn.title,
         content: dbAnn.content,
         createdAt: dbAnn.created_at,
-        updatedAt: dbAnn.updated_at,
     }));
     return { data: announcements };
 

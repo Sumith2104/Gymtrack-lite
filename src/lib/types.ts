@@ -36,7 +36,6 @@ export interface Announcement {
   title: string; // announcements.title
   content: string; // announcements.content
   createdAt: string; // timestamptz (announcements.created_at)
-  updatedAt?: string | null; // (announcements.updated_at)
 }
 
 export interface Gym {

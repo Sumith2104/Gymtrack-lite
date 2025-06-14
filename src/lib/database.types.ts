@@ -186,7 +186,6 @@ export interface Database {
           title: string // text
           content: string // text
           created_at: string // timestamp with time zone
-          updated_at: string | null // timestamp with time zone - keeping this as it's common, though not explicitly in image details for announcements
         }
         Insert: {
           id?: string
@@ -194,7 +193,6 @@ export interface Database {
           title: string
           content: string
           created_at?: string
-          updated_at?: string | null
         }
         Update: {
           id?: string
@@ -202,7 +200,6 @@ export interface Database {
           title?: string
           content?: string
           created_at?: string
-          updated_at?: string | null
         }
         Relationships: [
           {
