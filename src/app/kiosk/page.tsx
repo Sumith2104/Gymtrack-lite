@@ -70,7 +70,7 @@ export default function KioskPage() {
   };
 
   return (
-    <div className="flex flex-1 flex-col container mx-auto py-6 px-4 sm:px-6 lg:px-8 gap-8 selection:bg-primary selection:text-primary-foreground">
+    <div className="flex flex-1 flex-col py-6 px-4 sm:px-6 lg:px-8 gap-8 selection:bg-primary selection:text-primary-foreground">
       <div className="mb-2 text-left">
         <h1 className="text-3xl md:text-4xl font-bold text-foreground tracking-tight">
           {kioskGymName ? `${kioskGymName} - Member Check-in` : 'Member Check-in'}
