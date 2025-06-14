@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -9,8 +10,8 @@ import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import type { FormattedCheckIn } from '@/lib/types';
-import { format, parseISO } from 'date-fns';
-import { ListChecks, Search, CalendarIcon as CalendarIconLucide, X } from 'lucide-react'; // Renamed to avoid conflict
+import { format, parseISO, isToday, isYesterday } from 'date-fns';
+import { ListChecks, Search, CalendarIcon as CalendarIconLucide, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface RecentCheckinsCardProps {
@@ -74,65 +75,71 @@ export function RecentCheckinsCard({ newCheckinEntry, initialCheckins, className
     setFilterDate(undefined);
   };
 
+  const formatDateGroupHeader = (dateKey: string): string => {
+    const date = parseISO(dateKey);
+    if (isToday(date)) return 'Today';
+    if (isYesterday(date)) return 'Yesterday';
+    return format(date, "d MMM yyyy");
+  };
+
+
   return (
     <Card className={cn("shadow-lg w-full", className)}>
       <CardHeader>
-        <div className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-xl font-headline">Recent Check-ins</CardTitle>
-          <ListChecks className="h-6 w-6 text-primary" />
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className='flex-shrink-0'>
+                <div className="flex flex-row items-center space-x-2 pb-1">
+                    <ListChecks className="h-6 w-6 text-primary" />
+                    <CardTitle className="text-xl font-headline">Recent Check-ins</CardTitle>
+                </div>
+                <CardDescription className="text-xs">A log of the latest member check-ins, grouped by date. Filter by name, ID, or date.</CardDescription>
+            </div>
+            <div className="w-full sm:w-auto flex flex-col sm:flex-row gap-2 flex-shrink-0 sm:ml-auto">
+                <div className="relative flex-grow sm:flex-grow-0 sm:w-60">
+                    <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                    type="text"
+                    placeholder="Filter by name or ID..."
+                    value={filterTerm}
+                    onChange={(e) => setFilterTerm(e.target.value)}
+                    className="pl-9 h-10 bg-background" // Ensure input background matches card
+                    />
+                </div>
+                <div className='relative flex-grow sm:flex-grow-0 sm:w-auto'>
+                    <Popover>
+                        <PopoverTrigger asChild>
+                        <Button
+                            variant={"outline"}
+                            className={cn(
+                            "w-full justify-start text-left font-normal h-10 bg-background border-border hover:bg-muted/50", // Ensure button background matches card
+                            !filterDate && "text-muted-foreground"
+                            )}
+                        >
+                            <CalendarIconLucide className="mr-2 h-4 w-4" />
+                            {filterDate ? format(filterDate, "PPP") : <span>Pick a date</span>}
+                        </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0">
+                        <Calendar
+                            mode="single"
+                            selected={filterDate}
+                            onSelect={setFilterDate}
+                            initialFocus
+                        />
+                        </PopoverContent>
+                    </Popover>
+                    {filterDate && (
+                        <Button variant="ghost" size="icon" onClick={clearDateFilter} className="absolute right-0 top-0 h-10 w-10 text-muted-foreground hover:text-foreground">
+                            <X className="h-4 w-4" />
+                            <span className="sr-only">Clear date filter</span>
+                        </Button>
+                    )}
+                </div>
+            </div>
         </div>
-        <CardDescription>A log of the latest member check-ins, grouped by date. Filter by name, ID, or date.</CardDescription>
       </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="flex flex-col sm:flex-row gap-2">
-          <div className="relative flex-grow">
-            <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              type="text"
-              placeholder="Filter by name or ID..."
-              value={filterTerm}
-              onChange={(e) => setFilterTerm(e.target.value)}
-              className="pl-9 h-10"
-            />
-          </div>
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                variant={"outline"}
-                className={cn(
-                  "w-full sm:w-auto justify-start text-left font-normal h-10",
-                  !filterDate && "text-muted-foreground"
-                )}
-              >
-                <CalendarIconLucide className="mr-2 h-4 w-4" />
-                {filterDate ? format(filterDate, "PPP") : <span>Pick a date</span>}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0">
-              <Calendar
-                mode="single"
-                selected={filterDate}
-                onSelect={setFilterDate}
-                initialFocus
-              />
-            </PopoverContent>
-          </Popover>
-          {filterDate && (
-             <Button variant="ghost" size="icon" onClick={clearDateFilter} className="h-10 w-10 sm:ml-1">
-                <X className="h-4 w-4" />
-                <span className="sr-only">Clear date filter</span>
-            </Button>
-          )}
-        </div>
-        
-        {/* Column Headers */}
-        <div className="hidden md:flex px-3 py-2 border-b border-border">
-          <div className="flex-1 font-semibold text-sm text-muted-foreground">Member Name</div>
-          <div className="w-32 text-center font-semibold text-sm text-muted-foreground">Member ID</div>
-          <div className="w-32 text-right font-semibold text-sm text-muted-foreground">Date</div>
-        </div>
-
-        <ScrollArea className="h-[300px] pr-1">
+      <CardContent className="pt-2">
+        <ScrollArea className="h-[350px] pr-1"> {/* Adjusted height slightly */}
           {sortedDateKeys.length === 0 ? (
             <p className="text-muted-foreground text-center py-10">
               No check-ins match your filters or no check-ins yet for this gym.
@@ -140,28 +147,31 @@ export function RecentCheckinsCard({ newCheckinEntry, initialCheckins, className
           ) : (
             sortedDateKeys.map((dateKey) => (
               <div key={dateKey} className="mb-4">
-                <h3 className="text-md font-semibold text-primary px-3 py-2 bg-muted/30 rounded-t-md flex items-center">
-                  <CalendarIconLucide className="mr-2 h-4 w-4" />
-                  {format(parseISO(dateKey), "d MMM yyyy")}
-                </h3>
-                <div className="border border-t-0 rounded-b-md border-border/50">
+                <div className="flex items-center px-3 py-2.5 bg-muted/10 rounded-t-md border-b border-border">
+                  <CalendarIconLucide className="mr-2 h-5 w-5 text-primary" />
+                  <h3 className="text-sm font-semibold text-primary">
+                    {formatDateGroupHeader(dateKey)}
+                  </h3>
+                </div>
+                
+                <div className="grid grid-cols-3 gap-4 px-3 py-2 text-xs font-medium text-muted-foreground border-b border-border">
+                  <div>Member Name</div>
+                  <div>Member ID</div>
+                  <div className="text-left">Date</div>
+                </div>
+
+                <div className="divide-y divide-border">
                   {groupedCheckins[dateKey].map((checkin, index) => (
-                    <div key={`${checkin.memberTableId}-${new Date(checkin.checkInTime).toISOString()}-${index}`}>
-                      <div className="flex flex-col md:flex-row items-start md:items-center p-3 hover:bg-muted/50 transition-colors rounded-md">
-                        <div className="flex-1 mb-1 md:mb-0">
-                          <p className="font-medium text-sm text-foreground">
-                            {checkin.memberName}
-                          </p>
-                          <p className="md:hidden text-xs text-muted-foreground">ID: {checkin.memberId}</p>
-                        </div>
-                        <div className="w-full md:w-32 md:text-center text-xs text-muted-foreground">
-                          <span className="md:hidden font-medium text-foreground/80">ID: </span>{checkin.memberId}
-                        </div>
-                        <div className="w-full md:w-32 md:text-right text-xs text-muted-foreground">
-                           <span className="md:hidden font-medium text-foreground/80">Checked-in: </span>{format(new Date(checkin.checkInTime), "PP p")}
-                        </div>
+                    <div key={`${checkin.memberTableId}-${new Date(checkin.checkInTime).toISOString()}-${index}`} className="grid grid-cols-3 gap-4 items-center px-3 py-3 hover:bg-muted/20 transition-colors">
+                      <div className="text-sm text-foreground truncate" title={checkin.memberName}>
+                        {checkin.memberName}
                       </div>
-                      {index < groupedCheckins[dateKey].length - 1 && <Separator className="my-0 bg-border/30" />}
+                      <div className="text-sm text-foreground truncate" title={checkin.memberId}>
+                        {checkin.memberId}
+                      </div>
+                      <div className="text-sm text-muted-foreground text-left">
+                        {format(new Date(checkin.checkInTime), "d MMM yyyy")}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -173,3 +183,4 @@ export function RecentCheckinsCard({ newCheckinEntry, initialCheckins, className
     </Card>
   );
 }
+
