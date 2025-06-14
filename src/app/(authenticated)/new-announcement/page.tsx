@@ -11,12 +11,11 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import type { Member, MembershipStatus } from '@/lib/types'; // Member, MembershipStatus used for mock email sim
 import { APP_NAME } from '@/lib/constants';
 import { Megaphone, Send, Lightbulb } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { addDays, differenceInDays, format, parseISO, isValid } from 'date-fns';
-import { addAnnouncementAction } from '@/app/actions/announcement-actions'; // DB action
+import { addDays, format } from 'date-fns';
+import { addAnnouncementAction } from '@/app/actions/announcement-actions'; 
 
 const announcementSchema = z.object({
   title: z.string().min(3, { message: 'Title must be at least 3 characters.' }).max(100),
@@ -44,21 +43,21 @@ const quickTemplates: QuickTemplate[] = [
     id: 'schedule_change',
     label: 'Class Schedule Change',
     title: 'Class Schedule Update',
-    content: (date) => `Dear members,\n\nPlease note a change to our class schedule effective ${date ? date : 'soon'}.\n\n[Describe change, e.g., 'The 6 PM Yoga class on Mondays will now start at 6:15 PM.']\n\nCheck the app or website for the full updated schedule.\n\nBest regards,\n${APP_NAME} Team`,
+    content: (date) => \`Dear members,\n\nPlease note a change to our class schedule effective ${date ? date : 'soon'}.\n\n[Describe change, e.g., 'The 6 PM Yoga class on Mondays will now start at 6:15 PM.']\n\nCheck the app or website for the full updated schedule.\n\nBest regards,\n${APP_NAME} Team\`,
     dateSensitive: true,
   },
   {
     id: 'holiday_closure',
     label: 'Holiday Closure',
     title: 'Holiday Closure Announcement',
-    content: (date) => `Hi everyone,\n\nJust a reminder that the gym will be closed on ${date ? date : '[Holiday Date]'} for the [Holiday Name] holiday.\n\nWe will resume normal hours on [Reopening Date].\n\nEnjoy the holiday!\n\nSincerely,\n${APP_NAME} Management`,
+    content: (date) => \`Hi everyone,\n\nJust a reminder that the gym will be closed on ${date ? date : '[Holiday Date]'} for the [Holiday Name] holiday.\n\nWe will resume normal hours on [Reopening Date].\n\nEnjoy the holiday!\n\nSincerely,\n${APP_NAME} Management\`,
     dateSensitive: true,
   },
   {
     id: 'new_equipment',
     label: 'New Equipment',
     title: 'Exciting News: New Equipment Arrived!',
-    content: () => `Great news, fitness enthusiasts!\n\nWe've just added new [Type of Equipment, e.g., 'state-of-the-art treadmills'] to the gym floor!\n\nCome check them out and elevate your workout.\n\nSee you at the gym,\nYour ${APP_NAME} Team`,
+    content: () => \`Great news, fitness enthusiasts!\n\nWe've just added new [Type of Equipment, e.g., 'state-of-the-art treadmills'] to the gym floor!\n\nCome check them out and elevate your workout.\n\nSee you at the gym,\nYour ${APP_NAME} Team\`,
   },
 ];
 
@@ -95,7 +94,7 @@ export default function NewAnnouncementPage() {
     if (response.error || !response.newAnnouncement) {
         toast({
             variant: "destructive",
-            title: 'Error Publishing',
+            title: 'Error Publishing Announcement',
             description: response.error || 'Could not save announcement. Please try again.',
         });
         return;
@@ -103,39 +102,16 @@ export default function NewAnnouncementPage() {
 
     // Dispatch custom event to notify other components (like dashboard announcements)
     window.dispatchEvent(new Event('reloadAnnouncements'));
-
-    // Simulate fetching members for email broadcast (remains mock for this step)
-    const mockMembersForEmail: Array<Pick<Member, 'email' | 'membershipStatus' | 'expiryDate'>> = [
-        { email: 'active1@example.com', membershipStatus: 'active', expiryDate: addDays(new Date(), 30).toISOString() },
-        { email: 'expiring1@example.com', membershipStatus: 'active', expiryDate: addDays(new Date(), 5).toISOString() },
-        { email: 'inactive1@example.com', membershipStatus: 'inactive', expiryDate: addDays(new Date(), 30).toISOString() },
-    ];
-
-    const getSimulatedEffectiveStatus = (member: Pick<Member, 'membershipStatus' | 'expiryDate'>): MembershipStatus => {
-      if (member.membershipStatus === 'active' && member.expiryDate) {
-        const expiry = parseISO(member.expiryDate);
-        if (isValid(expiry)) {
-          const daysUntilExpiry = differenceInDays(expiry, new Date());
-          if (daysUntilExpiry <= 14 && daysUntilExpiry >= 0) return 'expiring soon';
-          if (daysUntilExpiry < 0) return 'expired';
-        }
-      }
-      return member.membershipStatus;
-    };
-
-    const membersToEmail = mockMembersForEmail.filter(member => {
-        const effectiveStatus = getSimulatedEffectiveStatus(member);
-        return effectiveStatus === 'active' || effectiveStatus === 'expiring soon';
-    });
-    const emailedCount = membersToEmail.length;
-    const totalRelevantMembers = mockMembersForEmail.filter(m => getSimulatedEffectiveStatus(m) === 'active' || getSimulatedEffectiveStatus(m) === 'expiring soon').length;
-
-    console.log(`SIMULATING: Emailing announcement "${data.title}" to ${emailedCount} members.`);
-    membersToEmail.forEach(m => console.log(` -> To: ${m.email}, Status: ${getSimulatedEffectiveStatus(m)}`));
+    
+    let emailFeedback = "Email broadcast initiated.";
+    if (response.emailBroadcastResult) {
+        const { attempted, successful, noEmailAddress, failed } = response.emailBroadcastResult;
+        emailFeedback = \`Announcement published. Emails: ${successful}/${attempted} sent. No address for ${noEmailAddress}. Failed: ${failed}.\`;
+    }
     
     toast({
-      title: 'Announcement Published',
-      description: `"${data.title}" is now live. Emailed ${emailedCount}/${totalRelevantMembers} relevant members. (Simulated)`,
+      title: 'Announcement Published!',
+      description: \`"${data.title}" is now live. ${emailFeedback}\`,
     });
     form.reset();
     router.push('/dashboard'); 

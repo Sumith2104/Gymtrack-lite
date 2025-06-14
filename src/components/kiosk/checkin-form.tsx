@@ -20,11 +20,11 @@ import {
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { generateMotivationalQuote, type MotivationalQuoteInput } from '@/ai/flows/generate-motivational-quote';
 import type { Member, FormattedCheckIn } from '@/lib/types';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
-import { findMemberForCheckInAction, recordCheckInAction } from '@/app/actions/kiosk-actions';
+import { findMemberForCheckInAction, recordCheckInAction, sendCheckInEmailAction } from '@/app/actions/kiosk-actions';
+import { generateMotivationalQuote, type MotivationalQuoteInput } from '@/ai/flows/generate-motivational-quote';
 import { Skeleton } from '@/components/ui/skeleton';
 
 const checkinSchema = z.object({
@@ -36,7 +36,7 @@ type CheckinFormValues = z.infer<typeof checkinSchema>;
 interface CheckinFormProps {
   className?: string;
   onSuccessfulCheckin: (checkinEntry: FormattedCheckIn) => void;
-  todaysCheckins: FormattedCheckIn[]; // Used to prevent double check-in on client before server confirms
+  todaysCheckins: FormattedCheckIn[]; 
 }
 
 const QR_READER_ELEMENT_ID = "qr-reader-kiosk";
@@ -45,9 +45,9 @@ export function CheckinForm({ className, onSuccessfulCheckin, todaysCheckins }: 
   const { toast } = useToast();
   const [checkinStatus, setCheckinStatus] = useState<{ type: 'success' | 'error' | 'info'; message: string; quote?: string; memberName?: string } | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [currentKioskFormattedGymId, setCurrentKioskFormattedGymId] = useState<string | null>(null); // User facing Gym ID
+  const [currentGymDatabaseId, setCurrentGymDatabaseId] = useState<string | null>(null);
   const [currentKioskGymName, setCurrentKioskGymName] = useState<string | null>(null);
-  const [currentGymDatabaseId, setCurrentGymDatabaseId] = useState<string | null>(null); // Actual DB UUID of the gym
+
 
   const [isScanning, setIsScanning] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
@@ -55,9 +55,8 @@ export function CheckinForm({ className, onSuccessfulCheckin, todaysCheckins }: 
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      setCurrentKioskFormattedGymId(localStorage.getItem('gymId'));
-      setCurrentKioskGymName(localStorage.getItem('gymName'));
       setCurrentGymDatabaseId(localStorage.getItem('gymDatabaseId'));
+      setCurrentKioskGymName(localStorage.getItem('gymName'));
     }
   }, []);
 
@@ -77,7 +76,7 @@ export function CheckinForm({ className, onSuccessfulCheckin, todaysCheckins }: 
     setCheckinStatus(null);
     
     if (!currentGymDatabaseId || !currentKioskGymName) {
-        setCheckinStatus({ type: 'error', message: 'Kiosk configuration error. Please contact admin.' });
+        setCheckinStatus({ type: 'error', message: 'Kiosk configuration error. Please contact admin (Gym ID/Name missing).' });
         setIsLoading(false);
         return;
     }
@@ -105,60 +104,55 @@ export function CheckinForm({ className, onSuccessfulCheckin, todaysCheckins }: 
       setIsLoading(false); return;
     }
 
-    if (isAlreadyCheckedInToday(member.id)) { // Client-side quick check
+    // Client-side quick check (server also checks for non-checked-out existing check-in)
+    if (isAlreadyCheckedInToday(member.id)) { 
       setCheckinStatus({ type: 'info', message: `${member.name}, you are already checked in today.` });
       setIsLoading(false); return;
     }
     
-    // Attempt to record check-in
     const recordResponse = await recordCheckInAction(member.id, currentGymDatabaseId);
     if (!recordResponse.success || !recordResponse.checkInTime) {
         setCheckinStatus({ type: 'error', message: recordResponse.error || "Failed to record check-in. Member might already be checked in today." });
         setIsLoading(false); return;
     }
 
+    const actualCheckInTime = recordResponse.checkInTime;
+
+    // Fetch quote and send email
+    let quote = "Keep pushing your limits!";
     try {
       const quoteInput: MotivationalQuoteInput = { memberId: member.memberId, memberName: member.name };
       const motivation = await generateMotivationalQuote(quoteInput);
-      
-      if (member.email) {
-        console.log(`SIMULATING: Email confirmation sent to ${member.email} for successful check-in. Quote: "${motivation.quote}"`);
-      }
-      
-      const formattedCheckinForDisplay: FormattedCheckIn = {
-        memberTableId: member.id,
-        memberName: member.name,
-        memberId: member.memberId,
-        checkInTime: new Date(recordResponse.checkInTime), // Use actual check-in time from DB
-        gymName: currentKioskGymName, 
-      };
-      onSuccessfulCheckin(formattedCheckinForDisplay);
-      
-      setCheckinStatus({ 
-        type: 'success', 
-        message: `Welcome, ${member.name}! Enjoy your workout.`,
-        quote: motivation.quote,
-        memberName: member.name,
-      });
-
+      if (motivation.quote) quote = motivation.quote;
     } catch (error) {
       console.error("Failed to generate motivational quote:", error);
-      const fallbackQuote = "Keep pushing your limits!";
-      const formattedCheckinForDisplayOnError: FormattedCheckIn = {
-        memberTableId: member.id,
-        memberName: member.name,
-        memberId: member.memberId,
-        checkInTime: new Date(recordResponse.checkInTime!), // Use actual time
-        gymName: currentKioskGymName,
-      };
-      onSuccessfulCheckin(formattedCheckinForDisplayOnError);
-      setCheckinStatus({ type: 'success', message: `Welcome, ${member.name}! Enjoy your workout.`, quote: fallbackQuote, memberName: member.name });
-      if (member.email) console.log(`SIMULATING: Email confirmation sent to ${member.email} (with fallback quote).`);
-    } finally {
-      form.reset(); 
-      setIsLoading(false);
-      setTimeout(() => setCheckinStatus(null), 10000);
     }
+    
+    if (member.email && currentKioskGymName) {
+        const emailResponse = await sendCheckInEmailAction(member, actualCheckInTime, currentKioskGymName);
+        console.log("Check-in email status:", emailResponse.message);
+        // You might want to update UI or toast based on emailResponse.success
+    }
+      
+    const formattedCheckinForDisplay: FormattedCheckIn = {
+      memberTableId: member.id,
+      memberName: member.name,
+      memberId: member.memberId,
+      checkInTime: new Date(actualCheckInTime), 
+      gymName: currentKioskGymName, 
+    };
+    onSuccessfulCheckin(formattedCheckinForDisplay);
+    
+    setCheckinStatus({ 
+      type: 'success', 
+      message: `Welcome, ${member.name}! Enjoy your workout.`,
+      quote: quote,
+      memberName: member.name,
+    });
+    
+    form.reset(); 
+    setIsLoading(false);
+    setTimeout(() => setCheckinStatus(null), 10000);
   }
 
   const onScanSuccess = (decodedText: string, result: Html5QrcodeResult) => {

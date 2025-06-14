@@ -2,9 +2,36 @@
 'use server';
 
 import { createSupabaseServerActionClient } from '@/lib/supabase/server';
-import type { Announcement } from '@/lib/types';
+import type { Announcement, Member } from '@/lib/types';
+import { sendEmail, formatDateIST } from '@/lib/email-service';
+import { differenceInDays, parseISO, isValid } from 'date-fns';
 
-export async function addAnnouncementAction(gymId: string, title: string, content: string): Promise<{ newAnnouncement?: Announcement; error?: string }> {
+// Helper function to determine effective status, similar to one in members-table
+// This is simplified for email filtering and might need adjustment for perfect parity
+function getEffectiveMembershipStatusForEmail(member: Pick<Member, 'membershipStatus' | 'expiryDate'>): MembershipStatus {
+  if (member.membershipStatus === 'active' && member.expiryDate) {
+    const expiry = parseISO(member.expiryDate);
+    if (isValid(expiry)) {
+      const daysUntilExpiry = differenceInDays(expiry, new Date());
+      if (daysUntilExpiry <= 14 && daysUntilExpiry >= 0) return 'expiring soon';
+      if (daysUntilExpiry < 0) return 'expired'; // This member wouldn't be 'active' to begin with if properly managed
+    }
+  }
+  return member.membershipStatus;
+}
+
+interface AddAnnouncementResponse {
+  newAnnouncement?: Announcement;
+  error?: string;
+  emailBroadcastResult?: {
+    attempted: number;
+    successful: number;
+    noEmailAddress: number;
+    failed: number;
+  };
+}
+
+export async function addAnnouncementAction(gymId: string, title: string, content: string): Promise<AddAnnouncementResponse> {
   if (!gymId || !title || !content) {
     return { error: "Gym ID, title, and content are required to add an announcement." };
   }
@@ -20,7 +47,7 @@ export async function addAnnouncementAction(gymId: string, title: string, conten
       console.error('Error adding announcement to DB:', error?.message);
       return { error: error?.message || "Failed to save announcement to database." };
     }
-    // Map DB response to Announcement type
+    
     const newAnnouncement: Announcement = {
         id: data.id,
         gymId: data.gym_id,
@@ -29,7 +56,63 @@ export async function addAnnouncementAction(gymId: string, title: string, conten
         createdAt: data.created_at,
         updatedAt: data.updated_at,
     };
-    return { newAnnouncement };
+
+    // Email broadcast logic
+    let attempted = 0;
+    let successful = 0;
+    let noEmailAddress = 0;
+    let failed = 0;
+
+    const { data: membersToEmail, error: memberFetchError } = await supabase
+      .from('members')
+      .select('name, email, membership_status, expiry_date') // Need expiry_date for 'expiring soon'
+      .eq('gym_id', gymId)
+      .in('membership_status', ['active']); // Fetch active, then filter for 'expiring soon'
+
+    if (memberFetchError) {
+      console.error("Error fetching members for announcement email:", memberFetchError.message);
+      // Continue without email broadcast or return an error specific to email part
+    } else if (membersToEmail && membersToEmail.length > 0) {
+      const gymDetails = await supabase.from('gyms').select('name').eq('id', gymId).single();
+      const gymName = gymDetails.data?.name || 'Your Gym';
+
+      for (const member of membersToEmail) {
+        const effectiveStatus = getEffectiveMembershipStatusForEmail(member as any); // Cast as Pick<Member,...>
+        
+        if (member.email && (effectiveStatus === 'active' || effectiveStatus === 'expiring soon')) {
+          attempted++;
+          const emailSubject = `New Announcement from ${gymName}: ${newAnnouncement.title}`;
+          const emailHtmlBody = `
+            <p>Dear ${member.name || 'Member'},</p>
+            <p>A new announcement has been posted at ${gymName}:</p>
+            <h2>${newAnnouncement.title}</h2>
+            <p><em>Posted on: ${formatDateIST(newAnnouncement.createdAt)}</em></p>
+            <div style="padding: 10px; border-left: 3px solid #FFD700; margin: 10px 0; background-color: #f9f9f9;">
+              ${newAnnouncement.content.replace(/\n/g, '<br />')}
+            </div>
+            <p>Please check the dashboard for more details.</p>
+            <p>Regards,<br/>The ${gymName} Team</p>
+          `;
+          const emailResult = await sendEmail({
+            to: member.email,
+            subject: emailSubject,
+            htmlBody: emailHtmlBody,
+          });
+          if (emailResult.success) {
+            successful++;
+          } else {
+            failed++;
+          }
+        } else if (!member.email && (effectiveStatus === 'active' || effectiveStatus === 'expiring soon')) {
+          noEmailAddress++;
+        }
+      }
+    }
+
+    return { 
+        newAnnouncement, 
+        emailBroadcastResult: { attempted, successful, noEmailAddress, failed } 
+    };
 
   } catch (e: any) {
     console.error('Unexpected error in addAnnouncementAction:', e.message);

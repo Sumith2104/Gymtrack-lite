@@ -1,10 +1,11 @@
 
 import type { NavItem } from '@/components/layout/app-header';
 import { LayoutDashboard, Users, BarChart3, ScanLine, Megaphone, Settings, Dumbbell, LogOut } from 'lucide-react';
-// MOCK_MEMBERSHIP_PLANS and AVAILABLE_MEMBERSHIP_TYPES are removed as plans will be fetched from DB.
 
 export const APP_NAME = "GymTrack Lite";
 export const APP_LOGO = Dumbbell;
+export const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:9002'; // Used for email template links, logo etc.
+export const SMTP_FROM_NAME = process.env.SMTP_FROM_NAME || APP_NAME; // Used in email "From" field if SMTP_FROM_EMAIL doesn't include a name part
 
 export const NAV_LINKS_HEADER: NavItem[] = [
   {

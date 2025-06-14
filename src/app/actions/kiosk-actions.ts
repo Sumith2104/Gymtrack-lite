@@ -2,11 +2,13 @@
 'use server';
 
 import { createSupabaseServerActionClient } from '@/lib/supabase/server';
-import type { Member, FormattedCheckIn, CheckIn, MemberWithPlanDetails } from '@/lib/types'; // CheckIn for DB record type
+import type { Member, FormattedCheckIn, CheckIn } from '@/lib/types';
+import { sendEmail, formatDateIST } from '@/lib/email-service';
+import { generateMotivationalQuote, type MotivationalQuoteInput } from '@/ai/flows/generate-motivational-quote';
+import { addHours } from 'date-fns';
 
-// Helper to map DB row to Member type (similar to member-actions)
-function mapDbMemberToAppMember(dbMember: any): Member { // any because Supabase client returns object for joined tables
-  const planDetails = dbMember.plans; // From join: members(*, plans(*))
+function mapDbMemberToAppMember(dbMember: any): Member { 
+  const planDetails = dbMember.plans; 
   return {
     id: dbMember.id,
     gymId: dbMember.gym_id,
@@ -34,14 +36,14 @@ export async function findMemberForCheckInAction(identifier: string, gymDatabase
   try {
     const { data: dbMember, error } = await supabase
       .from('members')
-      .select('*, plans(plan_name, price, duration_months)') // Join with plans
+      .select('*, plans(plan_name, price, duration_months)') 
       .eq('member_id', identifier)
       .eq('gym_id', gymDatabaseId)
       .single();
 
     if (error) {
       console.error('Error finding member for check-in:', error.message);
-      if (error.code === 'PGRST116') return { error: "Member not found at this gym."} // Not a single row
+      if (error.code === 'PGRST116') return { error: "Member not found at this gym."} 
       return { error: error.message };
     }
     if (!dbMember) {
@@ -64,6 +66,32 @@ export async function recordCheckInAction(memberTableUuid: string, gymDatabaseId
   const supabase = createSupabaseServerActionClient();
   const checkInTime = new Date().toISOString();
   try {
+    // Check for existing check-in today without check-out
+    const todayStart = new Date();
+    todayStart.setUTCHours(0,0,0,0);
+    const todayEnd = new Date();
+    todayEnd.setUTCHours(23,59,59,999);
+
+    const { data: existingCheckin, error: existingError } = await supabase
+        .from('check_ins')
+        .select('id')
+        .eq('member_table_id', memberTableUuid)
+        .eq('gym_id', gymDatabaseId)
+        .gte('check_in_time', todayStart.toISOString())
+        .lte('check_in_time', todayEnd.toISOString())
+        .is('check_out_time', null) // Only count if not checked out
+        .maybeSingle();
+    
+    if(existingError){
+        console.error("Error checking for existing check-in:", existingError.message);
+        // Decide if this is a hard stop or not, for now we proceed
+    }
+
+    if(existingCheckin){
+        return { success: false, error: "Member is already checked in today and not checked out."};
+    }
+
+
     const { error } = await supabase
       .from('check_ins')
       .insert({
@@ -85,6 +113,57 @@ export async function recordCheckInAction(memberTableUuid: string, gymDatabaseId
 }
 
 
+export async function sendCheckInEmailAction(
+  member: Member, 
+  checkInTimeISO: string, 
+  gymName: string
+): Promise<{ success: boolean; message: string }> {
+  if (!member.email) {
+    return { success: true, message: "No email address for member. Skipped check-in email." };
+  }
+
+  try {
+    const checkInTime = new Date(checkInTimeISO);
+    const projectedCheckoutTime = addHours(checkInTime, 2);
+
+    let quote = "Keep pushing your limits! Every rep counts."; // Default quote
+    try {
+      const quoteInput: MotivationalQuoteInput = { memberId: member.memberId, memberName: member.name };
+      const motivation = await generateMotivationalQuote(quoteInput);
+      if (motivation.quote) {
+        quote = motivation.quote;
+      }
+    } catch (aiError) {
+      console.error("Failed to generate motivational quote for check-in email:", aiError);
+    }
+
+    const emailSubject = `Check-in Confirmed at ${gymName}!`;
+    const emailHtmlBody = `
+      <p>Hi ${member.name},</p>
+      <p>Your check-in at ${gymName} is confirmed!</p>
+      <ul>
+        <li><strong>Checked-in At:</strong> ${formatDateIST(checkInTime)}</li>
+        <li><strong>Projected Check-out:</strong> ${formatDateIST(projectedCheckoutTime)}</li>
+      </ul>
+      <p>Your motivational boost for today:</p>
+      <p><em>"${quote}"</em></p>
+      <p>Have a great workout!</p>
+      <p>The ${gymName} Team</p>
+    `;
+
+    return await sendEmail({
+      to: member.email,
+      subject: emailSubject,
+      htmlBody: emailHtmlBody,
+    });
+
+  } catch (error: any) {
+    console.error("Error in sendCheckInEmailAction:", error);
+    return { success: false, message: `Failed to process check-in email: ${error.message}` };
+  }
+}
+
+
 export async function fetchTodaysCheckInsForKioskAction(gymDatabaseId: string, gymName: string): Promise<{ checkIns: FormattedCheckIn[]; error?: string }> {
   if (!gymDatabaseId) return { checkIns: [], error: "Gym ID is required." };
 
@@ -96,13 +175,13 @@ export async function fetchTodaysCheckInsForKioskAction(gymDatabaseId: string, g
   try {
     const { data: dbCheckIns, error } = await supabase
       .from('check_ins')
-      .select(`
+      .select(\`
         *,
         members (
           name,
           member_id 
         )
-      `)
+      \`)
       .eq('gym_id', gymDatabaseId)
       .gte('check_in_time', startOfDay)
       .lte('check_in_time', endOfDay)
@@ -116,12 +195,12 @@ export async function fetchTodaysCheckInsForKioskAction(gymDatabaseId: string, g
         return { checkIns: [] };
     }
 
-    const formattedCheckIns: FormattedCheckIn[] = dbCheckIns.map((ci: any) => ({ // ci is CheckIn joined with members part
+    const formattedCheckIns: FormattedCheckIn[] = dbCheckIns.map((ci: any) => ({ 
       memberTableId: ci.member_table_id,
       memberName: ci.members?.name || 'Unknown Member',
       memberId: ci.members?.member_id || 'N/A',
       checkInTime: new Date(ci.check_in_time),
-      gymName: gymName, // Use the provided gymName
+      gymName: gymName, 
     }));
     
     return { checkIns: formattedCheckIns };
