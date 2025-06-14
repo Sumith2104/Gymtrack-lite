@@ -1,35 +1,32 @@
+
 'use client';
 
-import { Pie, PieChart, ResponsiveContainer, Cell, Tooltip as RechartsTooltip, Legend } from 'recharts';
+import { Pie, PieChart, ResponsiveContainer, Cell, Legend } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import type { MembershipDistribution } from '@/lib/types';
-import { PieChart as PieChartIcon } from 'lucide-react';
+import { Users } from 'lucide-react'; // Changed icon to Users or similar
 import { ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from '@/components/ui/chart';
+import type { Member, MembershipType } from '@/lib/types'; // Assuming Member and MembershipType are defined
+import { MOCK_MEMBERSHIP_PLANS } from '@/lib/constants'; // Use for types/labels
 
-
-const chartData: MembershipDistribution[] = [
-  { status: 'Active', count: 150 },
-  { status: 'Inactive', count: 30 },
-  { status: 'Expired', count: 20 },
+// Mock data - in a real app, aggregate this from your members data
+// This should count members for each membershipType
+const mockMemberDataForDistribution: { type: MembershipType, count: number }[] = [
+  { type: 'Annual', count: 75 },
+  { type: 'Monthly', count: 120 },
+  { type: 'Premium', count: 40 }, // Assuming "Premium" can be distinct type or a version of Annual/Monthly
+  { type: '6-Month', count: 30 },
+  { type: 'Class Pass', count: 25 },
+  { type: 'Other', count: 10 },
 ];
 
-const chartConfig = {
-  members: {
-    label: "Members",
-  },
-  active: {
-    label: "Active",
-    color: "hsl(var(--chart-1))",
-  },
-  inactive: {
-    label: "Inactive",
-    color: "hsl(var(--chart-2))",
-  },
-  expired: {
-    label: "Expired",
-    color: "hsl(var(--chart-3))",
-  },
-} satisfies ChartConfig;
+// Dynamically create chartConfig based on MOCK_MEMBERSHIP_PLANS or distinct types in data
+const chartConfig = mockMemberDataForDistribution.reduce((acc, item, index) => {
+  acc[item.type.toLowerCase().replace(/\s+/g, '_')] = { // e.g., 'class_pass'
+    label: item.type,
+    color: `hsl(var(--chart-${(index % 5) + 1}))`, // Cycle through chart colors
+  };
+  return acc;
+}, {} as ChartConfig);
 
 
 export function MembershipDistributionChart() {
@@ -37,10 +34,10 @@ export function MembershipDistributionChart() {
     <Card className="shadow-lg">
       <CardHeader>
          <div className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Membership Status Distribution</CardTitle>
-            <PieChartIcon className="h-5 w-5 text-primary" />
+            <CardTitle className="text-sm font-medium">Membership Type Distribution</CardTitle>
+            <Users className="h-5 w-5 text-primary" />
         </div>
-        <CardDescription>Overview of member statuses</CardDescription>
+        <CardDescription>Breakdown of members by their plan type</CardDescription>
       </CardHeader>
       <CardContent>
         <ChartContainer config={chartConfig} className="h-[300px] w-full">
@@ -51,31 +48,23 @@ export function MembershipDistributionChart() {
                 content={<ChartTooltipContent hideLabel />}
               />
               <Pie
-                data={chartData}
+                data={mockMemberDataForDistribution}
                 dataKey="count"
-                nameKey="status"
+                nameKey="type" // This is the key for the name of the slice (e.g., "Annual")
                 cx="50%"
                 cy="50%"
                 outerRadius={100}
                 innerRadius={60}
                 labelLine={false}
-                // label={({ cx, cy, midAngle, innerRadius, outerRadius, percent, index }) => {
-                //   const RADIAN = Math.PI / 180;
-                //   const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
-                //   const x = cx + radius * Math.cos(-midAngle * RADIAN);
-                //   const y = cy + radius * Math.sin(-midAngle * RADIAN);
-                //   return (
-                //     <text x={x} y={y} fill="hsl(var(--foreground))" textAnchor={x > cx ? 'start' : 'end'} dominantBaseline="central" fontSize={12}>
-                //       {`${(percent * 100).toFixed(0)}%`}
-                //     </text>
-                //   );
-                // }}
               >
-                {chartData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={chartConfig[entry.status.toLowerCase() as keyof typeof chartConfig]?.color || "hsl(var(--muted))"} />
+                {mockMemberDataForDistribution.map((entry) => (
+                  <Cell 
+                    key={`cell-${entry.type}`} 
+                    fill={chartConfig[entry.type.toLowerCase().replace(/\s+/g, '_') as keyof typeof chartConfig]?.color || "hsl(var(--muted))"} 
+                  />
                 ))}
               </Pie>
-               <ChartLegend content={<ChartLegendContent nameKey="status" />} />
+               <ChartLegend content={<ChartLegendContent nameKey="type" />} />
             </PieChart>
           </ResponsiveContainer>
         </ChartContainer>
@@ -83,3 +72,5 @@ export function MembershipDistributionChart() {
     </Card>
   );
 }
+
+    
