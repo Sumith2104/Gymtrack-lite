@@ -45,7 +45,7 @@ export default function KioskPage() {
 
       const gymSpecificInitialCheckins = MOCK_INITIAL_CHECKINS.filter(
         checkin => (formattedId === 'GYM123_default' && checkin.gymName === 'Default Gym') || 
-                   (formattedId === 'UOFIPOIB' && checkin.gymName === 'Sumith Test Kiosk')
+                   (formattedId === 'UOFIPOIB' && checkin.gymName === 'Sumith Test Kiosk') // Example for another gym
       );
       setAllRecentCheckins(gymSpecificInitialCheckins);
     }
@@ -76,16 +76,16 @@ export default function KioskPage() {
         <div className="mt-3 h-1 w-24 bg-primary rounded-full ml-0"></div>
       </div>
 
-      <div className="flex flex-col gap-6 xl:gap-8 items-center">
+      <div className="w-full flex flex-col items-center gap-6 xl:gap-8">
         <CheckinForm 
           onSuccessfulCheckin={handleSuccessfulCheckin} 
           todaysCheckins={todaysCheckins}
-          className="w-full"
+          // No className="w-full" here, rely on internal max-w-lg and items-center
         />
         <RecentCheckinsCard 
           newCheckinEntry={newlyAddedCheckin}
           initialCheckins={allRecentCheckins.filter(ci => ci.gymName === kioskGymName)}
-          className="w-full"
+          // No className="w-full" here
         />
       </div>
       

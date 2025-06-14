@@ -56,7 +56,7 @@ export function RecentCheckinsCard({ newCheckinEntry, initialCheckins, className
   };
 
   return (
-    <Card className={cn("shadow-lg w-full max-w-lg", className)}>
+    <Card className={cn("max-w-lg shadow-lg w-full", className)}>
       <CardHeader>
         <div className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-xl font-headline">Recent Check-ins</CardTitle>
@@ -113,20 +113,20 @@ export function RecentCheckinsCard({ newCheckinEntry, initialCheckins, className
             </p>
           ) : (
             filteredCheckins.map((checkin, index) => (
-              <div key={`${checkin.memberTableId}-${checkin.checkInTime.toISOString()}-${index}`}> {/* More unique key */}
+              <div key={`${checkin.memberTableId}-${checkin.checkInTime.toISOString()}-${index}`}>
                 <div className="p-3 hover:bg-muted/50 transition-colors rounded-md">
                   <div className="flex justify-between items-center">
                     <h3 className="font-semibold text-sm text-primary">
                       {checkin.memberName}
                     </h3>
                     <p className="text-xs text-muted-foreground">
-                      {format(checkin.checkInTime, "p")} {/* Time e.g. 2:30 PM */}
+                      {format(checkin.checkInTime, "p")}
                     </p>
                   </div>
                   <div className="flex justify-between items-center text-xs">
                     <p className="text-foreground/80">ID: {checkin.memberId}</p>
                      <p className="text-muted-foreground">
-                       {format(checkin.checkInTime, "MMM d, yyyy")} {/* Date e.g. Jun 15, 2024 */}
+                       {format(checkin.checkInTime, "MMM d, yyyy")}
                      </p>
                   </div>
                    <p className="text-xs text-muted-foreground/70">Gym: {checkin.gymName}</p>

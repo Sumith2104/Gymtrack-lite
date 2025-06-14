@@ -5,7 +5,7 @@ import { useState, useEffect, useRef } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
-import { QrCode, LogIn, AlertTriangle, CheckCircle2, PartyPopper, Video, XCircle, ScanLine, CameraOff } from 'lucide-react';
+import { LogIn, AlertTriangle, CheckCircle2, PartyPopper, ScanLine, CameraOff, XCircle } from 'lucide-react';
 import { Html5QrcodeScanner, Html5QrcodeSupportedFormats, type Html5QrcodeError, type Html5QrcodeResult } from 'html5-qrcode';
 
 import { Button } from '@/components/ui/button';
@@ -21,7 +21,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { generateMotivationalQuote, type MotivationalQuoteInput } from '@/ai/flows/generate-motivational-quote';
-import type { Member, CheckIn, FormattedCheckIn } from '@/lib/types'; // CheckIn might not be directly used now
+import type { Member, FormattedCheckIn } from '@/lib/types';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 const checkinSchema = z.object({
@@ -30,20 +30,18 @@ const checkinSchema = z.object({
 
 type CheckinFormValues = z.infer<typeof checkinSchema>;
 
-// This mock data should ideally live in KioskPage or be fetched.
-// For CheckinForm, it primarily validates against the current kiosk's members.
 const mockKioskMembers: Member[] = [
   { id: 'member-uuid-1', memberId: 'MBR001', name: 'Alice Johnson', email: 'alice@example.com', membershipStatus: 'active', createdAt: new Date().toISOString(), gymId: 'GYM123_default' },
   { id: 'member-uuid-2', memberId: 'MBR002', name: 'Bob Smith', email: 'bob@example.com', membershipStatus: 'expired', createdAt: new Date().toISOString(), gymId: 'GYM123_default' },
   { id: 'member-uuid-3', memberId: 'MBR003', name: 'Carol White', email: 'carol@example.com', membershipStatus: 'inactive', createdAt: new Date().toISOString(), gymId: 'GYM123_default' },
-  { id: 'member-uuid-4', memberId: 'MBR004', name: 'Valid Member', email: 'valid@example.com', membershipStatus: 'active', createdAt: new Date().toISOString(), gymId: 'GYM_OTHER' }, // Belongs to a different gym
+  { id: 'member-uuid-4', memberId: 'MBR004', name: 'Valid Member', email: 'valid@example.com', membershipStatus: 'active', createdAt: new Date().toISOString(), gymId: 'GYM_OTHER' },
   { id: 'member-uuid-sumith', memberId: 'SUMITH001', name: 'Sumith Test Kiosk', email: 'sumith.kiosk@example.com', membershipStatus: 'active', createdAt: new Date().toISOString(), gymId: 'UOFIPOIB' },
 ];
 
 interface CheckinFormProps {
   className?: string;
   onSuccessfulCheckin: (checkinEntry: FormattedCheckIn) => void;
-  todaysCheckins: FormattedCheckIn[]; // Passed from KioskPage
+  todaysCheckins: FormattedCheckIn[];
 }
 
 const QR_READER_ELEMENT_ID = "qr-reader-kiosk";
@@ -52,7 +50,7 @@ export function CheckinForm({ className, onSuccessfulCheckin, todaysCheckins }: 
   const { toast } = useToast();
   const [checkinStatus, setCheckinStatus] = useState<{ type: 'success' | 'error' | 'info'; message: string; quote?: string; memberName?: string } | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [currentKioskFormattedGymId, setCurrentKioskFormattedGymId] = useState<string | null>(null); // e.g. GYM123_default
+  const [currentKioskFormattedGymId, setCurrentKioskFormattedGymId] = useState<string | null>(null);
   const [currentKioskGymName, setCurrentKioskGymName] = useState<string | null>(null);
 
   const [isScanning, setIsScanning] = useState(false);
@@ -61,7 +59,7 @@ export function CheckinForm({ className, onSuccessfulCheckin, todaysCheckins }: 
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      setCurrentKioskFormattedGymId(localStorage.getItem('gymId')); // This is formatted_gym_id
+      setCurrentKioskFormattedGymId(localStorage.getItem('gymId'));
       setCurrentKioskGymName(localStorage.getItem('gymName'));
     }
   }, []);
@@ -87,13 +85,11 @@ export function CheckinForm({ className, onSuccessfulCheckin, todaysCheckins }: 
         return;
     }
     
-    await new Promise(resolve => setTimeout(resolve, 700)); // Simulate network delay
+    await new Promise(resolve => setTimeout(resolve, 700));
 
-    // Find member by identifier (could be memberId string or data from QR code)
-    // Assuming QR code contains the memberId string for now.
     const member = mockKioskMembers.find(m => 
         m.memberId.toLowerCase() === data.identifier.toLowerCase() && 
-        m.gymId === currentKioskFormattedGymId // Crucially, check member belongs to THIS gym
+        m.gymId === currentKioskFormattedGymId
     );
 
     if (!member) {
@@ -120,7 +116,7 @@ export function CheckinForm({ className, onSuccessfulCheckin, todaysCheckins }: 
       return;
     }
 
-    if (isAlreadyCheckedInToday(member.id)) { // member.id is the unique UUID like 'member-uuid-1'
+    if (isAlreadyCheckedInToday(member.id)) {
       setCheckinStatus({ type: 'info', message: `${member.name}, you are already checked in today.` });
       setIsLoading(false);
       return;
@@ -130,11 +126,8 @@ export function CheckinForm({ className, onSuccessfulCheckin, todaysCheckins }: 
       const quoteInput: MotivationalQuoteInput = { memberId: member.memberId, memberName: member.name };
       const motivation = await generateMotivationalQuote(quoteInput);
       
-      // SIMULATE creating a check_in record in the database
-      // In a real app, this would be an API call / server action
       console.log(`SIMULATING: Check-in record created for member ${member.id} at gym ${member.gymId}.`);
       
-      // Simulate sending email
       if (member.email) {
         console.log(`SIMULATING: Email confirmation sent to ${member.email} for successful check-in. Quote: "${motivation.quote}"`);
       } else {
@@ -145,11 +138,11 @@ export function CheckinForm({ className, onSuccessfulCheckin, todaysCheckins }: 
         memberTableId: member.id,
         memberName: member.name,
         memberId: member.memberId,
-        checkInTime: new Date(), // Current time for the check-in
+        checkInTime: new Date(),
         gymName: currentKioskGymName, 
       };
 
-      onSuccessfulCheckin(formattedCheckinForDisplay); // Notify parent page
+      onSuccessfulCheckin(formattedCheckinForDisplay);
       
       setCheckinStatus({ 
         type: 'success', 
@@ -157,17 +150,10 @@ export function CheckinForm({ className, onSuccessfulCheckin, todaysCheckins }: 
         quote: motivation.quote,
         memberName: member.name,
       });
-      
-      // Toast can be redundant if card status is prominent, but kept for now.
-      // toast({
-      //   title: `Welcome ${member.name}!`,
-      //   description: `Checked in successfully. ${motivation.quote}`,
-      // });
 
     } catch (error) {
       console.error("Failed to generate motivational quote:", error);
       const fallbackQuote = "Keep pushing your limits!";
-      // Still proceed with check-in even if quote fails
       const formattedCheckinForDisplayOnError: FormattedCheckIn = {
         memberTableId: member.id,
         memberName: member.name,
@@ -189,7 +175,7 @@ export function CheckinForm({ className, onSuccessfulCheckin, todaysCheckins }: 
     } finally {
       form.reset(); 
       setIsLoading(false);
-      setTimeout(() => setCheckinStatus(null), 10000); // Clear status after 10s
+      setTimeout(() => setCheckinStatus(null), 10000);
     }
   }
 
@@ -246,7 +232,7 @@ export function CheckinForm({ className, onSuccessfulCheckin, todaysCheckins }: 
 
   const handleScanQrCodeClick = () => {
     setIsScanning(true);
-    setCheckinStatus(null); // Clear previous status messages
+    setCheckinStatus(null);
   };
 
   const handleCancelScan = () => {
@@ -263,7 +249,7 @@ export function CheckinForm({ className, onSuccessfulCheckin, todaysCheckins }: 
 
   if (isScanning) {
     return (
-      <Card className={`w-full max-w-lg shadow-2xl ${className}`}>
+      <Card className={`max-w-lg shadow-2xl w-full ${className}`}>
         <CardHeader className="text-center">
           <CardTitle className="text-3xl font-headline">Scan QR Code</CardTitle>
           <CardDescription>Point your QR code at the camera.</CardDescription>
@@ -275,7 +261,7 @@ export function CheckinForm({ className, onSuccessfulCheckin, todaysCheckins }: 
           
           {cameraError && (
             <Alert variant="destructive">
-              <CameraOff className="h-4 w-4" />
+              <CameraOff className="mr-2 h-4 w-4" />
               <AlertTitle>Camera/Scanner Problem</AlertTitle>
               <AlertDescription>{cameraError}</AlertDescription>
             </Alert>
@@ -294,7 +280,7 @@ export function CheckinForm({ className, onSuccessfulCheckin, todaysCheckins }: 
 
 
   return (
-    <Card className={`w-full max-w-lg shadow-2xl ${className}`}>
+    <Card className={`max-w-lg shadow-2xl w-full ${className}`}>
       <CardHeader className="text-center">
         <CardTitle className="text-3xl font-headline">Member Check-in</CardTitle>
         <CardDescription>Enter Member ID or Scan QR</CardDescription>
