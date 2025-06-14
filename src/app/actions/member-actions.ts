@@ -6,6 +6,14 @@ import { addMonths, format } from 'date-fns';
 import type { Member, MembershipType, Announcement, MembershipPlan } from '@/lib/types';
 import { MOCK_MEMBERSHIP_PLANS, APP_NAME } from '@/lib/constants';
 
+// Define the custom validation logic as a separate function
+const isValidMembershipType = (val: any): val is MembershipType => {
+  // Ensure val is a string before using it in .some() comparison, 
+  // and that it's one of the MOCK_MEMBERSHIP_PLANS names.
+  if (typeof val !== 'string') return false;
+  return MOCK_MEMBERSHIP_PLANS.some(p => p.name === val);
+};
+
 // Schema for validating new member form data (used on client and server)
 export const addMemberFormSchema = z.object({
   name: z.string().min(2, { message: 'Name must be at least 2 characters.' }).max(100),
@@ -15,8 +23,8 @@ export const addMemberFormSchema = z.object({
   phoneNumber: z.string().optional().nullable(),
   age: z.coerce.number().int().positive().optional().nullable(),
   joinDate: z.date({ required_error: "Join date is required."}), // Will be converted to string later
-  membershipType: z.custom<MembershipType>((val) => MOCK_MEMBERSHIP_PLANS.some(p => p.name === val), {
-    message: "Invalid membership type",
+  membershipType: z.custom<MembershipType>(isValidMembershipType, { // Use the named function here
+    message: "Invalid membership type. Please select a valid plan.",
   }),
   // planPrice and expiryDate are calculated on server
 });
@@ -42,7 +50,17 @@ export async function addMember(
     const validationResult = addMemberFormSchema.safeParse(formData);
     if (!validationResult.success) {
       console.error("Server-side validation failed:", validationResult.error.flatten().fieldErrors);
-      return { error: `Validation failed: ${validationResult.error.flatten().fieldErrors.name?.[0] || 'Check inputs.'}` };
+      // Construct a more specific error message
+      const fieldErrors = validationResult.error.flatten().fieldErrors;
+      let errorMessages = [];
+      if (fieldErrors.name) errorMessages.push(`Name: ${fieldErrors.name[0]}`);
+      if (fieldErrors.email) errorMessages.push(`Email: ${fieldErrors.email[0]}`);
+      if (fieldErrors.memberId) errorMessages.push(`Member ID: ${fieldErrors.memberId[0]}`);
+      if (fieldErrors.joinDate) errorMessages.push(`Join Date: ${fieldErrors.joinDate[0]}`);
+      if (fieldErrors.membershipType) errorMessages.push(`Membership Type: ${fieldErrors.membershipType[0]}`);
+      if (fieldErrors.age) errorMessages.push(`Age: ${fieldErrors.age[0]}`);
+      
+      return { error: `Validation failed: ${errorMessages.join(', ') || 'Check inputs.'}` };
     }
 
     const { name, email, memberId, phoneNumber, age, joinDate, membershipType } = validationResult.data;
@@ -50,7 +68,8 @@ export async function addMember(
     // 2. Calculate Derived Information
     const selectedPlan = MOCK_MEMBERSHIP_PLANS.find(p => p.name === membershipType);
     if (!selectedPlan) {
-      return { error: 'Invalid membership type selected.' };
+      // This case should ideally be caught by the custom validator, but double-check
+      return { error: 'Invalid membership type selected on server.' };
     }
 
     const planPrice = selectedPlan.price;
@@ -59,18 +78,16 @@ export async function addMember(
       : null;
 
     // 3. Simulate Checking for Existing Member ID (Placeholder for actual DB query)
-    // In a real app: await supabase.from('members').select('id').eq('member_id', memberId).eq('gym_id', gymDatabaseId).maybeSingle();
-    // For simulation, we'll assume it's unique if it passes client-side suggestion.
     console.log(`SIMULATING: Check if Member ID "${memberId}" for gym "${gymDatabaseId}" is unique.`);
 
     // 4. Prepare New Member Object (Simulate Database Insertion)
     const newMember: Member = {
-      id: `member_serveraction_${Date.now()}`, // Simulate DB-generated UUID
+      id: `member_serveraction_${Date.now()}`, 
       gymId: gymDatabaseId,
       name,
       email: email || null,
       memberId,
-      membershipStatus: 'active', // Default for new members
+      membershipStatus: 'active', 
       phoneNumber: phoneNumber || null,
       age: age || null,
       joinDate: new Date(joinDate).toISOString(),
@@ -78,14 +95,12 @@ export async function addMember(
       planPrice,
       expiryDate: expiryDate ? expiryDate.toISOString() : null,
       createdAt: new Date().toISOString(),
-      planId: selectedPlan.id, // Store the planId used
+      planId: selectedPlan.id, 
     };
 
     console.log('SIMULATING: Member data prepared for "insertion":', newMember);
 
     // 5. Post-Insertion Actions
-
-    // 5a. Simulate Send Welcome Email
     let emailStatus = 'No email address provided.';
     if (newMember.email) {
       const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(newMember.memberId)}`;
@@ -103,7 +118,6 @@ export async function addMember(
       emailStatus = `Welcome email simulation for ${newMember.email} initiated.`;
     }
 
-    // 5b. Create Welcome Announcement Data
     const welcomeAnnouncement: Announcement = {
       id: `announce_welcome_${newMember.id}`,
       gymId: gymDatabaseId,
@@ -113,7 +127,6 @@ export async function addMember(
     };
     console.log('SIMULATING: Welcome announcement created:', welcomeAnnouncement);
 
-    // 6. Return Success
     return {
       data: {
         newMember,
@@ -124,16 +137,46 @@ export async function addMember(
 
   } catch (error) {
     console.error('Error in addMember server action:', error);
-    return { error: 'An unexpected error occurred while adding the member.' };
+    const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred.';
+    return { error: `An unexpected error occurred while adding the member: ${errorMessage}` };
   }
 }
 
-// Placeholder for editMember server action if needed later
 export async function editMember(memberData: Partial<Member>, memberId: string, gymId: string) {
-  // TODO: Implement server-side validation, calculation, and update logic
   console.log("SIMULATING: editMember server action for memberId:", memberId, "in gymId:", gymId, "with data:", memberData);
-  // This would involve fetching the existing member, applying changes, recalculating price/expiry if type changes,
-  // and then updating the record in the database.
-  // For now, this function is a placeholder.
-  return { error: "Edit functionality not fully implemented on server yet." };
+  // In a real app, you would:
+  // 1. Validate memberData (perhaps with a different Zod schema for edits)
+  // 2. Fetch the existing member from the database.
+  // 3. Apply changes.
+  // 4. If membershipType or joinDate changed, recalculate planPrice and expiryDate.
+  // 5. Update the member record in the database.
+  // 6. Return the updated member data or an error.
+  
+  // For simulation, we'll just return a success-like structure if it's a basic update
+  // or an error if not fully implemented.
+  // This part is NOT fully implemented as per the problem description.
+  
+  if (memberData.name || memberData.email || memberData.phoneNumber || memberData.age) {
+      // Simulate a partial update was successful
+      const simulatedUpdatedMember: Member = {
+        id: memberId, // Use the provided memberId
+        gymId: gymId, // Use the provided gymId
+        name: memberData.name || "Original Name",
+        email: memberData.email || "original@example.com",
+        memberId: memberId, // Assuming memberId itself doesn't change or is the key
+        membershipStatus: memberData.membershipStatus || 'active',
+        phoneNumber: memberData.phoneNumber || null,
+        age: memberData.age || null,
+        joinDate: memberData.joinDate || new Date().toISOString(),
+        membershipType: memberData.membershipType || 'Monthly',
+        planPrice: memberData.planPrice || 30,
+        expiryDate: memberData.expiryDate || addMonths(new Date(), 1).toISOString(),
+        createdAt: new Date().toISOString(), // Or fetch original
+         planId: MOCK_MEMBERSHIP_PLANS.find(p => p.name === (memberData.membershipType || 'Monthly'))?.id || 'plan_monthly_basic'
+      };
+       return { data: { updatedMember: simulatedUpdatedMember, message: "Member details partially updated (Simulated)." } };
+  }
+
+  return { error: "Edit functionality (especially plan changes) not fully implemented on server yet." };
 }
+    
