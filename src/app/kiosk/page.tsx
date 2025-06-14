@@ -81,16 +81,16 @@ export default function KioskPage() {
         <div className="mt-3 h-1 w-24 bg-primary rounded-full ml-0"></div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 xl:gap-8 items-start">
+      <div className="flex flex-col gap-6 xl:gap-8 items-center">
         <CheckinForm 
           onSuccessfulCheckin={handleSuccessfulCheckin} 
           todaysCheckins={todaysCheckins}
-          className="lg:col-span-1" 
+          className="w-full" 
         />
         <RecentCheckinsCard 
           newCheckinEntry={newlyAddedCheckin}
           initialCheckins={allRecentCheckins.filter(ci => ci.gymName === kioskGymName)} // Pass only relevant initial checkins
-          className="lg:col-span-1" 
+          className="w-full" 
         />
       </div>
       
