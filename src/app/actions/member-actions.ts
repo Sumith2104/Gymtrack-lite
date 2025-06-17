@@ -115,12 +115,12 @@ export async function addMember(
         <p>We're thrilled to have you as a new member of ${gymName}.</p>
         <p>Here are your membership details:</p>
         <ul style="list-style-type: none; padding-left: 0;">
-          <li><strong style="color: #FFD700;">Member ID:</strong> ${newMemberAppFormat.memberId}</li>
-          <li><strong style="color: #FFD700;">Name:</strong> ${newMemberAppFormat.name}</li>
-          <li><strong style="color: #FFD700;">Join Date:</strong> ${newMemberAppFormat.joinDate ? formatDateIST(newMemberAppFormat.joinDate, 'PP') : 'N/A'}</li>
-          <li><strong style="color: #FFD700;">Membership Type:</strong> ${newMemberAppFormat.membershipType}</li>
-          <li><strong style="color: #FFD700;">Plan Price:</strong> ₹${newMemberAppFormat.planPrice?.toFixed(2)}</li>
-          <li><strong style="color: #FFD700;">Membership Expires:</strong> ${newMemberAppFormat.expiryDate ? formatDateIST(newMemberAppFormat.expiryDate, 'PP') : 'N/A'}</li>
+          <li><strong style="color: #FFD700; font-weight: bold;">Member ID:</strong> ${newMemberAppFormat.memberId}</li>
+          <li><strong style="color: #FFD700; font-weight: bold;">Name:</strong> ${newMemberAppFormat.name}</li>
+          <li><strong style="color: #FFD700; font-weight: bold;">Join Date:</strong> ${newMemberAppFormat.joinDate ? formatDateIST(newMemberAppFormat.joinDate, 'PP') : 'N/A'}</li>
+          <li><strong style="color: #FFD700; font-weight: bold;">Membership Type:</strong> ${newMemberAppFormat.membershipType}</li>
+          <li><strong style="color: #FFD700; font-weight: bold;">Plan Price:</strong> ₹${newMemberAppFormat.planPrice?.toFixed(2)}</li>
+          <li><strong style="color: #FFD700; font-weight: bold;">Membership Expires:</strong> ${newMemberAppFormat.expiryDate ? formatDateIST(newMemberAppFormat.expiryDate, 'PP') : 'N/A'}</li>
         </ul>
         <p>You can use the QR code below for quick check-ins:</p>
         <div class="qr-code" style="text-align: center; margin: 20px 0;">
@@ -138,24 +138,17 @@ export async function addMember(
       emailStatus = emailResult.message;
     }
 
+    // Create a welcome announcement for the new member
     const announcementTitle = `Welcome New Member: ${newMemberAppFormat.name}!`;
     const announcementContent = `Let's all give a warm welcome to ${newMemberAppFormat.name} (ID: ${newMemberAppFormat.memberId}), who joined us on ${newMemberAppFormat.joinDate ? formatDateIST(newMemberAppFormat.joinDate, 'PPP') : 'a recent date'} with a ${newMemberAppFormat.membershipType || 'new'} membership! We're excited to have them in the ${gymName} community.`;
     
-    // Check if running in a browser context before dispatching event
-    if (typeof window !== 'undefined') {
-      const announcementResult = await addAnnouncementAction(gymDatabaseId, announcementTitle, announcementContent);
-      if (announcementResult.error) {
-        console.error("Failed to create welcome announcement in DB:", announcementResult.error);
-      } else if (announcementResult.newAnnouncement?.id) {
-         window.dispatchEvent(new Event('reloadAnnouncements'));
-         console.log("Welcome announcement created in DB:", announcementResult.newAnnouncement.id);
-      }
-    } else {
-        // Handle case where not in browser (e.g. if this action could be called server-side only)
-        // For now, we assume it's client-initiated server action context where localStorage is available for gymDatabaseId
-        console.log("Skipping announcement event dispatch: not in browser context or addAnnouncementAction issue.");
+    const announcementResult = await addAnnouncementAction(gymDatabaseId, announcementTitle, announcementContent);
+    if (announcementResult.error) {
+      console.error("Failed to create welcome announcement in DB for new member:", announcementResult.error);
+      // Do not return error here, member addition was successful
+    } else if (announcementResult.newAnnouncement?.id) {
+       console.log("Welcome announcement created in DB for new member:", announcementResult.newAnnouncement.id);
     }
-
 
     return { data: { newMember: newMemberAppFormat, emailStatus } };
 
@@ -384,7 +377,7 @@ export async function sendBulkCustomEmailAction(
   subject: string, 
   body: string,
   gymName: string,
-  includeQrCode: boolean // New parameter
+  includeQrCode: boolean 
 ): Promise<{ attempted: number; successful: number; noEmailAddress: number; failed: number; error?: string }> {
   if (!memberDbIds || memberDbIds.length === 0) {
     return { attempted: 0, successful: 0, noEmailAddress: 0, failed: 0, error: "No member IDs provided for email." };
@@ -419,7 +412,6 @@ export async function sendBulkCustomEmailAction(
         attempted++;
         let emailHtmlBody = `<p>Dear ${member.name || 'Member'},</p><p>${body.replace(/\n/g, '<br />')}</p>`;
 
-        // Add QR code ONLY if it's a single recipient AND includeQrCode is true AND they have a memberId
         if (memberDbIds.length === 1 && includeQrCode && member.member_id) {
           const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(member.member_id)}`;
           emailHtmlBody += `
