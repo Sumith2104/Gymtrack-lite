@@ -99,7 +99,7 @@ export function MembershipDistributionChart() {
               <PieChart>
                 <ChartTooltip
                   cursor={false}
-                  content={<ChartTooltipContent hideLabel />}
+                  content={<ChartTooltipContent hideLabel hideIndicator={false} />}
                 />
                 <Pie
                   data={chartData}

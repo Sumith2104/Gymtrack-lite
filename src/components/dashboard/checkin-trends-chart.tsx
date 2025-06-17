@@ -51,11 +51,7 @@ export function CheckinTrendsChart({ className }: { className?: string }) {
       const id = localStorage.getItem('gymDatabaseId');
       setGymDbId(id);
 
-      // Attempt to get the Supabase access token.
-      // IMPORTANT: This is an illustrative way to get a token.
-      // You MUST ensure your authentication flow (ideally using Supabase Auth)
-      // makes an access token available. Using supabase.auth.getSession() is preferred.
-      const tokenDataString = localStorage.getItem('supabase.auth.token'); // Example key
+      const tokenDataString = localStorage.getItem('supabase.auth.token'); 
       if (tokenDataString) {
         try {
           const tokenData = JSON.parse(tokenDataString);
@@ -98,9 +94,9 @@ export function CheckinTrendsChart({ className }: { className?: string }) {
       if (realtimeDisabledReason) {
         console.warn(`CheckinTrendsChart: Realtime subscription skipped for gym ${gymDbId}. Reason: ${realtimeDisabledReason}`);
       }
-      return; // Do not subscribe without a token
+      return; 
     }
-    setRealtimeDisabledReason(null); // Clear reason if we have a token
+    setRealtimeDisabledReason(null); 
 
     if (channelRef.current) {
         supabase.removeChannel(channelRef.current);
@@ -111,7 +107,7 @@ export function CheckinTrendsChart({ className }: { className?: string }) {
       .channel(`checkin-trends-updates-${gymDbId}`, {
         config: {
           realtime: {
-            access_token: supabaseToken, // Pass the token for authenticated Realtime
+            access_token: supabaseToken, 
           },
         },
       })
@@ -195,7 +191,7 @@ export function CheckinTrendsChart({ className }: { className?: string }) {
                 />
                 <ChartTooltip
                   cursor={false}
-                  content={<ChartTooltipContent indicator="line" hideLabel />}
+                  content={<ChartTooltipContent indicator="line" hideLabel hideIndicator={false} />}
                   formatter={(value, name, props) => [`${value} check-ins`, null]}
                 />
                 <Bar dataKey="count" fill="var(--color-checkIns)" radius={[4, 4, 0, 0]} barSize={20} />

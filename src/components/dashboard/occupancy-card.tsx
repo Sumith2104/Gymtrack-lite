@@ -50,11 +50,7 @@ export function OccupancyCard({ className }: { className?: string }) {
       const id = localStorage.getItem('gymDatabaseId');
       setGymDbId(id);
 
-      // Attempt to get the Supabase access token.
-      // IMPORTANT: This is an illustrative way to get a token.
-      // You MUST ensure your authentication flow (ideally using Supabase Auth)
-      // makes an access token available. Using supabase.auth.getSession() is preferred.
-      const tokenDataString = localStorage.getItem('supabase.auth.token'); // Example key
+      const tokenDataString = localStorage.getItem('supabase.auth.token'); 
       if (tokenDataString) {
         try {
           const tokenData = JSON.parse(tokenDataString);
@@ -91,9 +87,9 @@ export function OccupancyCard({ className }: { className?: string }) {
       if (realtimeDisabledReason) {
         console.warn(`OccupancyCard: Realtime subscription skipped for gym ${gymDbId}. Reason: ${realtimeDisabledReason}`);
       }
-      return; // Do not subscribe without a token
+      return; 
     }
-    setRealtimeDisabledReason(null); // Clear reason if we have a token
+    setRealtimeDisabledReason(null); 
 
     if (channelRef.current) {
       supabase.removeChannel(channelRef.current);
@@ -104,7 +100,7 @@ export function OccupancyCard({ className }: { className?: string }) {
       .channel(`occupancy-updates-${gymDbId}`, {
         config: {
           realtime: {
-            access_token: supabaseToken, // Pass the token for authenticated Realtime
+            access_token: supabaseToken, 
           },
         },
       })
@@ -178,7 +174,7 @@ export function OccupancyCard({ className }: { className?: string }) {
                 <PieChart>
                   <ChartTooltip
                     cursor={false}
-                    content={<ChartTooltipContent hideLabel indicator="dot" />}
+                    content={<ChartTooltipContent hideLabel indicator="dot" hideIndicator={false} />}
                   />
                   <Pie
                     data={chartData}

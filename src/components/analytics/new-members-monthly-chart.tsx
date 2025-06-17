@@ -105,7 +105,7 @@ export function NewMembersMonthlyChart() {
                 />
                 <ChartTooltip
                   cursor={false}
-                  content={<ChartTooltipContent indicator="dot" />}
+                  content={<ChartTooltipContent indicator="dot" hideIndicator={false} />}
                   formatter={(value, name, props) => [`${value} new members in ${props.payload.month}`, null]}
                 />
                 <Line

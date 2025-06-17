@@ -111,7 +111,7 @@ export function NewMembersYearlyChart() {
                 />
                 <ChartTooltip
                   cursor={false}
-                  content={<ChartTooltipContent indicator="line" hideLabel />}
+                  content={<ChartTooltipContent indicator="line" hideLabel hideIndicator={false} />}
                   formatter={(value, name, props) => [`${value} new members in ${props.payload.year}`, null]}
                 />
                 <Bar dataKey="count" fill="var(--color-annualNewMembers)" radius={[4, 4, 0, 0]} barSize={30} />

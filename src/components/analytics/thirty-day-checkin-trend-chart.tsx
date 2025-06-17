@@ -111,7 +111,7 @@ export function ThirtyDayCheckinTrendChart() {
                 />
                 <ChartTooltip
                   cursor={false}
-                  content={<ChartTooltipContent indicator="dot" />}
+                  content={<ChartTooltipContent indicator="dot" hideIndicator={false} />}
                    formatter={(value, name, props) => [`${value} check-ins on ${props.payload.date}`, null]}
                 />
                 <Line

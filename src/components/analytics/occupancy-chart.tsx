@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Line, LineChart, ResponsiveContainer, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip } from 'recharts';
@@ -50,7 +51,7 @@ export function OccupancyChart() {
               />
               <ChartTooltip
                 cursor={false}
-                content={<ChartTooltipContent indicator="dot" />}
+                content={<ChartTooltipContent indicator="dot" hideIndicator={false} />}
               />
               <Line
                 type="monotone"
