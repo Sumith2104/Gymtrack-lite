@@ -1,6 +1,4 @@
-
 // src/lib/date-utils.ts
-'use client'; // Can be client or server, doesn't matter as it's a pure util
 
 import { formatInTimeZone } from 'date-fns-tz';
 import { isValid, parseISO as dateFnsParseISO } from 'date-fns'; // Added parseISO for robust parsing
