@@ -25,6 +25,9 @@ export function CheckinTrendsChart({ className }: { className?: string }) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [gymDbId, setGymDbId] = useState<string | null>(null);
+  const [supabaseToken, setSupabaseToken] = useState<string | null>(null);
+  const [realtimeDisabledReason, setRealtimeDisabledReason] = useState<string | null>(null);
+
   const channelRef = useRef<RealtimeChannel | null>(null);
   const supabase = createSupabaseBrowserClient();
 
@@ -32,7 +35,6 @@ export function CheckinTrendsChart({ className }: { className?: string }) {
     const data = await getDailyCheckInTrends(id);
     if (data.error) {
       setError(data.error);
-      // Set to empty state on error
       const emptyDays: DailyCheckIns[] = Array(7).fill(null).map((_, i) => {
           const date = new Date();
           date.setDate(date.getDate() - (6 - i));
@@ -48,6 +50,29 @@ export function CheckinTrendsChart({ className }: { className?: string }) {
     if (typeof window !== 'undefined') {
       const id = localStorage.getItem('gymDatabaseId');
       setGymDbId(id);
+
+      // Attempt to get the Supabase access token.
+      // IMPORTANT: This is an illustrative way to get a token.
+      // You MUST ensure your authentication flow (ideally using Supabase Auth)
+      // makes an access token available. Using supabase.auth.getSession() is preferred.
+      const tokenDataString = localStorage.getItem('supabase.auth.token'); // Example key
+      if (tokenDataString) {
+        try {
+          const tokenData = JSON.parse(tokenDataString);
+          if (tokenData.access_token) {
+            setSupabaseToken(tokenData.access_token);
+          } else {
+             setRealtimeDisabledReason("Access token not found in stored auth data.");
+          }
+        } catch (e) {
+          console.error("CheckinTrendsChart: Failed to parse auth token from localStorage", e);
+          setRealtimeDisabledReason("Could not parse auth token from localStorage.");
+        }
+      } else {
+        setRealtimeDisabledReason("Supabase auth token not found. Realtime updates disabled.");
+      }
+
+
       if (id) {
         setIsLoading(true);
         setError(null);
@@ -68,6 +93,14 @@ export function CheckinTrendsChart({ className }: { className?: string }) {
     if (!gymDbId || !supabase) {
       return;
     }
+    
+    if (!supabaseToken) {
+      if (realtimeDisabledReason) {
+        console.warn(`CheckinTrendsChart: Realtime subscription skipped for gym ${gymDbId}. Reason: ${realtimeDisabledReason}`);
+      }
+      return; // Do not subscribe without a token
+    }
+    setRealtimeDisabledReason(null); // Clear reason if we have a token
 
     if (channelRef.current) {
         supabase.removeChannel(channelRef.current);
@@ -75,25 +108,31 @@ export function CheckinTrendsChart({ className }: { className?: string }) {
     }
 
     const newChannel = supabase
-      .channel(`checkin-trends-updates-${gymDbId}`)
+      .channel(`checkin-trends-updates-${gymDbId}`, {
+        config: {
+          realtime: {
+            access_token: supabaseToken, // Pass the token for authenticated Realtime
+          },
+        },
+      })
       .on(
         'postgres_changes',
         {
-          event: 'INSERT', // Primarily interested in new check-ins for trends
+          event: 'INSERT', 
           schema: 'public',
           table: 'check_ins',
           filter: `gym_id=eq.${gymDbId}`,
         },
         (payload) => {
           console.log('CheckinTrendsChart: New check_in received!', payload);
-          fetchAndSetTrends(gymDbId); // Re-fetch trends on new check-in
+          fetchAndSetTrends(gymDbId); 
         }
       )
       .subscribe((status, err) => {
          if (status === 'SUBSCRIBED') {
           console.log(`CheckinTrendsChart: Subscribed to check_ins inserts for gym ${gymDbId}`);
         } else if (status === 'TIMED_OUT') {
-          console.warn(`CheckinTrendsChart: Subscription TIMED_OUT for gym ${gymDbId}. The Supabase client may attempt to reconnect.`, err || 'No specific error details from Supabase client.');
+          console.warn(`CheckinTrendsChart: Subscription TIMED_OUT for gym ${gymDbId}. The Supabase client may attempt to reconnect.`, err);
         } else if (status === 'CHANNEL_ERROR') {
           console.error(`CheckinTrendsChart: Subscription CHANNEL_ERROR for gym ${gymDbId}:`, err || 'No specific error details from Supabase client.');
         }
@@ -109,7 +148,7 @@ export function CheckinTrendsChart({ className }: { className?: string }) {
         channelRef.current = null;
       }
     };
-  }, [gymDbId, supabase]);
+  }, [gymDbId, supabase, supabaseToken, realtimeDisabledReason]);
 
 
   return (
@@ -119,7 +158,7 @@ export function CheckinTrendsChart({ className }: { className?: string }) {
           <CardTitle className="text-base font-semibold">Daily Check-in Trends</CardTitle>
           <CalendarDays className="h-5 w-5 text-primary" />
         </div>
-        <CardDescription className="text-xs">Member check-ins over the last 7 days.</CardDescription>
+        <CardDescription className="text-xs">Member check-ins over the last 7 days. {realtimeDisabledReason && '(Realtime updates disabled)'}</CardDescription>
       </CardHeader>
       <CardContent className="pt-2">
         {isLoading ? (

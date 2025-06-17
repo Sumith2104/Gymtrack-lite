@@ -30,6 +30,9 @@ export function OccupancyCard({ className }: { className?: string }) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [gymDbId, setGymDbId] = useState<string | null>(null);
+  const [supabaseToken, setSupabaseToken] = useState<string | null>(null);
+  const [realtimeDisabledReason, setRealtimeDisabledReason] = useState<string | null>(null);
+  
   const channelRef = useRef<RealtimeChannel | null>(null);
   const supabase = createSupabaseBrowserClient();
 
@@ -46,13 +49,35 @@ export function OccupancyCard({ className }: { className?: string }) {
     if (typeof window !== 'undefined') {
       const id = localStorage.getItem('gymDatabaseId');
       setGymDbId(id);
+
+      // Attempt to get the Supabase access token.
+      // IMPORTANT: This is an illustrative way to get a token.
+      // You MUST ensure your authentication flow (ideally using Supabase Auth)
+      // makes an access token available. Using supabase.auth.getSession() is preferred.
+      const tokenDataString = localStorage.getItem('supabase.auth.token'); // Example key
+      if (tokenDataString) {
+        try {
+          const tokenData = JSON.parse(tokenDataString);
+          if (tokenData.access_token) {
+            setSupabaseToken(tokenData.access_token);
+          } else {
+            setRealtimeDisabledReason("Access token not found in stored auth data.");
+          }
+        } catch (e) {
+          console.error("OccupancyCard: Failed to parse auth token from localStorage", e);
+          setRealtimeDisabledReason("Could not parse auth token from localStorage.");
+        }
+      } else {
+        setRealtimeDisabledReason("Supabase auth token not found. Realtime updates disabled.");
+      }
+
       if (id) {
         setIsLoading(true);
         setError(null);
         fetchAndSetOccupancy(id).finally(() => setIsLoading(false));
       } else {
         setIsLoading(false);
-        // setError("Gym ID not found. Please log in again.");
+        setError("Gym ID not found. Please log in again.");
       }
     }
   }, []);
@@ -62,32 +87,45 @@ export function OccupancyCard({ className }: { className?: string }) {
       return;
     }
 
-    // Clean up previous channel if gymDbId changes
+    if (!supabaseToken) {
+      if (realtimeDisabledReason) {
+        console.warn(`OccupancyCard: Realtime subscription skipped for gym ${gymDbId}. Reason: ${realtimeDisabledReason}`);
+      }
+      return; // Do not subscribe without a token
+    }
+    setRealtimeDisabledReason(null); // Clear reason if we have a token
+
     if (channelRef.current) {
       supabase.removeChannel(channelRef.current);
       channelRef.current = null;
     }
     
     const newChannel = supabase
-      .channel(`occupancy-updates-${gymDbId}`)
+      .channel(`occupancy-updates-${gymDbId}`, {
+        config: {
+          realtime: {
+            access_token: supabaseToken, // Pass the token for authenticated Realtime
+          },
+        },
+      })
       .on(
         'postgres_changes',
         {
-          event: '*', // Listen to INSERT, UPDATE, DELETE
+          event: '*', 
           schema: 'public',
           table: 'check_ins',
           filter: `gym_id=eq.${gymDbId}`,
         },
         (payload) => {
           console.log('OccupancyCard: Change received on check_ins table!', payload);
-          fetchAndSetOccupancy(gymDbId); // Re-fetch on any change
+          fetchAndSetOccupancy(gymDbId); 
         }
       )
       .subscribe((status, err) => {
         if (status === 'SUBSCRIBED') {
           console.log(`OccupancyCard: Subscribed to check_ins changes for gym ${gymDbId}`);
         } else if (status === 'TIMED_OUT') {
-          console.warn(`OccupancyCard: Subscription TIMED_OUT for gym ${gymDbId}. The Supabase client may attempt to reconnect.`, err || 'No specific error details from Supabase client.');
+          console.warn(`OccupancyCard: Subscription TIMED_OUT for gym ${gymDbId}. The Supabase client may attempt to reconnect.`, err);
         } else if (status === 'CHANNEL_ERROR') {
           console.error(`OccupancyCard: Subscription CHANNEL_ERROR for gym ${gymDbId}:`, err || 'No specific error details from Supabase client.');
         }
@@ -103,7 +141,7 @@ export function OccupancyCard({ className }: { className?: string }) {
         channelRef.current = null;
       }
     };
-  }, [gymDbId, supabase]);
+  }, [gymDbId, supabase, supabaseToken, realtimeDisabledReason]);
 
 
   const chartData = [
@@ -118,7 +156,7 @@ export function OccupancyCard({ className }: { className?: string }) {
           <CardTitle className="text-base font-semibold">Current Occupancy</CardTitle>
           <Users className="h-5 w-5 text-primary" />
         </div>
-        <CardDescription className="text-xs">Members currently in the gym.</CardDescription>
+        <CardDescription className="text-xs">Members currently in the gym. {realtimeDisabledReason && '(Realtime updates disabled)'}</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col items-center justify-center pt-2">
         {isLoading ? (
