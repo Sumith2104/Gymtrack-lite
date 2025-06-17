@@ -18,10 +18,12 @@ import {
 import {
   Sheet,
   SheetContent,
+  SheetHeader, // Added
+  SheetTitle,  // Added
   SheetTrigger,
   SheetClose,
 } from '@/components/ui/sheet';
-import { UserCircle, LogOut, Menu as MenuIcon } from 'lucide-react'; // Added MenuIcon
+import { UserCircle, LogOut, Menu as MenuIcon } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
 
@@ -121,12 +123,13 @@ export function AppHeader() {
               </SheetTrigger>
               <SheetContent side="left" className="w-[280px] p-0">
                 <div className="flex flex-col h-full">
-                  <div className="p-4 border-b">
+                  <SheetHeader className="p-4 border-b">
+                    <SheetTitle className="sr-only">{APP_NAME} Navigation Menu</SheetTitle>
                     <Link href="/dashboard" className="flex items-center space-x-2" onClick={() => setIsSheetOpen(false)}>
                       <AppLogoIcon className="h-7 w-7 text-primary" />
                       <span className="font-bold text-lg text-foreground">{APP_NAME}</span>
                     </Link>
-                  </div>
+                  </SheetHeader>
                   <nav className="flex-1 flex flex-col space-y-1 p-4">
                     {NAV_LINKS_HEADER.map((item) => {
                       const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href + '/'));
