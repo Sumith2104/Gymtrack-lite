@@ -44,7 +44,11 @@ interface AddAnnouncementResponse {
 }
 
 export async function addAnnouncementAction(gymId: string, title: string, content: string): Promise<AddAnnouncementResponse> {
+  console.log('[addAnnouncementAction] Received gymId:', gymId);
+  console.log('[addAnnouncementAction] Received title:', title);
+
   if (!gymId) { 
+    console.error('[addAnnouncementAction] Error: Gym ID is required.');
     return { error: "Gym ID is required to add an announcement." };
   }
 
@@ -55,6 +59,7 @@ export async function addAnnouncementAction(gymId: string, title: string, conten
     let errorMessages = Object.entries(fieldErrors)
       .map(([key, messages]) => `${key}: ${(messages as string[]).join(', ')}`)
       .join('; ');
+    console.error('[addAnnouncementAction] Validation failed:', errorMessages);
     return { error: `Validation failed: ${errorMessages || 'Check inputs.'}` };
   }
 
@@ -62,7 +67,16 @@ export async function addAnnouncementAction(gymId: string, title: string, conten
   const validatedContent = validationResult.data.content;
 
   const supabase = createSupabaseServerActionClient();
+
   try {
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError) {
+      console.error('[addAnnouncementAction] Error fetching Supabase user:', userError);
+    } else {
+      console.log('[addAnnouncementAction] Supabase user:', user ? { id: user.id, role: user.role, email: user.email, app_metadata: user.app_metadata } : 'No user session');
+    }
+
+    console.log('[addAnnouncementAction] Attempting to insert announcement with gym_id:', gymId);
     const { data, error } = await supabase
       .from('announcements')
       .insert({ gym_id: gymId, title: validatedTitle, content: validatedContent, created_at: new Date().toISOString() })
@@ -70,10 +84,12 @@ export async function addAnnouncementAction(gymId: string, title: string, conten
       .single();
 
     if (error || !data) {
-      console.error('Error adding announcement to DB:', error?.message);
+      console.error('[addAnnouncementAction] Error adding announcement to DB:', error?.message);
+      console.error('[addAnnouncementAction] Supabase error object:', JSON.stringify(error, null, 2));
       return { error: error?.message || "Failed to save announcement to database." };
     }
     
+    console.log('[addAnnouncementAction] Announcement successfully added to DB:', data.id);
     const newAnnouncement: Announcement = {
         id: data.id,
         gymId: data.gym_id,
@@ -94,7 +110,7 @@ export async function addAnnouncementAction(gymId: string, title: string, conten
       .eq('gym_id', gymId);
       
     if (memberFetchError) {
-      console.error("Error fetching members for announcement email:", memberFetchError.message);
+      console.error("[addAnnouncementAction] Error fetching members for announcement email:", memberFetchError.message);
     } else if (membersToEmail && membersToEmail.length > 0) {
       const gymDetails = await supabase.from('gyms').select('name').eq('id', gymId).single();
       const gymName = gymDetails.data?.name || 'Your Gym';
@@ -141,7 +157,7 @@ export async function addAnnouncementAction(gymId: string, title: string, conten
     };
 
   } catch (e: any) {
-    console.error('Unexpected error in addAnnouncementAction:', e.message);
+    console.error('[addAnnouncementAction] Unexpected error in addAnnouncementAction:', e.message);
     return { error: 'An unexpected error occurred while saving the announcement.' };
   }
 }
@@ -203,3 +219,4 @@ export async function deleteAnnouncementsAction(announcementIds: string[]): Prom
     return { success: false, error: 'An unexpected error occurred while deleting announcements.' };
   }
 }
+
