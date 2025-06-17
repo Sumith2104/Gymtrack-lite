@@ -93,9 +93,9 @@ export function CheckinTrendsChart({ className }: { className?: string }) {
          if (status === 'SUBSCRIBED') {
           console.log(`CheckinTrendsChart: Subscribed to check_ins inserts for gym ${gymDbId}`);
         } else if (status === 'TIMED_OUT') {
-          console.warn(`CheckinTrendsChart: Subscription TIMED_OUT for gym ${gymDbId}. The Supabase client may attempt to reconnect.`, err ? err.message || err : 'No specific error details.');
+          console.warn(`CheckinTrendsChart: Subscription TIMED_OUT for gym ${gymDbId}. The Supabase client may attempt to reconnect.`, err || 'No specific error details from Supabase client.');
         } else if (status === 'CHANNEL_ERROR') {
-          console.error(`CheckinTrendsChart: Subscription CHANNEL_ERROR for gym ${gymDbId}:`, err ? err.message || err : 'No specific error details.');
+          console.error(`CheckinTrendsChart: Subscription CHANNEL_ERROR for gym ${gymDbId}:`, err || 'No specific error details from Supabase client.');
         }
       });
     
@@ -168,4 +168,3 @@ export function CheckinTrendsChart({ className }: { className?: string }) {
     </Card>
   );
 }
-
