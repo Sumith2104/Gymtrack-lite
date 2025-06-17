@@ -87,9 +87,9 @@ export function OccupancyCard({ className }: { className?: string }) {
         if (status === 'SUBSCRIBED') {
           console.log(`OccupancyCard: Subscribed to check_ins changes for gym ${gymDbId}`);
         } else if (status === 'TIMED_OUT') {
-          console.warn(`OccupancyCard: Subscription TIMED_OUT for gym ${gymDbId}. The Supabase client may attempt to reconnect.`, err);
+          console.warn(`OccupancyCard: Subscription TIMED_OUT for gym ${gymDbId}. The Supabase client may attempt to reconnect.`, err ? err.message || err : 'No specific error details.');
         } else if (status === 'CHANNEL_ERROR') {
-          console.error(`OccupancyCard: Subscription CHANNEL_ERROR for gym ${gymDbId}:`, err);
+          console.error(`OccupancyCard: Subscription CHANNEL_ERROR for gym ${gymDbId}:`, err ? err.message || err : 'No specific error details.');
         }
       });
 
@@ -99,7 +99,7 @@ export function OccupancyCard({ className }: { className?: string }) {
       if (channelRef.current) {
         supabase.removeChannel(channelRef.current)
           .then(() => console.log(`OccupancyCard: Unsubscribed from gym ${gymDbId}`))
-          .catch(e => console.error(`OccupancyCard: Error unsubscribing from gym ${gymDbId}`, e));
+          .catch(e => console.error(`OccupancyCard: Error unsubscribing from gym ${gymDbId}:`, e.message || e));
         channelRef.current = null;
       }
     };
@@ -180,3 +180,4 @@ export function OccupancyCard({ className }: { className?: string }) {
     </Card>
   );
 }
+

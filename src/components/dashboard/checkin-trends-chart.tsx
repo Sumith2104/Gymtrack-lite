@@ -93,9 +93,9 @@ export function CheckinTrendsChart({ className }: { className?: string }) {
          if (status === 'SUBSCRIBED') {
           console.log(`CheckinTrendsChart: Subscribed to check_ins inserts for gym ${gymDbId}`);
         } else if (status === 'TIMED_OUT') {
-          console.warn(`CheckinTrendsChart: Subscription TIMED_OUT for gym ${gymDbId}. The Supabase client may attempt to reconnect.`, err);
+          console.warn(`CheckinTrendsChart: Subscription TIMED_OUT for gym ${gymDbId}. The Supabase client may attempt to reconnect.`, err ? err.message || err : 'No specific error details.');
         } else if (status === 'CHANNEL_ERROR') {
-          console.error(`CheckinTrendsChart: Subscription CHANNEL_ERROR for gym ${gymDbId}:`, err);
+          console.error(`CheckinTrendsChart: Subscription CHANNEL_ERROR for gym ${gymDbId}:`, err ? err.message || err : 'No specific error details.');
         }
       });
     
@@ -105,7 +105,7 @@ export function CheckinTrendsChart({ className }: { className?: string }) {
       if (channelRef.current) {
          supabase.removeChannel(channelRef.current)
           .then(() => console.log(`CheckinTrendsChart: Unsubscribed from gym ${gymDbId}`))
-          .catch(e => console.error(`CheckinTrendsChart: Error unsubscribing from gym ${gymDbId}`, e));
+          .catch(e => console.error(`CheckinTrendsChart: Error unsubscribing from gym ${gymDbId}:`, e.message || e));
         channelRef.current = null;
       }
     };
@@ -168,3 +168,4 @@ export function CheckinTrendsChart({ className }: { className?: string }) {
     </Card>
   );
 }
+
