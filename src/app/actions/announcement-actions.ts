@@ -44,7 +44,7 @@ interface AddAnnouncementResponse {
 }
 
 export async function addAnnouncementAction(gymId: string, title: string, content: string): Promise<AddAnnouncementResponse> {
-  if (!gymId) { // gymId check remains
+  if (!gymId) { 
     return { error: "Gym ID is required to add an announcement." };
   }
 
@@ -108,7 +108,6 @@ export async function addAnnouncementAction(gymId: string, title: string, conten
         if (member.email && (effectiveStatus === 'active' || effectiveStatus === 'expiring soon')) {
           attempted++;
           const emailSubject = `New Announcement from ${gymName}: ${newAnnouncement.title}`;
-          // Use 'PP' format for email date: e.g., "Aug 15, 2023"
           const emailHtmlBody = `
             <p>Dear ${member.name || 'Member'},</p>
             <p>A new announcement has been posted at ${gymName}:</p>
@@ -155,7 +154,7 @@ export async function fetchAnnouncementsAction(gymId: string): Promise<{ data?: 
   try {
     const { data: dbAnnouncements, error } = await supabase
       .from('announcements')
-      .select('id, gym_id, title, content, created_at') // Explicitly select columns, excluding updated_at
+      .select('id, gym_id, title, content, created_at')
       .eq('gym_id', gymId)
       .order('created_at', { ascending: false });
 
