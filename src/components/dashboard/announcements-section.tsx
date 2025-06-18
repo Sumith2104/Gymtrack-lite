@@ -37,6 +37,7 @@ export function AnnouncementsSection({ className }: { className?: string }) {
   const { toast } = useToast();
 
   const loadAnnouncements = useCallback(async (gymId: string) => {
+    console.log(`[AnnouncementsSection] loadAnnouncements called with gymId: ${gymId}`);
     setIsLoading(true);
     setError(null);
     const response = await fetchAnnouncementsAction(gymId);
@@ -45,6 +46,7 @@ export function AnnouncementsSection({ className }: { className?: string }) {
       setAnnouncements([]);
       toast({ variant: "destructive", title: "Error", description: response.error || "Could not load announcements." });
     } else {
+      console.log(`[AnnouncementsSection] Successfully fetched ${response.data.length} announcements.`);
       setAnnouncements(response.data);
     }
     setIsLoading(false);
@@ -53,11 +55,13 @@ export function AnnouncementsSection({ className }: { className?: string }) {
 
   useEffect(() => {
     const gymIdFromStorage = localStorage.getItem('gymDatabaseId');
+    console.log('[AnnouncementsSection] gymId from localStorage on mount:', gymIdFromStorage);
     setCurrentGymDbId(gymIdFromStorage);
     if (gymIdFromStorage) {
       loadAnnouncements(gymIdFromStorage);
     } else {
-      setIsLoading(false); // No gym ID, so not loading anything
+      console.warn('[AnnouncementsSection] No gymId found in localStorage. Cannot load announcements.');
+      setIsLoading(false); 
       setAnnouncements([]);
     }
   }, [loadAnnouncements]);
@@ -66,7 +70,10 @@ export function AnnouncementsSection({ className }: { className?: string }) {
   useEffect(() => {
     const handleReloadAnnouncements = () => {
       if (currentGymDbId) {
+        console.log('[AnnouncementsSection] Reload event triggered. Reloading for gymId:', currentGymDbId);
         loadAnnouncements(currentGymDbId);
+      } else {
+        console.warn('[AnnouncementsSection] Reload event triggered, but no currentGymDbId set.');
       }
     };
     window.addEventListener('reloadAnnouncements', handleReloadAnnouncements);

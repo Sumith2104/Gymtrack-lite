@@ -163,11 +163,14 @@ export async function addAnnouncementAction(gymId: string, title: string, conten
 }
 
 export async function fetchAnnouncementsAction(gymId: string): Promise<{ data?: Announcement[]; error?: string }> {
+  console.log(`[fetchAnnouncementsAction] Received gymId: ${gymId}`);
   if (!gymId) {
+    console.error('[fetchAnnouncementsAction] Error: Gym ID is required.');
     return { error: "Gym ID is required to fetch announcements." };
   }
   const supabase = createSupabaseServerActionClient();
   try {
+    console.log(`[fetchAnnouncementsAction] Fetching announcements for gymId: ${gymId}`);
     const { data: dbAnnouncements, error } = await supabase
       .from('announcements')
       .select('id, gym_id, title, content, created_at')
@@ -175,12 +178,19 @@ export async function fetchAnnouncementsAction(gymId: string): Promise<{ data?: 
       .order('created_at', { ascending: false });
 
     if (error) {
-      console.error('Error fetching announcements from DB:', error.message);
+      console.error('[fetchAnnouncementsAction] Error fetching announcements from DB:', error.message);
       return { error: error.message };
     }
      if (!dbAnnouncements) {
+        console.log('[fetchAnnouncementsAction] No announcements found in DB for this gymId (dbAnnouncements is null/undefined).');
         return { data: [] };
     }
+    if (dbAnnouncements.length === 0) {
+        console.log('[fetchAnnouncementsAction] No announcements found in DB for this gymId (empty array).');
+    } else {
+        console.log(`[fetchAnnouncementsAction] Found ${dbAnnouncements.length} announcements from DB.`);
+    }
+
 
     const announcements: Announcement[] = dbAnnouncements.map(dbAnn => ({
         id: dbAnn.id,
@@ -192,7 +202,7 @@ export async function fetchAnnouncementsAction(gymId: string): Promise<{ data?: 
     return { data: announcements };
 
   } catch (e: any) {
-    console.error('Unexpected error in fetchAnnouncementsAction:', e.message);
+    console.error('[fetchAnnouncementsAction] Unexpected error in fetchAnnouncementsAction:', e.message);
     return { error: 'An unexpected error occurred while fetching announcements.' };
   }
 }
@@ -219,4 +229,3 @@ export async function deleteAnnouncementsAction(announcementIds: string[]): Prom
     return { success: false, error: 'An unexpected error occurred while deleting announcements.' };
   }
 }
-
