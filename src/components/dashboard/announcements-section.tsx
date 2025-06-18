@@ -36,7 +36,14 @@ export function AnnouncementsSection({ className }: { className?: string }) {
   const [selectedAnnouncements, setSelectedAnnouncements] = useState<string[]>([]);
   const { toast } = useToast();
 
-  const loadAnnouncements = useCallback(async (gymId: string) => {
+  const loadAnnouncements = useCallback(async (gymId: string | null) => {
+    if (!gymId) {
+      console.warn('[AnnouncementsSection] loadAnnouncements called with null gymId. Aborting.');
+      setIsLoading(false);
+      setError("Gym ID not available. Cannot load announcements.");
+      setAnnouncements([]);
+      return;
+    }
     console.log(`[AnnouncementsSection] loadAnnouncements called with gymId: ${gymId}`);
     setIsLoading(true);
     setError(null);
@@ -44,9 +51,10 @@ export function AnnouncementsSection({ className }: { className?: string }) {
     if (response.error || !response.data) {
       setError(response.error || "Failed to load announcements.");
       setAnnouncements([]);
-      toast({ variant: "destructive", title: "Error", description: response.error || "Could not load announcements." });
+      console.error('[AnnouncementsSection] Error or no data from fetchAnnouncementsAction:', response.error);
+      toast({ variant: "destructive", title: "Error Loading Announcements", description: response.error || "Could not load announcements." });
     } else {
-      console.log(`[AnnouncementsSection] Successfully fetched ${response.data.length} announcements.`);
+      console.log(`[AnnouncementsSection] Successfully fetched ${response.data.length} announcements. Data:`, JSON.stringify(response.data.slice(0,2)));
       setAnnouncements(response.data);
     }
     setIsLoading(false);
@@ -56,24 +64,34 @@ export function AnnouncementsSection({ className }: { className?: string }) {
   useEffect(() => {
     const gymIdFromStorage = localStorage.getItem('gymDatabaseId');
     console.log('[AnnouncementsSection] gymId from localStorage on mount:', gymIdFromStorage);
-    setCurrentGymDbId(gymIdFromStorage);
+    setCurrentGymDbId(gymIdFromStorage); // Set state
     if (gymIdFromStorage) {
+      console.log('[AnnouncementsSection] Attempting to load announcements for gymId from storage:', gymIdFromStorage);
       loadAnnouncements(gymIdFromStorage);
     } else {
-      console.warn('[AnnouncementsSection] No gymId found in localStorage. Cannot load announcements.');
-      setIsLoading(false); 
+      console.warn('[AnnouncementsSection] No gymId found in localStorage. Cannot load announcements initially.');
+      setIsLoading(false);
+      setError("Gym ID not found in local storage. Please log in again.");
       setAnnouncements([]);
     }
-  }, [loadAnnouncements]);
+  }, [loadAnnouncements]); // loadAnnouncements is stable due to useCallback
 
   // Listen for custom event to reload announcements (e.g., after adding one)
   useEffect(() => {
     const handleReloadAnnouncements = () => {
+      // Use the state value of currentGymDbId, as it might have been set after initial mount
       if (currentGymDbId) {
-        console.log('[AnnouncementsSection] Reload event triggered. Reloading for gymId:', currentGymDbId);
+        console.log('[AnnouncementsSection] Reload event triggered. Reloading for currentGymDbId:', currentGymDbId);
         loadAnnouncements(currentGymDbId);
       } else {
-        console.warn('[AnnouncementsSection] Reload event triggered, but no currentGymDbId set.');
+        // Fallback to localStorage if currentGymDbId state is somehow not set yet, though less ideal
+        const gymIdFromStorageEvent = localStorage.getItem('gymDatabaseId');
+        if (gymIdFromStorageEvent) {
+             console.warn('[AnnouncementsSection] Reload event triggered, currentGymDbId state was null, using localStorage value for reload:', gymIdFromStorageEvent);
+             loadAnnouncements(gymIdFromStorageEvent);
+        } else {
+            console.warn('[AnnouncementsSection] Reload event triggered, but no gymId available (state or localStorage).');
+        }
       }
     };
     window.addEventListener('reloadAnnouncements', handleReloadAnnouncements);
@@ -94,7 +112,7 @@ export function AnnouncementsSection({ className }: { className?: string }) {
     });
 
   const handleSelectAnnouncement = (id: string, checked: boolean) => {
-    setSelectedAnnouncements(prev => 
+    setSelectedAnnouncements(prev =>
       checked ? [...prev, id] : prev.filter(annId => annId !== id)
     );
   };
