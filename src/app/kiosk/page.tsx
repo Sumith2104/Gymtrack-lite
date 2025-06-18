@@ -14,7 +14,6 @@ export default function KioskPage() {
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const gymName = localStorage.getItem('gymName');
-      // If gymName is null or empty, kioskGymName will be "Member Check-in" due to the ternary in h1
       setKioskGymName(gymName); 
     }
   }, []);
@@ -39,16 +38,16 @@ export default function KioskPage() {
         <Separator className="w-full max-w-2xl bg-border" />
 
         {/* Main Content Area: Check-in Form */}
-        <div className="w-full max-w-xl">
+        <div className="w-full max-w-2xl"> {/* Unified max-width */}
           <CheckinForm 
             onSuccessfulCheckin={handleSuccessfulCheckin}
           />
         </div>
         
-        <Separator className="w-full max-w-4xl bg-border" />
+        <Separator className="w-full max-w-2xl bg-border" /> {/* Unified max-width */}
 
         {/* Recent Check-ins List */}
-        <div className="w-full max-w-4xl">
+        <div className="w-full max-w-2xl"> {/* Unified max-width */}
           <RecentCheckinsCard 
             newCheckinEntry={newlyAddedCheckin}
           />
@@ -57,3 +56,4 @@ export default function KioskPage() {
     </div>
   );
 }
+
