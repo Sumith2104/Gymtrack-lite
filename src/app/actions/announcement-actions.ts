@@ -42,7 +42,7 @@ interface AddAnnouncementResponse {
 }
 
 export async function addAnnouncementAction(
-  ownerFormattedGymId: string, // Changed from gymId (UUID) to formatted_gym_id (text)
+  ownerFormattedGymId: string,
   title: string,
   content: string
 ): Promise<AddAnnouncementResponse> {
@@ -72,42 +72,53 @@ export async function addAnnouncementAction(
   // Fetch the gym's UUID (id) and name using the ownerFormattedGymId
   const { data: gymData, error: gymError } = await supabase
     .from('gyms')
-    .select('id, name')
+    .select('id, name') // 'id' here is the UUID
     .eq('formatted_gym_id', ownerFormattedGymId)
     .single();
 
   if (gymError || !gymData) {
-    console.error('[addAnnouncementAction] Error fetching gym details by formatted_gym_id:', gymError?.message);
-    return { error: gymError?.message || "Gym not found with the provided formatted ID." };
+    console.error(`[addAnnouncementAction] Error fetching gym details for formatted_gym_id '${ownerFormattedGymId}':`, gymError?.message);
+    return { error: gymError?.message || `Gym not found with formatted ID: ${ownerFormattedGymId}.` };
   }
   const gymUuid = gymData.id; // This is the actual UUID for the gym_id foreign key
   const gymNameForEmail = gymData.name;
+  console.log(`[addAnnouncementAction] Gym details found: UUID='${gymUuid}', Name='${gymNameForEmail}' for FormattedID='${ownerFormattedGymId}'`);
 
   try {
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    let userRole = 'unknown';
+    let userId = 'unknown';
+    let userAppMetadata = {};
+    const { data: { user: authUser }, error: userError } = await supabase.auth.getUser();
     if (userError) {
-      console.error('[addAnnouncementAction] Error fetching Supabase user:', userError);
+      console.error('[addAnnouncementAction] Error fetching Supabase user for context:', userError.message);
+    } else if (authUser) {
+      userRole = authUser.role || 'authenticated (no specific role)';
+      userId = authUser.id;
+      userAppMetadata = authUser.app_metadata || {};
+      console.log(`[addAnnouncementAction] Supabase Auth Context: UserID='${userId}', Role='${userRole}', AppMetadata='${JSON.stringify(userAppMetadata)}'`);
     } else {
-      console.log('[addAnnouncementAction] Supabase user context during insert:', user ? { id: user.id, role: user.role, email: user.email, app_metadata: user.app_metadata } : 'No user session');
+      console.log('[addAnnouncementAction] Supabase Auth Context: No active user session found by supabase.auth.getUser(). This might mean the action runs as "anon" or "service_role" depending on client setup.');
     }
 
-    console.log('[addAnnouncementAction] Attempting to insert announcement with gym_id (UUID):', gymUuid, 'and formatted_gym_id:', ownerFormattedGymId);
-    const { data, error } = await supabase
-      .from('announcements')
-      .insert({
-        gym_id: gymUuid, // The UUID FK
-        formatted_gym_id: ownerFormattedGymId, // The new text column
+    const announcementToInsert = {
+        gym_id: gymUuid,
+        formatted_gym_id: ownerFormattedGymId,
         title: validatedTitle,
         content: validatedContent,
         created_at: new Date().toISOString()
-      })
+    };
+    console.log('[addAnnouncementAction] Attempting to insert announcement with payload:', JSON.stringify(announcementToInsert));
+    
+    const { data, error } = await supabase
+      .from('announcements')
+      .insert(announcementToInsert)
       .select()
       .single();
 
     if (error || !data) {
-      console.error('[addAnnouncementAction] Error adding announcement to DB:', error?.message);
+      console.error(`[addAnnouncementAction] Error adding announcement to DB: ${error?.message}. Role was '${userRole}'.`);
       console.error('[addAnnouncementAction] Supabase error object:', JSON.stringify(error, null, 2));
-      return { error: error?.message || "Failed to save announcement to database." };
+      return { error: error?.message || "Failed to save announcement to database. Check RLS policy and server logs." };
     }
 
     console.log('[addAnnouncementAction] Announcement successfully added to DB:', data.id);
@@ -120,7 +131,7 @@ export async function addAnnouncementAction(
         createdAt: data.created_at,
     };
 
-    // Email broadcast logic (uses gymUuid for fetching members)
+    // Email broadcast logic
     let attempted = 0;
     let successful = 0;
     let noEmailAddress = 0;
@@ -129,7 +140,7 @@ export async function addAnnouncementAction(
     const { data: membersToEmail, error: memberFetchError } = await supabase
       .from('members')
       .select('name, email, membership_status, expiry_date')
-      .eq('gym_id', gymUuid); // Fetch members using the gym's UUID
+      .eq('gym_id', gymUuid);
 
     if (memberFetchError) {
       console.error("[addAnnouncementAction] Error fetching members for announcement email:", memberFetchError.message);
@@ -207,22 +218,10 @@ export async function fetchAnnouncementsAction(ownerFormattedGymId: string | nul
   console.log(`[fetchAnnouncementsAction] Querying announcements for formatted_gym_id: ${ownerFormattedGymId}`);
 
   try {
-    // TEMPORARY: Fetch ALL announcements to check if RLS SELECT is the issue or the filter itself
-    // const { data: dbAnnouncements, error, count } = await supabase
-    //   .from('announcements')
-    //   .select('id, gym_id, formatted_gym_id, title, content, created_at', { count: 'exact' })
-    // //   .eq('formatted_gym_id', ownerFormattedGymId) // Temporarily removed for debugging
-    //   .order('created_at', { ascending: false });
-    // console.log(`[fetchAnnouncementsAction] Raw Supabase query result (ALL announcements) - Error: ${JSON.stringify(error)}, Count: ${count}, Data (length): ${dbAnnouncements?.length}`);
-    // if (dbAnnouncements && dbAnnouncements.length > 0) {
-    //     console.log(`[fetchAnnouncementsAction] Preview of ALL fetched announcements: ${JSON.stringify(dbAnnouncements.slice(0,5).map(a => ({id: a.id, title: a.title, gym_id: a.gym_id, formatted_gym_id: a.formatted_gym_id})))}`);
-    // }
-
-    // Original query with filter by formatted_gym_id
     const { data: dbAnnouncements, error, count } = await supabase
       .from('announcements')
       .select('id, gym_id, formatted_gym_id, title, content, created_at', { count: 'exact' })
-      .eq('formatted_gym_id', ownerFormattedGymId) // Filter by the new formatted_gym_id column
+      .eq('formatted_gym_id', ownerFormattedGymId)
       .order('created_at', { ascending: false });
 
     console.log(`[fetchAnnouncementsAction] Raw Supabase query result (for formatted_gym_id ${ownerFormattedGymId}) - Error: ${JSON.stringify(error)}, Count: ${count}, Data (length): ${dbAnnouncements?.length}`);
@@ -283,3 +282,4 @@ export async function deleteAnnouncementsAction(announcementIds: string[]): Prom
     return { success: false, error: 'An unexpected error occurred while deleting announcements.' };
   }
 }
+    
