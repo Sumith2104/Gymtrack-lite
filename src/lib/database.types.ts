@@ -1,3 +1,4 @@
+
 // src/lib/database.types.ts
 // This file should align with your 00_initial_schema.sql
 
@@ -237,7 +238,7 @@ export interface Database {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never // Removed the helper function definitions
+      [_ in never]: never // Helper functions removed
     }
     Enums: {
       [_ in never]: never
