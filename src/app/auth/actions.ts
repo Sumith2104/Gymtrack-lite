@@ -1,3 +1,4 @@
+
 // src/app/auth/actions.ts
 'use server';
 
@@ -6,8 +7,9 @@ import type { Gym } from '@/lib/types';
 
 export async function verifyGymOwnerCredentials(
   email: string,
-  gymId: string
+  gymId: string // This should be the formatted_gym_id
 ): Promise<Gym | null> {
+  console.log(`[verifyGymOwnerCredentials] Attempting to verify: email='${email}', gymId='${gymId}'`);
   const supabase = createSupabaseServerActionClient();
 
   try {
@@ -25,18 +27,19 @@ export async function verifyGymOwnerCredentials(
       `
       )
       .eq('owner_email', email)
-      .eq('formatted_gym_id', gymId)
+      .eq('formatted_gym_id', gymId) // Ensure this matches the column name and value precisely
       .single();
 
     if (error) {
-      console.error('Error verifying gym owner credentials:', error.message);
-      if (error.code === 'PGRST116') { // PGRST116 means "Not a single row" (e.g. 0 rows)
-         console.log('No gym found matching criteria.');
+      console.error('[verifyGymOwnerCredentials] Error verifying credentials:', error.message);
+      if (error.code === 'PGRST116') { // PGRST116 means "Not a single row" (e.g. 0 rows or more than 1)
+         console.log('[verifyGymOwnerCredentials] No gym found matching criteria or multiple matches (should be unique).');
       }
       return null;
     }
 
     if (data) {
+      console.log(`[verifyGymOwnerCredentials] Gym found: ${data.name}, Formatted ID: ${data.formatted_gym_id}`);
       // Map snake_case to camelCase
       return {
         id: data.id,
@@ -48,9 +51,10 @@ export async function verifyGymOwnerCredentials(
         status: data.status,
       };
     }
+    console.log('[verifyGymOwnerCredentials] No data returned from query, though no explicit error.');
     return null;
-  } catch (e) {
-    console.error('Unexpected error in verifyGymOwnerCredentials:', e);
+  } catch (e: any) {
+    console.error('[verifyGymOwnerCredentials] Unexpected error:', e.message);
     return null;
   }
 }
