@@ -10,10 +10,11 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import type { FormattedCheckIn } from '@/lib/types';
 import { format, parseISO, isToday, isYesterday } from 'date-fns';
-import { ListChecks, Search, CalendarIcon as CalendarIconLucide, X, RefreshCw, AlertCircle } from 'lucide-react';
+import { ListChecks, Search, CalendarIcon as CalendarIconLucide, X, RefreshCw, AlertCircle, PackageSearch } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { fetchTodaysCheckInsForKioskAction } from '@/app/actions/kiosk-actions';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert'; // Added Alert imports
 
 interface RecentCheckinsCardProps {
   newCheckinEntry: FormattedCheckIn | null;
@@ -63,7 +64,7 @@ export function RecentCheckinsCard({ newCheckinEntry, className }: RecentCheckin
   useEffect(() => {
     if (newCheckinEntry) {
       setAllFetchedCheckins((prevCheckins) => 
-        [newCheckinEntry, ...prevCheckins.filter(ci => ci.memberTableId !== newCheckinEntry.memberTableId || format(new Date(ci.checkInTime),'T') !== format(new Date(newCheckinEntry.checkInTime),'T'))] // Prevent exact duplicates if event fires multiple times
+        [newCheckinEntry, ...prevCheckins.filter(ci => ci.memberTableId !== newCheckinEntry.memberTableId || format(new Date(ci.checkInTime),'T') !== format(new Date(newCheckinEntry.checkInTime),'T'))]
         .sort((a, b) => new Date(b.checkInTime).getTime() - new Date(a.checkInTime).getTime())
       );
     }
@@ -104,16 +105,21 @@ export function RecentCheckinsCard({ newCheckinEntry, className }: RecentCheckin
     const date = parseISO(dateKey);
     if (isToday(date)) return 'Today';
     if (isYesterday(date)) return 'Yesterday';
-    return format(date, "MMMM d, yyyy"); // Fuller date format
+    return format(date, "MMMM d, yyyy");
   };
 
   return (
-    <Card className={cn("shadow-xl w-full bg-card border-border rounded-lg", className)}>
-      <CardHeader className="border-b border-border/50 pb-4">
+    <Card className={cn("shadow-xl w-full bg-card/75 text-card-foreground backdrop-blur-sm bg-opacity-75 border-border rounded-lg", className)}>
+      <CardHeader className="p-6 border-b border-border/50 pb-4"> {/* p-6 from CardHeader default */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <div className='flex-shrink-0 flex items-center'>
+            <div className='flex-grow flex items-center'> {/* flex-grow for title wrapper */}
                 <ListChecks className="h-6 w-6 text-primary mr-3" />
-                <CardTitle className="text-xl font-semibold text-foreground/90">Recent Check-ins</CardTitle>
+                <div>
+                    <CardTitle className="text-xl font-semibold text-foreground/90">Recent Check-ins</CardTitle>
+                    <CardDescription className="text-xs text-muted-foreground mt-1">
+                      A log of the latest member check-ins, grouped by date. Filter by name, ID, or date.
+                    </CardDescription>
+                </div>
                  {gymDbId && gymNameForDisplay && !isLoading && (
                     <Button variant="ghost" size="icon" className="ml-2 h-8 w-8" onClick={() => loadTodaysCheckins(gymDbId, gymNameForDisplay)}>
                         <RefreshCw className="h-4 w-4"/>
@@ -121,12 +127,12 @@ export function RecentCheckinsCard({ newCheckinEntry, className }: RecentCheckin
                     </Button>
                 )}
             </div>
-            <div className="w-full sm:w-auto flex flex-col sm:flex-row gap-2 flex-shrink-0 sm:ml-auto">
-                <div className="relative flex-grow sm:flex-grow-0 sm:w-60">
+            <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto"> {/* Filters wrapper */}
+                <div className="relative w-full sm:w-auto sm:min-w-[200px]"> {/* Search input container */}
                     <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                     <Input type="text" placeholder="Filter by name or ID..." value={filterTerm} onChange={(e) => setFilterTerm(e.target.value)} className="pl-9 h-10 bg-input border-input focus:ring-primary"/>
                 </div>
-                <div className='relative flex-grow sm:flex-grow-0 sm:w-auto min-w-[180px]'>
+                <div className='relative w-full sm:w-auto min-w-[180px]'>
                     <Popover>
                         <PopoverTrigger asChild>
                         <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal h-10 bg-input border-input hover:bg-muted/50 focus:ring-primary", !filterDate && "text-muted-foreground")}>
@@ -140,45 +146,65 @@ export function RecentCheckinsCard({ newCheckinEntry, className }: RecentCheckin
                 </div>
             </div>
         </div>
-        <CardDescription className="text-xs text-muted-foreground mt-2">
-          A log of the latest member check-ins. Filter by name, ID, or pick a date for historical data.
-        </CardDescription>
       </CardHeader>
-      <CardContent className="pt-4">
-        <ScrollArea className="h-[400px] pr-1"> {/* Increased height */}
+      <CardContent className="p-0 sm:p-0"> {/* Changed padding to p-0 sm:p-0 */}
+        <ScrollArea className="h-[400px]">
           {isLoading ? (
-            Array.from({length: 5}).map((_, i) => <Skeleton key={`skel-${i}`} className="h-12 w-full my-2 rounded-md" />)
+            <div className="p-4"> {/* Added padding for skeleton */}
+              {Array.from({length: 5}).map((_, i) => <Skeleton key={`skel-${i}`} className="h-12 w-full my-2 rounded-md" />)}
+            </div>
           ) : error ? (
-            <div className="text-destructive flex flex-col items-center justify-center h-full py-10">
-                <AlertCircle className="h-8 w-8 mb-2"/>
-                <p className="text-sm font-medium">Error loading check-ins.</p>
-                <p className="text-xs">{error}</p>
+            <div className="p-6 sm:p-8"> {/* Padding for error message container */}
+                <Alert variant="destructive" className="bg-destructive/10 border-destructive/50">
+                    <AlertCircle className="h-5 w-5" />
+                    <AlertTitle>Error Loading Check-ins</AlertTitle>
+                    <AlertDescription>{error}</AlertDescription>
+                </Alert>
             </div>
           ) : sortedDateKeys.length === 0 ? (
-            <p className="text-muted-foreground text-center py-10 text-sm">
-              No check-ins match your filters or no check-ins yet for this gym today.
-            </p>
+            <div className="p-6 sm:p-8"> {/* Padding for empty state container */}
+              <Alert className="bg-muted/30 border-border/50 text-foreground">
+                <div className="flex items-center"> {/* Alert Title and Icon Wrapper */}
+                  <PackageSearch className="h-5 w-5 mr-2" />
+                  <AlertTitle>No Matching Check-ins</AlertTitle>
+                </div>
+                <AlertDescription>
+                  No check-ins match your current filters or no check-ins have been recorded for this gym today.
+                </AlertDescription>
+              </Alert>
+            </div>
           ) : (
-            sortedDateKeys.map((dateKey) => (
-              <div key={dateKey} className="mb-6 last:mb-0">
-                <div className="flex items-center px-3 py-2.5 bg-muted/30 rounded-t-md border-b border-border/50 mb-1">
-                  <CalendarIconLucide className="mr-2 h-5 w-5 text-primary/80" />
-                  <h3 className="text-sm font-semibold text-foreground/80">{formatDateGroupHeader(dateKey)}</h3>
-                </div>
-                <div className="grid grid-cols-3 gap-x-4 px-3 py-2 text-xs font-medium text-muted-foreground border-b border-border/30">
-                  <div>Member Name</div><div>Member ID</div><div className="text-left">Check-in Time</div>
-                </div>
-                <div className="divide-y divide-border/30">
-                  {groupedCheckins[dateKey].map((checkin, index) => (
-                    <div key={`${checkin.memberTableId}-${new Date(checkin.checkInTime).toISOString()}-${index}`} className="grid grid-cols-3 gap-x-4 items-center px-3 py-3 hover:bg-muted/20 transition-colors duration-150">
-                      <div className="text-sm text-foreground truncate" title={checkin.memberName}>{checkin.memberName}</div>
-                      <div className="text-sm text-foreground truncate" title={checkin.memberId}>{checkin.memberId}</div>
-                      <div className="text-sm text-muted-foreground text-left">{format(new Date(checkin.checkInTime), "h:mm aa")}</div>
+            <div className="space-y-0"> {/* Changed from space-y-4 to space-y-0, individual group styling will handle it */}
+              {sortedDateKeys.map((dateKey, index) => (
+                <div 
+                  key={dateKey} 
+                  className={cn(
+                    "pt-4 px-4 sm:px-6 border-b dark:border-border/30",
+                    index === 0 && "first:pt-6", // More explicit first:pt-6
+                    index === sortedDateKeys.length - 1 && "last:pb-6 last:border-b-0"
+                  )}
+                >
+                  <div className="flex items-center mb-3"> {/* Date header styling (was mb-1) */}
+                    <CalendarIconLucide className="mr-2 h-5 w-5 text-primary/80" />
+                    <h3 className="text-sm font-semibold text-foreground/80">{formatDateGroupHeader(dateKey)}</h3>
+                  </div>
+                  <div className="overflow-x-auto pb-4"> {/* Wrapper for table-like structure */}
+                    <div className="grid grid-cols-3 gap-x-4 py-2 text-xs font-medium text-muted-foreground border-b border-border/30">
+                      <div>Member Name</div><div>Member ID</div><div className="text-left">Check-in Time</div>
                     </div>
-                  ))}
+                    <div className="divide-y divide-border/30">
+                      {groupedCheckins[dateKey].map((checkin, idx) => (
+                        <div key={`${checkin.memberTableId}-${new Date(checkin.checkInTime).toISOString()}-${idx}`} className="grid grid-cols-3 gap-x-4 items-center py-3 hover:bg-muted/20 transition-colors duration-150">
+                          <div className="text-sm text-foreground truncate" title={checkin.memberName}>{checkin.memberName}</div>
+                          <div className="text-sm text-foreground truncate" title={checkin.memberId}>{checkin.memberId}</div>
+                          <div className="text-sm text-muted-foreground text-left">{format(new Date(checkin.checkInTime), "h:mm aa")}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 </div>
-              </div>
-            ))
+              ))}
+            </div>
           )}
         </ScrollArea>
       </CardContent>

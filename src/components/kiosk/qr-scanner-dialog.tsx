@@ -3,7 +3,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { Html5QrcodeScanner, Html5QrcodeSupportedFormats, type Html5QrcodeError, type Html5QrcodeResult } from 'html5-qrcode';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose, DialogOverlay } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogOverlay } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { CameraOff, XCircle, Info, ShieldAlert } from 'lucide-react';
@@ -36,7 +36,7 @@ export function QrScannerDialog({ isOpen, onOpenChange, onScanSuccess, onScanErr
         const config = {
           fps: 10,
           qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
-            const minEdgePercentage = 0.7;
+            const minEdgePercentage = 0.8; // Adjusted from 0.7 as per prompt's description of qrbox
             const minEdgeSize = Math.min(viewfinderWidth, viewfinderHeight);
             const qrboxSize = Math.floor(minEdgeSize * minEdgePercentage);
             return { width: qrboxSize, height: qrboxSize };
@@ -54,9 +54,9 @@ export function QrScannerDialog({ isOpen, onOpenChange, onScanSuccess, onScanErr
 
         const successCallback = (decodedText: string, result: Html5QrcodeResult) => {
           setShowInitialPrompt(false);
-          if (scannerRef.current) { // Check if still current
+          if (scannerRef.current) { 
             scannerRef.current.clear().catch(e => console.warn("QR clear error on success:", e));
-            scannerRef.current = null; // Ensure it's nulled after clear
+            scannerRef.current = null; 
           }
           onScanSuccess(decodedText);
           onOpenChange(false);
@@ -64,13 +64,11 @@ export function QrScannerDialog({ isOpen, onOpenChange, onScanSuccess, onScanErr
 
         const errorCallback = (errorMessage: string, error: Html5QrcodeError) => {
           setShowInitialPrompt(false);
-           // Ignore common "not found" errors to reduce noise, but log them
           if (errorMessage.toLowerCase().includes("qr code parse error") || errorMessage.toLowerCase().includes("nomatched")) {
             console.warn("QR Scanner: No QR code found or parse error - ", errorMessage);
             return; 
           }
           console.error(`QR Scanner Error: ${errorMessage}`, error);
-          // Only set cameraError for more persistent issues
           if(errorMessage.toLowerCase().includes("permission") || errorMessage.toLowerCase().includes("not found") || errorMessage.toLowerCase().includes("constraint")) {
              setCameraError(`Scan Error: ${errorMessage}. Try again or enter ID manually.`);
           }
@@ -87,9 +85,8 @@ export function QrScannerDialog({ isOpen, onOpenChange, onScanSuccess, onScanErr
     };
     
     if (isOpen) {
-        // Delay initialization slightly to ensure DOM element is ready
         const timer = setTimeout(() => {
-            if (isOpen && !scannerRef.current) { // Check isOpen again in case it closed quickly
+            if (isOpen && !scannerRef.current) { 
                  initializeScanner();
             }
         }, 100);
@@ -104,7 +101,7 @@ export function QrScannerDialog({ isOpen, onOpenChange, onScanSuccess, onScanErr
       setShowInitialPrompt(false);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen]); // Dependencies onScanSuccess, onScanError, onOpenChange are stable, but ESLint might complain if not listed. Add if needed.
+  }, [isOpen]); 
 
   const handleDialogClose = () => {
     if (scannerRef.current) {
@@ -119,7 +116,7 @@ export function QrScannerDialog({ isOpen, onOpenChange, onScanSuccess, onScanErr
   return (
     <Dialog open={isOpen} onOpenChange={handleDialogClose}>
       <DialogOverlay className="bg-black/80 backdrop-blur-sm" />
-      <DialogContent className="sm:max-w-md p-6 bg-card text-card-foreground border-border rounded-lg">
+      <DialogContent className="sm:max-w-md p-4 bg-card text-card-foreground border-border rounded-lg"> {/* Changed p-6 to p-4 */}
         <DialogHeader>
           <DialogTitle className="text-2xl font-bold text-foreground">Scan QR Code</DialogTitle>
           <DialogDescription className="text-muted-foreground">
@@ -127,9 +124,8 @@ export function QrScannerDialog({ isOpen, onOpenChange, onScanSuccess, onScanErr
           </DialogDescription>
         </DialogHeader>
         
-        <div className="my-6">
-          <div id={QR_READER_ELEMENT_ID} className="w-full max-w-xs mx-auto aspect-square bg-muted rounded-md overflow-hidden relative shadow-inner border border-border">
-            {/* The scanner will render its video feed here */}
+        <div className="w-full aspect-square max-w-xs mx-auto my-4"> {/* Wrapper for QR_READER_ELEMENT_ID */}
+          <div id={QR_READER_ELEMENT_ID} className="w-full h-full bg-muted rounded-md overflow-hidden relative shadow-inner border border-border">
             {!scannerRef.current && isOpen && !cameraError && (
                  <div className="absolute inset-0 flex items-center justify-center text-muted-foreground text-sm p-4 text-center">
                     Initializing camera...
@@ -152,9 +148,17 @@ export function QrScannerDialog({ isOpen, onOpenChange, onScanSuccess, onScanErr
           <Alert variant="destructive" className="mt-4">
             <CameraOff className="h-5 w-5" />
             <AlertTitle>Scanner Error</AlertTitle>
-            <AlertDescription>{cameraError} Please ensure camera permissions are granted and no other app is using the camera. You might need to refresh the page.</AlertDescription>
+            <AlertDescription>{cameraError}</AlertDescription> {/* Simplified error message as per prompt */}
           </Alert>
         )}
+        {isOpen && !cameraError && !showInitialPrompt && !scannerRef.current && ( // Fallback if scanner didn't initialize
+           <Alert variant="default" className="mt-4">
+             <Info className="h-5 w-5" />
+             <AlertTitle>Scanner Status</AlertTitle>
+             <AlertDescription>Point your camera at a QR code.</AlertDescription>
+           </Alert>
+        )}
+
 
         <DialogFooter className="mt-6">
             <Button variant="outline" onClick={handleDialogClose} className="w-full hover:bg-muted/50">

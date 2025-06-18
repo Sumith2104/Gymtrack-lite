@@ -58,22 +58,6 @@ export function CheckinForm({ className, onSuccessfulCheckin }: CheckinFormProps
     },
   });
 
-  // Fetch today's check-ins to prevent double check-ins
-  // This is a simplified version; ideally, this check is more robust on the backend
-  const [todaysCheckins, setTodaysCheckins] = useState<FormattedCheckIn[]>([]);
-  useEffect(() => {
-    // In a real app, fetch today's check-ins for the current gym when component mounts
-    // For now, we assume this is handled by the recordCheckInAction's internal check
-  }, [currentGymDatabaseId]);
-
-
-  const isAlreadyCheckedInToday = (memberDbId: string): boolean => {
-    // This check is now primarily handled by the backend in recordCheckInAction,
-    // but we can keep a light client-side check if needed, or rely on backend error.
-    // For simplicity, let's assume the backend handles this comprehensively.
-    return false; // Or use todaysCheckins state if populated
-  };
-
   async function onSubmit(data: CheckinFormValues) {
     setIsProcessing(true);
     setCheckinStatus(null);
@@ -184,7 +168,7 @@ export function CheckinForm({ className, onSuccessfulCheckin }: CheckinFormProps
                       <Input 
                         placeholder="Enter your Member ID" 
                         {...field} 
-                        className="text-base h-auto py-4 px-4 bg-input text-foreground focus:ring-primary focus:ring-2 focus:border-primary" 
+                        className="text-base h-auto py-6 px-4 bg-input text-foreground focus:ring-primary focus:ring-2 focus:border-primary" 
                         autoFocus 
                       />
                     </FormControl>
@@ -192,7 +176,7 @@ export function CheckinForm({ className, onSuccessfulCheckin }: CheckinFormProps
                   </FormItem>
                 )}
               />
-              <div className="flex flex-col sm:flex-row gap-4 pt-2">
+              <div className="flex flex-col sm:flex-row gap-4">
                   <Button 
                     type="submit" 
                     className="w-full text-lg py-6 bg-primary text-primary-foreground hover:bg-primary/90 sm:flex-1" 
