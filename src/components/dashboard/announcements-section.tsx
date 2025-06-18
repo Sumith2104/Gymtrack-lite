@@ -60,7 +60,7 @@ export function AnnouncementsSection({ className }: { className?: string }) {
     }
     setIsLoading(false);
     setSelectedAnnouncements([]);
-  }, [toast]); // Removed toast from dependency to avoid potential loop if toast itself causes re-render that calls this
+  }, []); 
 
   useEffect(() => {
     // 'gymId' from localStorage stores the formatted_gym_id
@@ -184,7 +184,7 @@ export function AnnouncementsSection({ className }: { className?: string }) {
                         id={`ann-${announcement.id}`}
                         checked={selectedAnnouncements.includes(announcement.id)}
                         onCheckedChange={(checked) => handleSelectAnnouncement(announcement.id, !!checked)}
-                        className="mt-1"
+                        className="mt-1 border-primary"
                     />
                     <div className="flex-1">
                         <label htmlFor={`ann-${announcement.id}`} className="font-semibold text-sm text-primary cursor-pointer hover:underline">{announcement.title}</label>
