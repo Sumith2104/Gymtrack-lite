@@ -37,27 +37,27 @@ const quickTemplates: QuickTemplate[] = [
     id: 'general',
     label: 'General Update',
     title: 'Important Update',
-    content: () => 'Hello members,\n\nWe have an important update regarding [topic].\n\nDetails: [provide details here]\n\nThank you,\nThe GymTrack Lite Team',
+    content: () => 'Important update regarding [topic].\nFurther details: [provide details here].',
   },
   {
     id: 'schedule_change',
     label: 'Class Schedule Change',
     title: 'Class Schedule Update',
-    content: (date) => `Dear members,\n\nPlease note a change to our class schedule effective ${date ? date : 'soon'}.\n\n[Describe change, e.g., 'The 6 PM Yoga class on Mondays will now start at 6:15 PM.']\n\nCheck the app or website for the full updated schedule.\n\nBest regards,\n${APP_NAME} Team`,
+    content: (date) => `Class schedule update effective ${date ? date : 'soon'}: [Describe change, e.g., 'Monday 6PM Yoga now at 6:15PM'].\nCheck app/website for full schedule.`,
     dateSensitive: true,
   },
   {
     id: 'holiday_closure',
     label: 'Holiday Closure',
     title: 'Holiday Closure Announcement',
-    content: (date) => `Hi everyone,\n\nJust a reminder that the gym will be closed on ${date ? date : '[Holiday Date]'} for the [Holiday Name] holiday.\n\nWe will resume normal hours on [Reopening Date].\n\nEnjoy the holiday!\n\nSincerely,\n${APP_NAME} Management`,
+    content: (date) => `Reminder: Gym closed on ${date ? date : '[Holiday Date]'} for [Holiday Name] holiday.\nNormal hours resume [Reopening Date].`,
     dateSensitive: true,
   },
   {
     id: 'new_equipment',
     label: 'New Equipment',
-    title: 'Exciting News: New Equipment Arrived!',
-    content: () => `Great news, fitness enthusiasts!\n\nWe've just added new [Type of Equipment, e.g., 'state-of-the-art treadmills'] to the gym floor!\n\nCome check them out and elevate your workout.\n\nSee you at the gym,\nYour ${APP_NAME} Team`,
+    title: 'Exciting News: New Equipment!',
+    content: () => `Exciting news! New [Type of Equipment, e.g., 'state-of-the-art treadmills'] now available on the gym floor.\nCome check them out!`,
   },
 ];
 
