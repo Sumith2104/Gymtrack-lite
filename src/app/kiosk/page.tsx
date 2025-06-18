@@ -26,7 +26,7 @@ export default function KioskPage() {
     <div className="flex-1 flex flex-col bg-black text-foreground">
       <div className="container mx-auto py-8 px-4 sm:px-6 lg:px-8 flex flex-col items-center gap-8">
         {/* Page Title & Subtitle Section */}
-        <div className="w-full max-w-3xl text-center">
+        <div className="w-full max-w-4xl text-center">
           <div className="h-1.5 w-32 rounded-full bg-primary mx-auto mb-4"></div>
           <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-foreground">
             {kioskGymName ? `${kioskGymName} Check-in` : 'Member Check-in'}
@@ -35,19 +35,19 @@ export default function KioskPage() {
             Enter your member ID or scan your QR code to sign in.
           </p>
         </div>
-        <Separator className="w-full max-w-3xl bg-border" />
+        <Separator className="w-full max-w-4xl bg-border" />
 
         {/* Main Content Area: Check-in Form */}
-        <div className="w-full max-w-3xl">
+        <div className="w-full max-w-4xl">
           <CheckinForm 
             onSuccessfulCheckin={handleSuccessfulCheckin}
           />
         </div>
         
-        <Separator className="w-full max-w-3xl bg-border" />
+        <Separator className="w-full max-w-4xl bg-border" />
 
         {/* Recent Check-ins List */}
-        <div className="w-full max-w-3xl">
+        <div className="w-full max-w-4xl">
           <RecentCheckinsCard 
             newCheckinEntry={newlyAddedCheckin}
           />
