@@ -18,8 +18,8 @@ export interface Database {
           id: string // uuid, default gen_random_uuid()
           name: string // text
           owner_email: string | null // text, unique
-          owner_user_id: string | null // uuid, unique, FK to auth.users.id
-          formatted_gym_id: string // text, unique. User-friendly unique ID for the gym (e.g., "UOFIPOIB")
+          owner_user_id: string | null // uuid, unique, FK to auth.users.id (optional if not using Supabase auth for users)
+          formatted_gym_id: string // text, unique. User-friendly unique ID for the gym
           status: string // text, default 'active'
           created_at: string // timestamp with time zone, default now()
         }
@@ -41,19 +41,12 @@ export interface Database {
           status?: string
           created_at?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "gyms_owner_user_id_fkey"
-            columns: ["owner_user_id"]
-            referencedRelation: "users" // Supabase auth users table
-            referencedColumns: ["id"]
-          }
-        ]
+        Relationships: [] // No direct FK to auth.users listed if not strictly enforced or used in RLS
       }
       plans: {
         Row: {
           id: string // uuid, default gen_random_uuid()
-          plan_id: string | null // text, unique. User-defined unique identifier for the plan (e.g., "BASIC001")
+          plan_id: string | null // text, unique. User-defined unique identifier for the plan
           plan_name: string // text. e.g., "Basic", "Premium"
           price: number // numeric, default 0
           duration_months: number | null // integer. e.g., 1, 3, 12
@@ -85,7 +78,7 @@ export interface Database {
           member_id: string // text. User-defined member ID, unique per gym
           name: string // text
           email: string | null // text
-          membership_status: string // text, default 'pending'. e.g., 'active', 'inactive', 'expired', 'pending'
+          membership_status: string // text, default 'pending'.
           age: number | null // integer
           phone_number: string | null // text
           join_date: string | null // timestamp with time zone
@@ -139,7 +132,7 @@ export interface Database {
         Row: {
           id: string // uuid, default gen_random_uuid()
           gym_id: string // uuid, FK to gyms.id
-          member_table_id: string // uuid, FK to members.id. References members.id (the UUID PK)
+          member_table_id: string // uuid, FK to members.id.
           check_in_time: string // timestamp with time zone, default now()
           check_out_time: string | null // timestamp with time zone
           created_at: string // timestamp with time zone, default now()
@@ -238,7 +231,7 @@ export interface Database {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never // Helper functions removed
+      [_ in never]: never // No custom SQL helper functions defined here
     }
     Enums: {
       [_ in never]: never
