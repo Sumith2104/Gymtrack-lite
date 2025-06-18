@@ -14,7 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 import { APP_NAME } from '@/lib/constants';
 import { Megaphone, Send, Lightbulb } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { addDays, format } from 'date-fns';
+import { addDays, format, parse, isValid } from 'date-fns'; // Added parse and isValid
 import { addAnnouncementAction } from '@/app/actions/announcement-actions'; 
 
 const announcementSchema = z.object({
@@ -37,27 +37,39 @@ const quickTemplates: QuickTemplate[] = [
     id: 'general',
     label: 'General Update',
     title: 'Important Update',
-    content: () => 'Important update regarding [topic].\nFurther details: [provide details here].',
+    content: () => 'Update regarding [topic]. Details: [provide details here].',
   },
   {
     id: 'schedule_change',
     label: 'Class Schedule Change',
     title: 'Class Schedule Update',
-    content: (date) => `Class schedule update effective ${date ? date : 'soon'}: [Describe change, e.g., 'Monday 6PM Yoga now at 6:15PM'].\nCheck app/website for full schedule.`,
+    content: (date) => `Class schedule update effective ${date ? date : 'soon'}: [Describe change].\nFull schedule available on app/website.`,
     dateSensitive: true,
   },
   {
     id: 'holiday_closure',
     label: 'Holiday Closure',
     title: 'Holiday Closure Announcement',
-    content: (date) => `Reminder: Gym closed on ${date ? date : '[Holiday Date]'} for [Holiday Name] holiday.\nNormal hours resume [Reopening Date].`,
+    content: (holidayDateInput?: string) => {
+      let reopeningDateStr = '[Reopening Date]';
+      const holidayDisplayDate = holidayDateInput || '[Holiday Date]';
+
+      if (holidayDateInput) {
+        const parsedHolidayDate = parse(holidayDateInput, 'd MMM yyyy', new Date());
+        if (isValid(parsedHolidayDate)) {
+          const reopeningDate = addDays(parsedHolidayDate, 1);
+          reopeningDateStr = format(reopeningDate, 'd MMM yyyy');
+        }
+      }
+      return `Reminder: Gym closed on ${holidayDisplayDate} for [Holiday Name] holiday.\nNormal hours resume ${reopeningDateStr}.`;
+    },
     dateSensitive: true,
   },
   {
     id: 'new_equipment',
     label: 'New Equipment',
     title: 'Exciting News: New Equipment!',
-    content: () => `Exciting news! New [Type of Equipment, e.g., 'state-of-the-art treadmills'] now available on the gym floor.\nCome check them out!`,
+    content: () => `New [Type of Equipment] now available on the gym floor.\nCome check it out!`,
   },
 ];
 
@@ -74,23 +86,24 @@ export default function NewAnnouncementPage() {
   });
 
   const handleTemplateClick = (template: QuickTemplate) => {
-    let content = template.content();
+    let contentValue: string;
     if (template.dateSensitive) {
-      const tomorrow = addDays(new Date(), 1);
-      content = template.content(format(tomorrow, 'd MMM yyyy'));
+      const tomorrow = addDays(new Date(), 1); // Default holiday date for template is tomorrow
+      const formattedHolidayDate = format(tomorrow, 'd MMM yyyy');
+      contentValue = template.content(formattedHolidayDate);
+    } else {
+      contentValue = template.content();
     }
-    form.reset({ title: template.title, content: content });
+    form.reset({ title: template.title, content: contentValue });
   };
 
   async function onSubmit(data: AnnouncementFormValues) {
-    // Use 'gymId' from localStorage which stores the formatted_gym_id (e.g., "UOFIPOIB")
     const ownerFormattedGymId = localStorage.getItem('gymId'); 
     if (!ownerFormattedGymId) {
       toast({ variant: "destructive", title: 'Error', description: 'Formatted Gym ID not found. Please log in again.' });
       return;
     }
     
-    // Pass ownerFormattedGymId to the action
     const response = await addAnnouncementAction(ownerFormattedGymId, data.title, data.content);
 
     if (response.error || !response.newAnnouncement) {
