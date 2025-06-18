@@ -106,12 +106,17 @@ export default function NewAnnouncementPage() {
     let emailFeedback = "Email broadcast initiated.";
     if (response.emailBroadcastResult) {
         const { attempted, successful, noEmailAddress, failed } = response.emailBroadcastResult;
-        emailFeedback = `Announcement published. Emails: ${successful}/${attempted} sent. No address for ${noEmailAddress}. Failed: ${failed}.`;
+        if (attempted > 0) {
+            emailFeedback = `Email broadcast: ${successful}/${attempted} sent. No address for ${noEmailAddress}. Failed: ${failed}.`;
+        } else {
+            emailFeedback = "No eligible members found for email broadcast.";
+        }
     }
     
     toast({
       title: 'Announcement Published!',
       description: `"${data.title}" is now live. ${emailFeedback}`,
+      duration: 7000, // Increased duration for longer message
     });
     form.reset();
     router.push('/dashboard'); 
@@ -126,7 +131,7 @@ export default function NewAnnouncementPage() {
           </div>
           <CardTitle className="text-2xl font-headline">Create New Announcement</CardTitle>
           <CardDescription>
-            Share important updates with your gym members. It will be visible on the dashboard.
+            Share important updates with your gym members. It will be visible on the dashboard and emailed to active/expiring members.
           </CardDescription>
         </CardHeader>
         <CardContent>

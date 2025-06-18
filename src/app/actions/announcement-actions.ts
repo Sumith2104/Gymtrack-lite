@@ -13,15 +13,14 @@ const announcementActionSchema = z.object({
   content: z.string().min(10, { message: 'Content must be at least 10 characters.' }).max(1000),
 });
 
-// Helper function to determine effective status, similar to one in members-table
-// This is simplified for email filtering and might need adjustment for perfect parity
+// Helper function to determine effective status for email filtering
 function getEffectiveMembershipStatusForEmail(member: Pick<Member, 'membershipStatus' | 'expiryDate'>): MembershipStatus {
   if (member.membershipStatus === 'active' && member.expiryDate) {
     const expiry = parseValidISO(member.expiryDate);
     if (expiry && isValid(expiry)) {
       const daysUntilExpiry = differenceInDays(expiry, new Date());
       if (daysUntilExpiry <= 14 && daysUntilExpiry >= 0) return 'expiring soon';
-      if (daysUntilExpiry < 0) return 'expired'; // This member wouldn't be 'active' to begin with if properly managed
+      if (daysUntilExpiry < 0) return 'expired'; // This member might not be 'active' in DB if status is managed well
     }
   }
   // Explicitly cast to MembershipStatus if the input status is one of the valid enum values.
@@ -106,18 +105,20 @@ export async function addAnnouncementAction(gymId: string, title: string, conten
 
     const { data: membersToEmail, error: memberFetchError } = await supabase
       .from('members')
-      .select('name, email, membership_status, expiry_date')
+      .select('name, email, membership_status, expiry_date') // Ensure these fields are selected
       .eq('gym_id', gymId);
 
     if (memberFetchError) {
       console.error("[addAnnouncementAction] Error fetching members for announcement email:", memberFetchError.message);
+      // Proceed without email broadcast if member fetch fails, but log it.
     } else if (membersToEmail && membersToEmail.length > 0) {
       const gymDetails = await supabase.from('gyms').select('name').eq('id', gymId).single();
       const gymName = gymDetails.data?.name || 'Your Gym';
 
       for (const member of membersToEmail) {
+        // Map DB member_status and expiry_date to an effective status for emailing
         const effectiveStatus = getEffectiveMembershipStatusForEmail({
-          membershipStatus: member.membership_status as MembershipStatus,
+          membershipStatus: member.membership_status as MembershipStatus, // Cast, ensure DB values match
           expiryDate: member.expiry_date,
         });
 
@@ -129,7 +130,7 @@ export async function addAnnouncementAction(gymId: string, title: string, conten
             <p>A new announcement has been posted at ${gymName}:</p>
             <h2>${newAnnouncement.title}</h2>
             <p><em>Posted on: ${formatDateIST(newAnnouncement.createdAt, 'PP')}</em></p>
-            <div class="announcement-content">
+            <div class="announcement-content" style="padding: 10px; border-left: 3px solid #FFD700; margin: 10px 0; background-color: #222;">
               ${newAnnouncement.content.replace(/\n/g, '<br />')}
             </div>
             <p>Please check the dashboard for more details.</p>
@@ -185,19 +186,18 @@ export async function fetchAnnouncementsAction(gymId: string | null): Promise<{ 
     supabaseUserContext = `Exception fetching user: ${e.message}`;
   }
   console.log(`[fetchAnnouncementsAction] Supabase user context during SELECT: ${supabaseUserContext}`);
-  console.log(`[fetchAnnouncementsAction] DEBUG: Attempting to fetch ALL announcements (temporarily removed gym_id filter).`);
+  console.log(`[fetchAnnouncementsAction] Querying announcements for gym_id: ${gymId}`);
 
   try {
-    // TEMPORARILY REMOVE .eq('gym_id', gymId) for debugging
     const { data: dbAnnouncements, error, count } = await supabase
       .from('announcements')
       .select('id, gym_id, title, content, created_at', { count: 'exact' })
-      // .eq('gym_id', gymId) // Filter REMOVED for this test
+      .eq('gym_id', gymId)
       .order('created_at', { ascending: false });
 
-    console.log(`[fetchAnnouncementsAction] Raw Supabase query result (ALL announcements) - Error: ${JSON.stringify(error)}, Count: ${count}, Data (length): ${dbAnnouncements?.length}`);
+    console.log(`[fetchAnnouncementsAction] Raw Supabase query result (for gym_id ${gymId}) - Error: ${JSON.stringify(error)}, Count: ${count}, Data (length): ${dbAnnouncements?.length}`);
     if (dbAnnouncements && dbAnnouncements.length > 0) {
-        console.log(`[fetchAnnouncementsAction] Preview of fetched announcements (ALL): ${JSON.stringify(dbAnnouncements.slice(0,5).map(a => ({id: a.id, title: a.title, gym_id: a.gym_id})))}`);
+        console.log(`[fetchAnnouncementsAction] Preview of fetched announcements (for gym_id ${gymId}): ${JSON.stringify(dbAnnouncements.slice(0,5).map(a => ({id: a.id, title: a.title, gym_id: a.gym_id})))}`);
     }
 
 
@@ -206,13 +206,13 @@ export async function fetchAnnouncementsAction(gymId: string | null): Promise<{ 
       return { error: error.message };
     }
     if (!dbAnnouncements) {
-        console.log('[fetchAnnouncementsAction] No announcements found in DB (dbAnnouncements is null/undefined) when fetching ALL.');
+        console.log(`[fetchAnnouncementsAction] No announcements found in DB for gymId ${gymId} (dbAnnouncements is null/undefined).`);
         return { data: [] };
     }
     if (dbAnnouncements.length === 0) {
-        console.log('[fetchAnnouncementsAction] No announcements found in DB (empty array) when fetching ALL.');
+        console.log(`[fetchAnnouncementsAction] No announcements found in DB for gymId ${gymId} (empty array).`);
     } else {
-        console.log(`[fetchAnnouncementsAction] Found ${dbAnnouncements.length} announcements in DB (when fetching ALL).`);
+        console.log(`[fetchAnnouncementsAction] Found ${dbAnnouncements.length} announcements in DB for gymId ${gymId}.`);
     }
 
     const announcements: Announcement[] = dbAnnouncements.map(dbAnn => ({
