@@ -192,14 +192,14 @@ export function RecentCheckinsCard({ newCheckinEntry, className }: RecentCheckin
                     <div className="grid grid-cols-3 gap-x-4 py-2 text-xs font-medium text-muted-foreground border-b border-border/30">
                       <div>Member Name</div>
                       <div className="text-center">Member ID</div>
-                      <div className="text-center">Time</div>
+                      <div className="text-center">Check-in Date & Time</div>
                     </div>
                     <div className="divide-y divide-border/30">
                       {groupedCheckins[dateKey].map((checkin, idx) => (
                         <div key={`${checkin.memberTableId}-${new Date(checkin.checkInTime).toISOString()}-${idx}`} className="grid grid-cols-3 gap-x-4 items-center py-3 hover:bg-muted/20 transition-colors duration-150">
                           <div className="text-sm text-foreground truncate" title={checkin.memberName}>{checkin.memberName}</div>
                           <div className="text-sm text-foreground truncate text-center" title={checkin.memberId}>{checkin.memberId}</div>
-                          <div className="text-sm text-muted-foreground text-center">{format(new Date(checkin.checkInTime), "h:mm aa")}</div>
+                          <div className="text-sm text-muted-foreground text-center">{format(new Date(checkin.checkInTime), "d MMM, h:mm aa")}</div>
                         </div>
                       ))}
                     </div>
@@ -213,3 +213,4 @@ export function RecentCheckinsCard({ newCheckinEntry, className }: RecentCheckin
     </Card>
   );
 }
+
