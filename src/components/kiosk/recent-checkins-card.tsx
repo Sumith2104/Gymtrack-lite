@@ -17,7 +17,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 interface RecentCheckinsCardProps {
   newCheckinEntry: FormattedCheckIn | null;
-  // initialCheckins prop removed, will fetch internally
   className?: string;
 }
 
@@ -64,7 +63,8 @@ export function RecentCheckinsCard({ newCheckinEntry, className }: RecentCheckin
   useEffect(() => {
     if (newCheckinEntry) {
       setAllFetchedCheckins((prevCheckins) => 
-        [newCheckinEntry, ...prevCheckins].sort((a, b) => new Date(b.checkInTime).getTime() - new Date(a.checkInTime).getTime())
+        [newCheckinEntry, ...prevCheckins.filter(ci => ci.memberTableId !== newCheckinEntry.memberTableId || format(new Date(ci.checkInTime),'T') !== format(new Date(newCheckinEntry.checkInTime),'T'))] // Prevent exact duplicates if event fires multiple times
+        .sort((a, b) => new Date(b.checkInTime).getTime() - new Date(a.checkInTime).getTime())
       );
     }
   }, [newCheckinEntry]);
@@ -104,33 +104,32 @@ export function RecentCheckinsCard({ newCheckinEntry, className }: RecentCheckin
     const date = parseISO(dateKey);
     if (isToday(date)) return 'Today';
     if (isYesterday(date)) return 'Yesterday';
-    return format(date, "d MMM yyyy");
+    return format(date, "MMMM d, yyyy"); // Fuller date format
   };
 
   return (
-    <Card className={cn("shadow-lg w-full", className)}>
-      <CardHeader>
+    <Card className={cn("shadow-xl w-full bg-card border-border rounded-lg", className)}>
+      <CardHeader className="border-b border-border/50 pb-4">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div className='flex-shrink-0 flex items-center'>
-                <div className="flex flex-row items-center space-x-2 pb-1">
-                    <ListChecks className="h-6 w-6 text-primary" />
-                    <CardTitle className="text-xl font-headline">Recent Check-ins</CardTitle>
-                </div>
+                <ListChecks className="h-6 w-6 text-primary mr-3" />
+                <CardTitle className="text-xl font-semibold text-foreground/90">Recent Check-ins</CardTitle>
                  {gymDbId && gymNameForDisplay && !isLoading && (
-                    <Button variant="ghost" size="sm" className="ml-2" onClick={() => loadTodaysCheckins(gymDbId, gymNameForDisplay)}>
+                    <Button variant="ghost" size="icon" className="ml-2 h-8 w-8" onClick={() => loadTodaysCheckins(gymDbId, gymNameForDisplay)}>
                         <RefreshCw className="h-4 w-4"/>
+                        <span className="sr-only">Refresh List</span>
                     </Button>
                 )}
             </div>
             <div className="w-full sm:w-auto flex flex-col sm:flex-row gap-2 flex-shrink-0 sm:ml-auto">
                 <div className="relative flex-grow sm:flex-grow-0 sm:w-60">
                     <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                    <Input type="text" placeholder="Filter by name or ID..." value={filterTerm} onChange={(e) => setFilterTerm(e.target.value)} className="pl-9 h-10 bg-background"/>
+                    <Input type="text" placeholder="Filter by name or ID..." value={filterTerm} onChange={(e) => setFilterTerm(e.target.value)} className="pl-9 h-10 bg-input border-input focus:ring-primary"/>
                 </div>
-                <div className='relative flex-grow sm:flex-grow-0 sm:w-auto'>
+                <div className='relative flex-grow sm:flex-grow-0 sm:w-auto min-w-[180px]'>
                     <Popover>
                         <PopoverTrigger asChild>
-                        <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal h-10 bg-background border-border hover:bg-muted/50", !filterDate && "text-muted-foreground")}>
+                        <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal h-10 bg-input border-input hover:bg-muted/50 focus:ring-primary", !filterDate && "text-muted-foreground")}>
                             <CalendarIconLucide className="mr-2 h-4 w-4" />
                             {filterDate ? format(filterDate, "PPP") : <span>Pick a date</span>}
                         </Button>
@@ -141,12 +140,14 @@ export function RecentCheckinsCard({ newCheckinEntry, className }: RecentCheckin
                 </div>
             </div>
         </div>
-        <CardDescription className="text-xs mt-1">A log of the latest member check-ins for today. Filter by name, ID, or pick a date for historical data (if available).</CardDescription>
+        <CardDescription className="text-xs text-muted-foreground mt-2">
+          A log of the latest member check-ins. Filter by name, ID, or pick a date for historical data.
+        </CardDescription>
       </CardHeader>
-      <CardContent className="pt-2">
-        <ScrollArea className="h-[350px] pr-1">
+      <CardContent className="pt-4">
+        <ScrollArea className="h-[400px] pr-1"> {/* Increased height */}
           {isLoading ? (
-            Array.from({length: 3}).map((_, i) => <Skeleton key={`skel-${i}`} className="h-10 w-full my-2" />)
+            Array.from({length: 5}).map((_, i) => <Skeleton key={`skel-${i}`} className="h-12 w-full my-2 rounded-md" />)
           ) : error ? (
             <div className="text-destructive flex flex-col items-center justify-center h-full py-10">
                 <AlertCircle className="h-8 w-8 mb-2"/>
@@ -154,25 +155,25 @@ export function RecentCheckinsCard({ newCheckinEntry, className }: RecentCheckin
                 <p className="text-xs">{error}</p>
             </div>
           ) : sortedDateKeys.length === 0 ? (
-            <p className="text-muted-foreground text-center py-10">
+            <p className="text-muted-foreground text-center py-10 text-sm">
               No check-ins match your filters or no check-ins yet for this gym today.
             </p>
           ) : (
             sortedDateKeys.map((dateKey) => (
-              <div key={dateKey} className="mb-4">
-                <div className="flex items-center px-3 py-2.5 bg-muted/10 rounded-t-md border-b border-border">
-                  <CalendarIconLucide className="mr-2 h-5 w-5 text-primary" />
-                  <h3 className="text-sm font-semibold text-primary">{formatDateGroupHeader(dateKey)}</h3>
+              <div key={dateKey} className="mb-6 last:mb-0">
+                <div className="flex items-center px-3 py-2.5 bg-muted/30 rounded-t-md border-b border-border/50 mb-1">
+                  <CalendarIconLucide className="mr-2 h-5 w-5 text-primary/80" />
+                  <h3 className="text-sm font-semibold text-foreground/80">{formatDateGroupHeader(dateKey)}</h3>
                 </div>
-                <div className="grid grid-cols-3 gap-4 px-3 py-2 text-xs font-medium text-muted-foreground border-b border-border">
+                <div className="grid grid-cols-3 gap-x-4 px-3 py-2 text-xs font-medium text-muted-foreground border-b border-border/30">
                   <div>Member Name</div><div>Member ID</div><div className="text-left">Check-in Time</div>
                 </div>
-                <div className="divide-y divide-border">
+                <div className="divide-y divide-border/30">
                   {groupedCheckins[dateKey].map((checkin, index) => (
-                    <div key={`${checkin.memberTableId}-${new Date(checkin.checkInTime).toISOString()}-${index}`} className="grid grid-cols-3 gap-4 items-center px-3 py-3 hover:bg-muted/20 transition-colors">
+                    <div key={`${checkin.memberTableId}-${new Date(checkin.checkInTime).toISOString()}-${index}`} className="grid grid-cols-3 gap-x-4 items-center px-3 py-3 hover:bg-muted/20 transition-colors duration-150">
                       <div className="text-sm text-foreground truncate" title={checkin.memberName}>{checkin.memberName}</div>
                       <div className="text-sm text-foreground truncate" title={checkin.memberId}>{checkin.memberId}</div>
-                      <div className="text-sm text-muted-foreground text-left">{format(new Date(checkin.checkInTime), "p")}</div>
+                      <div className="text-sm text-muted-foreground text-left">{format(new Date(checkin.checkInTime), "h:mm aa")}</div>
                     </div>
                   ))}
                 </div>

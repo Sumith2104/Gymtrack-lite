@@ -4,92 +4,56 @@
 import { useState, useEffect } from 'react';
 import { CheckinForm } from '@/components/kiosk/checkin-form';
 import { RecentCheckinsCard } from '@/components/kiosk/recent-checkins-card';
-import type { FormattedCheckIn, Member } from '@/lib/types';
-import { APP_NAME } from '@/lib/constants';
-
-// Mock members data - in a real app, this would come from a database
-const mockKioskMembers: Member[] = [
-  { id: 'member-uuid-1', memberId: 'MBR001', name: 'Alice Johnson', email: 'alice@example.com', membershipStatus: 'active', createdAt: new Date().toISOString(), gymId: 'GYM123_default' },
-  { id: 'member-uuid-2', memberId: 'MBR002', name: 'Bob Smith', email: 'bob@example.com', membershipStatus: 'expired', createdAt: new Date().toISOString(), gymId: 'GYM123_default' },
-  { id: 'member-uuid-3', memberId: 'MBR003', name: 'Carol White', email: 'carol@example.com', membershipStatus: 'inactive', createdAt: new Date().toISOString(), gymId: 'GYM123_default' },
-  { id: 'member-uuid-4', memberId: 'MBR004', name: 'David Brown', email: 'd.brown@example.com', membershipStatus: 'active', createdAt: new Date().toISOString(), gymId: 'GYM123_default' },
-  { id: 'member-uuid-sumith', memberId: 'SUMITH001', name: 'Sumith Test Kiosk', email: 'sumith.kiosk@example.com', membershipStatus: 'active', createdAt: new Date().toISOString(), gymId: 'UOFIPOIB' },
-];
-
-// Mock initial check-ins data - in a real app, fetch this for the current gym
-const MOCK_INITIAL_CHECKINS: FormattedCheckIn[] = [
-    { memberTableId: 'member-uuid-4', memberName: 'David Brown', memberId: 'MBR004', checkInTime: new Date(Date.now() - 2 * 60 * 60 * 1000), gymName: 'Default Gym' }, // 2 hours ago
-    { memberTableId: 'member-uuid-1', memberName: 'Alice Johnson', memberId: 'MBR001', checkInTime: new Date(Date.now() - 5 * 60 * 60 * 1000), gymName: 'Default Gym' }, // 5 hours ago
-];
-
+import type { FormattedCheckIn } from '@/lib/types';
+import { Separator } from '@/components/ui/separator';
 
 export default function KioskPage() {
-  const [kioskGymName, setKioskGymName] = useState<string | null>(null);
-  const [kioskGymId, setKioskGymId] = useState<string | null>(null); // This is formatted_gym_id (e.g. GYM123_default)
-  const [currentGymDatabaseId, setCurrentGymDatabaseId] = useState<string | null>(null); // This is the actual UUID of the gym
-
-  const [allRecentCheckins, setAllRecentCheckins] = useState<FormattedCheckIn[]>([]);
-  const [todaysCheckins, setTodaysCheckins] = useState<FormattedCheckIn[]>([]);
   const [newlyAddedCheckin, setNewlyAddedCheckin] = useState<FormattedCheckIn | null>(null);
-
+  const [kioskGymName, setKioskGymName] = useState<string | null>(null);
+  // The AppHeader is rendered in RootLayout
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const gymName = localStorage.getItem('gymName');
-      const formattedId = localStorage.getItem('gymId');
-      const dbId = localStorage.getItem('gymDatabaseId');
-
-      setKioskGymName(gymName);
-      setKioskGymId(formattedId);
-      setCurrentGymDatabaseId(dbId);
-
-      const gymSpecificInitialCheckins = MOCK_INITIAL_CHECKINS.filter(
-        checkin => (formattedId === 'GYM123_default' && checkin.gymName === 'Default Gym') || 
-                   (formattedId === 'UOFIPOIB' && checkin.gymName === 'Sumith Test Kiosk') // Example for another gym
-      );
-      setAllRecentCheckins(gymSpecificInitialCheckins);
+      setKioskGymName(gymName || 'Member'); // Default if gym name not found
     }
   }, []);
 
-  useEffect(() => {
-    const today = new Date().toDateString();
-    const filtered = allRecentCheckins.filter(
-      (ci) => new Date(ci.checkInTime).toDateString() === today
-    );
-    setTodaysCheckins(filtered);
-  }, [allRecentCheckins]);
-
   const handleSuccessfulCheckin = (checkinEntry: FormattedCheckIn) => {
-    setAllRecentCheckins((prevCheckins) => [checkinEntry, ...prevCheckins]);
     setNewlyAddedCheckin(checkinEntry);
   };
 
   return (
-    <div className="flex flex-1 flex-col py-6 px-4 sm:px-6 lg:px-8 gap-8 selection:bg-primary selection:text-primary-foreground">
-      <div className="mb-2 text-left">
-        <h1 className="text-3xl md:text-4xl font-bold text-foreground tracking-tight">
-          {kioskGymName ? `${kioskGymName} - Member Check-in` : 'Member Check-in'}
-        </h1>
-        <p className="text-muted-foreground mt-1">
-          {kioskGymId ? `Kiosk ID: ${kioskGymId} | ` : ''}Enter your member ID or scan your QR code to proceed.
-        </p>
-        <div className="mt-3 h-1 w-24 bg-primary rounded-full ml-0"></div>
-      </div>
+    <div className="flex-1 flex flex-col bg-black text-foreground">
+      <div className="container mx-auto py-8 px-4 sm:px-6 lg:px-8 flex flex-col items-center gap-8">
+        {/* Page Title & Subtitle Section */}
+        <div className="w-full max-w-2xl text-center mb-2">
+          <div className="h-1.5 w-32 rounded-full bg-primary mx-auto mb-4"></div>
+          <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-foreground">
+            {kioskGymName} Check-in
+          </h1>
+          <p className="mt-2 text-muted-foreground">
+            Enter your member ID or scan your QR code to sign in.
+          </p>
+        </div>
+        <Separator className="w-full max-w-2xl bg-border" />
 
-      <div className="w-full flex flex-col gap-6 xl:gap-8">
-        <CheckinForm 
-          onSuccessfulCheckin={handleSuccessfulCheckin} 
-          todaysCheckins={todaysCheckins}
-        />
-        <RecentCheckinsCard 
-          newCheckinEntry={newlyAddedCheckin}
-          initialCheckins={allRecentCheckins.filter(ci => ci.gymName === kioskGymName)}
-        />
+        {/* Main Content Area */}
+        <div className="w-full max-w-xl">
+          <CheckinForm 
+            onSuccessfulCheckin={handleSuccessfulCheckin}
+            // todaysCheckins prop is removed from CheckinForm as it fetches its own
+          />
+        </div>
+        
+        <Separator className="w-full max-w-4xl bg-border" />
+
+        <div className="w-full max-w-4xl">
+          <RecentCheckinsCard 
+            newCheckinEntry={newlyAddedCheckin}
+          />
+        </div>
       </div>
-      
-      <footer className="mt-auto pt-8 text-center text-sm text-muted-foreground">
-        <p>&copy; {new Date().getFullYear()} {APP_NAME}. For assistance, please see reception.</p>
-      </footer>
     </div>
   );
 }

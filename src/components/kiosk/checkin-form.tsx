@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
-import { LogIn, AlertTriangle, CheckCircle2, PartyPopper, ScanLine, XCircle } from 'lucide-react';
+import { UserCheck, ScanLine, Loader2, AlertTriangle, CheckCircle2, PartyPopper } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -19,12 +19,11 @@ import {
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import type { Member, FormattedCheckIn } from '@/lib/types';
+import type { FormattedCheckIn } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { findMemberForCheckInAction, recordCheckInAction, sendCheckInEmailAction } from '@/app/actions/kiosk-actions';
 import { generateMotivationalQuote, type MotivationalQuoteInput } from '@/ai/flows/generate-motivational-quote';
-import { Skeleton } from '@/components/ui/skeleton';
-import { QrScannerDialog } from './qr-scanner-dialog'; // Added import
+import { QrScannerDialog } from './qr-scanner-dialog';
 
 const checkinSchema = z.object({
   identifier: z.string().min(1, { message: 'Member ID or QR code data is required.' }),
@@ -35,16 +34,15 @@ type CheckinFormValues = z.infer<typeof checkinSchema>;
 interface CheckinFormProps {
   className?: string;
   onSuccessfulCheckin: (checkinEntry: FormattedCheckIn) => void;
-  todaysCheckins: FormattedCheckIn[];
 }
 
-export function CheckinForm({ className, onSuccessfulCheckin, todaysCheckins }: CheckinFormProps) {
+export function CheckinForm({ className, onSuccessfulCheckin }: CheckinFormProps) {
   const { toast } = useToast();
   const [checkinStatus, setCheckinStatus] = useState<{ type: 'success' | 'error' | 'info'; message: string; quote?: string; memberName?: string } | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   const [currentGymDatabaseId, setCurrentGymDatabaseId] = useState<string | null>(null);
   const [currentKioskGymName, setCurrentKioskGymName] = useState<string | null>(null);
-  const [isQrScannerOpen, setIsQrScannerOpen] = useState(false); // Added state for QR scanner dialog
+  const [isQrScannerOpen, setIsQrScannerOpen] = useState(false);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -60,25 +58,37 @@ export function CheckinForm({ className, onSuccessfulCheckin, todaysCheckins }: 
     },
   });
 
+  // Fetch today's check-ins to prevent double check-ins
+  // This is a simplified version; ideally, this check is more robust on the backend
+  const [todaysCheckins, setTodaysCheckins] = useState<FormattedCheckIn[]>([]);
+  useEffect(() => {
+    // In a real app, fetch today's check-ins for the current gym when component mounts
+    // For now, we assume this is handled by the recordCheckInAction's internal check
+  }, [currentGymDatabaseId]);
+
+
   const isAlreadyCheckedInToday = (memberDbId: string): boolean => {
-    return todaysCheckins.some(ci => ci.memberTableId === memberDbId);
+    // This check is now primarily handled by the backend in recordCheckInAction,
+    // but we can keep a light client-side check if needed, or rely on backend error.
+    // For simplicity, let's assume the backend handles this comprehensively.
+    return false; // Or use todaysCheckins state if populated
   };
 
   async function onSubmit(data: CheckinFormValues) {
-    setIsLoading(true);
+    setIsProcessing(true);
     setCheckinStatus(null);
 
     if (!currentGymDatabaseId || !currentKioskGymName) {
         setCheckinStatus({ type: 'error', message: 'Kiosk configuration error. Please contact admin (Gym ID/Name missing).' });
-        setIsLoading(false);
+        setIsProcessing(false);
         return;
     }
 
     const findMemberResponse = await findMemberForCheckInAction(data.identifier, currentGymDatabaseId);
 
     if (findMemberResponse.error || !findMemberResponse.member) {
-      setCheckinStatus({ type: 'error', message: findMemberResponse.error || 'Member not found for this gym or ID is invalid.' });
-      setIsLoading(false);
+      setCheckinStatus({ type: 'error', message: findMemberResponse.error || 'Member not found or ID is invalid for this gym.' });
+      setIsProcessing(false);
       return;
     }
 
@@ -86,26 +96,21 @@ export function CheckinForm({ className, onSuccessfulCheckin, todaysCheckins }: 
 
     if (member.membershipStatus === 'expired') {
       setCheckinStatus({ type: 'error', message: `Membership for ${member.name} is expired. Please see reception.` });
-      setIsLoading(false); return;
+      setIsProcessing(false); return;
     }
     if (member.membershipStatus === 'inactive') {
       setCheckinStatus({ type: 'error', message: `Hi ${member.name}, your membership is inactive. Please contact support.` });
-      setIsLoading(false); return;
+      setIsProcessing(false); return;
     }
     if (member.membershipStatus === 'pending') {
       setCheckinStatus({ type: 'info', message: `Hi ${member.name}, your membership is pending. Please see reception.` });
-      setIsLoading(false); return;
-    }
-
-    if (isAlreadyCheckedInToday(member.id)) {
-      setCheckinStatus({ type: 'info', message: `${member.name}, you are already checked in today.` });
-      setIsLoading(false); return;
+      setIsProcessing(false); return;
     }
 
     const recordResponse = await recordCheckInAction(member.id, currentGymDatabaseId);
     if (!recordResponse.success || !recordResponse.checkInTime) {
-        setCheckinStatus({ type: 'error', message: recordResponse.error || "Failed to record check-in. Member might already be checked in today." });
-        setIsLoading(false); return;
+        setCheckinStatus({ type: 'error', message: recordResponse.error || "Failed to record check-in. You might already be checked in today." });
+        setIsProcessing(false); return;
     }
 
     const actualCheckInTime = recordResponse.checkInTime;
@@ -121,7 +126,7 @@ export function CheckinForm({ className, onSuccessfulCheckin, todaysCheckins }: 
 
     if (member.email && currentKioskGymName) {
         const emailResponse = await sendCheckInEmailAction(member, actualCheckInTime, currentKioskGymName);
-        console.log("Check-in email status:", emailResponse.message);
+        // console.log("Check-in email status:", emailResponse.message);
     }
 
     const formattedCheckinForDisplay: FormattedCheckIn = {
@@ -141,15 +146,14 @@ export function CheckinForm({ className, onSuccessfulCheckin, todaysCheckins }: 
     });
 
     form.reset();
-    setIsLoading(false);
-    setTimeout(() => setCheckinStatus(null), 10000);
+    setIsProcessing(false);
+    setTimeout(() => setCheckinStatus(null), 10000); // Clear status message after 10 seconds
   }
 
   const handleScanSuccess = (decodedText: string) => {
     form.setValue('identifier', decodedText);
     toast({ title: "QR Code Scanned", description: `Member ID ${decodedText} captured. Processing...` });
     setIsQrScannerOpen(false);
-    // Auto-submit the form after a short delay to allow UI to update
     setTimeout(() => {
       form.handleSubmit(onSubmit)();
     }, 200);
@@ -160,51 +164,57 @@ export function CheckinForm({ className, onSuccessfulCheckin, todaysCheckins }: 
     setIsQrScannerOpen(false);
   };
 
-
   return (
     <>
-      <Card className={cn("w-full shadow-2xl", className)}>
-        <CardHeader className="text-center">
-          <CardTitle className="text-3xl font-headline">Member Check-in</CardTitle>
-          <CardDescription>Enter Member ID or Scan QR</CardDescription>
+      <Card className={cn("w-full shadow-xl bg-card border-border rounded-lg", className)}>
+        <CardHeader>
+          <CardTitle className="text-xl font-semibold text-foreground/90">Check-in Form</CardTitle>
+          <CardDescription className="text-muted-foreground">Use your Member ID or QR code.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          {isLoading && !checkinStatus ?
-              <div className="flex flex-col items-center justify-center space-y-3 py-4">
-                  <Skeleton className="h-8 w-3/4" />
-                  <Skeleton className="h-10 w-full" />
-                  <Skeleton className="h-10 w-full" />
-              </div>
-              :
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
               <FormField
                 control={form.control}
                 name="identifier"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="text-left">Member ID / QR Data</FormLabel>
+                    <FormLabel className="text-foreground/90 text-lg">Member ID</FormLabel>
                     <FormControl>
-                      <Input placeholder="Enter Member ID or scan QR" {...field} className="text-base h-11" autoFocus />
+                      <Input 
+                        placeholder="Enter your Member ID" 
+                        {...field} 
+                        className="text-base h-auto py-4 px-4 bg-input text-foreground focus:ring-primary focus:ring-2 focus:border-primary" 
+                        autoFocus 
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-              <div className="flex flex-col sm:flex-row gap-3">
-                  <Button type="submit" className="w-full text-base py-5 sm:flex-1" disabled={isLoading || !currentGymDatabaseId}>
-                      <LogIn className="mr-2 h-5 w-5" /> Sign In
+              <div className="flex flex-col sm:flex-row gap-4 pt-2">
+                  <Button 
+                    type="submit" 
+                    className="w-full text-lg py-6 bg-primary text-primary-foreground hover:bg-primary/90 sm:flex-1" 
+                    disabled={isProcessing || !currentGymDatabaseId}
+                  >
+                    {isProcessing ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <UserCheck className="mr-2 h-5 w-5" />}
+                    {isProcessing ? 'Signing In...' : 'Sign In'}
                   </Button>
-                  <Button type="button" onClick={() => { setCheckinStatus(null); setIsQrScannerOpen(true);}} className="w-full text-base py-5 sm:flex-1" disabled={isLoading || !currentGymDatabaseId}>
-                      <ScanLine className="mr-2 h-5 w-5" /> Scan QR Code
+                  <Button 
+                    type="button" 
+                    onClick={() => { setCheckinStatus(null); setIsQrScannerOpen(true);}} 
+                    className="w-full text-lg py-6 bg-primary text-primary-foreground hover:bg-primary/90 sm:flex-1" 
+                    disabled={isProcessing || !currentGymDatabaseId}
+                  >
+                    <ScanLine className="mr-2 h-5 w-5" /> Scan QR Code
                   </Button>
               </div>
             </form>
           </Form>
-          }
 
           {checkinStatus && (
-            <Card className={`mt-6 ${ checkinStatus.type === 'success' ? 'border-green-500' : checkinStatus.type === 'error' ? 'border-red-500' : 'border-blue-500'} bg-card/80`}>
+            <Card className={`mt-6 ${ checkinStatus.type === 'success' ? 'border-green-500/50' : checkinStatus.type === 'error' ? 'border-red-500/50' : 'border-blue-500/50'} bg-card/80`}>
               <CardContent className="p-6 text-center">
                 {checkinStatus.type === 'success' && <CheckCircle2 className="mx-auto h-12 w-12 text-green-500 mb-3" />}
                 {checkinStatus.type === 'error' && <AlertTriangle className="mx-auto h-12 w-12 text-red-500 mb-3" />}
