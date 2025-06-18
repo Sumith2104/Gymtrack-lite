@@ -1,69 +1,63 @@
--- Supabase Initial Schema for GymTrack Lite
+-- supabase/schema/00_initial_schema.sql
 
--- Make sure to connect to your Supabase project and run this in the SQL Editor.
--- Best practice: Run extensions and table creations in separate transactions if possible,
--- or ensure your SQL client handles this well.
+-- Enable pgcrypto extension if not already enabled (for gen_random_uuid())
+CREATE EXTENSION IF NOT EXISTS "pgcrypto" WITH SCHEMA "extensions";
 
--- Enable pgcrypto for gen_random_uuid() if not already enabled.
--- This might require superuser privileges or be enabled by default on Supabase.
--- CREATE EXTENSION IF NOT EXISTS pgcrypto;
-
--- 1. Gyms Table
+-- Gyms Table
 CREATE TABLE public.gyms (
     id uuid NOT NULL DEFAULT gen_random_uuid(),
     name text NOT NULL,
-    owner_email text,
-    owner_user_id uuid, -- Foreign key to auth.users table
-    formatted_gym_id text UNIQUE,
+    owner_email text UNIQUE, -- Ensure email is unique if it's a primary identifier for owners
+    owner_user_id uuid UNIQUE, -- Supabase auth user ID, also unique
+    formatted_gym_id text UNIQUE NOT NULL, -- User-friendly unique ID for the gym (e.g., "UOFIPOIB")
     status text DEFAULT 'active'::text,
     created_at timestamp with time zone NOT NULL DEFAULT now(),
     CONSTRAINT gyms_pkey PRIMARY KEY (id),
-    CONSTRAINT gyms_owner_user_id_fkey FOREIGN KEY (owner_user_id) REFERENCES auth.users(id) ON DELETE SET NULL
+    CONSTRAINT gyms_owner_user_id_fkey FOREIGN KEY (owner_user_id) REFERENCES auth.users(id) ON DELETE SET NULL -- Optional: link to Supabase auth users
 );
-COMMENT ON TABLE public.gyms IS 'Stores information about each gym';
-COMMENT ON COLUMN public.gyms.owner_user_id IS 'Links to the Supabase auth user who owns/manages this gym';
-COMMENT ON COLUMN public.gyms.formatted_gym_id IS 'User-friendly unique identifier for the gym (e.g., UOFIPOIB)';
+COMMENT ON COLUMN public.gyms.formatted_gym_id IS 'User-friendly unique ID for the gym (e.g., UOFIPOIB)';
 
--- 2. Plans Table
+-- Plans Table
 CREATE TABLE public.plans (
     id uuid NOT NULL DEFAULT gen_random_uuid(),
-    plan_id text, -- User-defined plan identifier (e.g., BAS0599)
-    plan_name text NOT NULL, -- User-facing plan name (e.g., "Basic", "Premium")
+    plan_id text UNIQUE, -- User-defined unique identifier for the plan (e.g., "BASIC001")
+    plan_name text NOT NULL, -- e.g., "Basic", "Premium"
     price numeric DEFAULT 0,
-    duration_months integer,
+    duration_months integer, -- e.g., 1, 3, 12
     is_active boolean DEFAULT true,
     CONSTRAINT plans_pkey PRIMARY KEY (id)
 );
-COMMENT ON TABLE public.plans IS 'Stores membership plan details';
-COMMENT ON COLUMN public.plans.plan_id IS 'Optional user-defined text identifier for the plan';
+COMMENT ON COLUMN public.plans.plan_id IS 'User-defined unique identifier for the plan (e.g., BASIC001)';
+COMMENT ON COLUMN public.plans.plan_name IS 'e.g., Basic, Premium';
+COMMENT ON COLUMN public.plans.duration_months IS 'e.g., 1, 3, 12';
 
--- 3. Members Table
+-- Members Table
 CREATE TABLE public.members (
     id uuid NOT NULL DEFAULT gen_random_uuid(),
     gym_id uuid NOT NULL,
     plan_id uuid,
-    member_id text, -- User-defined member identifier (e.g., MBR001)
+    member_id text NOT NULL, -- User-defined member ID, should be unique *per gym*
     name text NOT NULL,
     email text,
-    membership_status text DEFAULT 'pending'::text, -- e.g., active, inactive, expired, pending
+    membership_status text DEFAULT 'pending'::text, -- e.g., 'active', 'inactive', 'expired', 'pending'
     age integer,
     phone_number text,
     join_date timestamp with time zone,
     expiry_date timestamp with time zone,
-    membership_type text, -- Denormalized for easier display, derived from plans.plan_name
     created_at timestamp with time zone NOT NULL DEFAULT now(),
     CONSTRAINT members_pkey PRIMARY KEY (id),
     CONSTRAINT members_gym_id_fkey FOREIGN KEY (gym_id) REFERENCES public.gyms(id) ON DELETE CASCADE,
-    CONSTRAINT members_plan_id_fkey FOREIGN KEY (plan_id) REFERENCES public.plans(id) ON DELETE SET NULL
+    CONSTRAINT members_plan_id_fkey FOREIGN KEY (plan_id) REFERENCES public.plans(id) ON DELETE SET NULL,
+    CONSTRAINT members_gym_id_member_id_key UNIQUE (gym_id, member_id) -- Ensures member_id is unique within each gym
 );
-COMMENT ON TABLE public.members IS 'Stores information about gym members';
-COMMENT ON COLUMN public.members.member_id IS 'User-friendly unique identifier for the member within a gym';
+COMMENT ON COLUMN public.members.member_id IS 'User-defined member ID, unique per gym';
+COMMENT ON COLUMN public.members.membership_status IS 'e.g., active, inactive, expired, pending';
 
--- 4. Check-ins Table
+-- Check-ins Table
 CREATE TABLE public.check_ins (
     id uuid NOT NULL DEFAULT gen_random_uuid(),
     gym_id uuid NOT NULL,
-    member_table_id uuid NOT NULL, -- Foreign key to members.id (the UUID primary key of the member)
+    member_table_id uuid NOT NULL, -- References members.id (the UUID PK)
     check_in_time timestamp with time zone NOT NULL DEFAULT now(),
     check_out_time timestamp with time zone,
     created_at timestamp with time zone NOT NULL DEFAULT now(),
@@ -71,62 +65,45 @@ CREATE TABLE public.check_ins (
     CONSTRAINT check_ins_gym_id_fkey FOREIGN KEY (gym_id) REFERENCES public.gyms(id) ON DELETE CASCADE,
     CONSTRAINT check_ins_member_table_id_fkey FOREIGN KEY (member_table_id) REFERENCES public.members(id) ON DELETE CASCADE
 );
-COMMENT ON TABLE public.check_ins IS 'Records member check-in and check-out times';
-COMMENT ON COLUMN public.check_ins.member_table_id IS 'The UUID of the member who checked in, from the members table';
+COMMENT ON COLUMN public.check_ins.member_table_id IS 'References members.id (the UUID PK)';
 
-
--- 5. Announcements Table
+-- Announcements Table
 CREATE TABLE public.announcements (
     id uuid NOT NULL DEFAULT gen_random_uuid(),
-    gym_id uuid NOT NULL, -- The UUID of the gym this announcement belongs to
-    formatted_gym_id text NOT NULL, -- The text-based formatted ID of the gym
+    gym_id uuid NOT NULL, -- The UUID of the gym
+    formatted_gym_id text NOT NULL, -- The user-friendly formatted ID of the gym
     title text NOT NULL,
     content text,
     created_at timestamp with time zone NOT NULL DEFAULT now(),
     CONSTRAINT announcements_pkey PRIMARY KEY (id),
     CONSTRAINT announcements_gym_id_fkey FOREIGN KEY (gym_id) REFERENCES public.gyms(id) ON DELETE CASCADE
 );
-COMMENT ON TABLE public.announcements IS 'Stores gym announcements';
-COMMENT ON COLUMN public.announcements.gym_id IS 'The UUID of the gym (gyms.id)';
-COMMENT ON COLUMN public.announcements.formatted_gym_id IS 'The user-friendly formatted ID of the gym (gyms.formatted_gym_id)';
+COMMENT ON COLUMN public.announcements.gym_id IS 'The UUID of the gym';
+COMMENT ON COLUMN public.announcements.formatted_gym_id IS 'The user-friendly formatted ID of the gym, matches gyms.formatted_gym_id';
 
--- 6. Super Admins Table (Example - for system-level administration)
+-- Super Admins Table (Optional, if you need a separate admin system outside Supabase Auth)
 CREATE TABLE public.super_admins (
     id uuid NOT NULL DEFAULT gen_random_uuid(),
     email text NOT NULL UNIQUE,
-    password_hash text NOT NULL, -- In a real scenario, integrate with Supabase Auth for super admins if possible
+    password_hash text NOT NULL, -- Store hashed passwords securely
     created_at timestamp with time zone NOT NULL DEFAULT now(),
     updated_at timestamp with time zone DEFAULT now(),
     CONSTRAINT super_admins_pkey PRIMARY KEY (id)
 );
-COMMENT ON TABLE public.super_admins IS 'For system-level administrators (use with caution or integrate with Supabase Auth roles)';
+COMMENT ON COLUMN public.super_admins.password_hash IS 'Store hashed passwords securely';
 
--- Add Indexes for frequently queried columns
-CREATE INDEX idx_gyms_formatted_gym_id ON public.gyms(formatted_gym_id);
-CREATE INDEX idx_members_gym_id ON public.members(gym_id);
-CREATE INDEX idx_members_member_id ON public.members(member_id);
-CREATE INDEX idx_check_ins_gym_id_check_in_time ON public.check_ins(gym_id, check_in_time DESC);
-CREATE INDEX idx_announcements_formatted_gym_id_created_at ON public.announcements(formatted_gym_id, created_at DESC);
+-- Indexes for frequently queried columns
+CREATE INDEX IF NOT EXISTS idx_gyms_formatted_gym_id ON public.gyms(formatted_gym_id);
+CREATE INDEX IF NOT EXISTS idx_members_gym_id ON public.members(gym_id);
+CREATE INDEX IF NOT EXISTS idx_members_member_id ON public.members(member_id);
+CREATE INDEX IF NOT EXISTS idx_check_ins_gym_id_member_id ON public.check_ins(gym_id, member_table_id);
+CREATE INDEX IF NOT EXISTS idx_announcements_formatted_gym_id ON public.announcements(formatted_gym_id);
+CREATE INDEX IF NOT EXISTS idx_announcements_gym_id ON public.announcements(gym_id);
 
--- Grant basic USAGE on schema public to authenticated and anon roles.
--- Supabase does this by default, but explicit doesn't hurt.
-GRANT USAGE ON SCHEMA public TO authenticated;
+-- Grant basic USAGE on schema public to anon and authenticated roles.
 GRANT USAGE ON SCHEMA public TO anon;
+GRANT USAGE ON SCHEMA public TO authenticated;
 
--- Grant all privileges on all tables in schema public to the supabase_admin role
--- This is typically the role used by the Supabase dashboard and direct connections with the service key.
-GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO supabase_admin;
-GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO supabase_admin;
-GRANT ALL PRIVILEGES ON ALL FUNCTIONS IN SCHEMA public TO supabase_admin;
-
-
--- Note on auth.users:
--- The auth.users table is managed by Supabase Auth.
--- You typically don't CREATE or directly modify its schema here,
--- but you can reference its `id` column in foreign keys as done in `gyms.owner_user_id`.
-
--- After running this schema, proceed to set up Row Level Security (RLS) policies.
--- And ensure your application's login flow sets the necessary JWT claims
--- (e.g., app_metadata.gym_id and app_metadata.formatted_gym_id) for RLS to work effectively.
-
-SELECT 'Initial schema created successfully. Please proceed to set up RLS policies and update your application authentication.';
+-- Grant all privileges on all tables in schema public to postgres role (superuser) and service_role.
+GRANT ALL ON ALL TABLES IN SCHEMA public TO postgres;
+GRANT ALL ON ALL TABLES IN SCHEMA public TO service_role;

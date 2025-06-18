@@ -1,4 +1,3 @@
-
 // src/lib/database.types.ts
 // This file should align with your 00_initial_schema.sql
 
@@ -238,14 +237,7 @@ export interface Database {
       [_ in never]: never
     }
     Functions: {
-      get_current_formatted_gym_id: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
-      get_current_gym_id_uuid: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
+      [_ in never]: never // Removed the helper function definitions
     }
     Enums: {
       [_ in never]: never
