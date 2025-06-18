@@ -162,11 +162,12 @@ export async function addAnnouncementAction(gymId: string, title: string, conten
   }
 }
 
-export async function fetchAnnouncementsAction(gymId: string): Promise<{ data?: Announcement[]; error?: string }> {
-  console.log(`[fetchAnnouncementsAction] Received gymId: ${gymId}`);
-  if (!gymId) {
-    console.error('[fetchAnnouncementsAction] Error: Gym ID is required.');
-    return { error: "Gym ID is required to fetch announcements." };
+export async function fetchAnnouncementsAction(gymId: string | null): Promise<{ data?: Announcement[]; error?: string }> {
+  console.log(`[fetchAnnouncementsAction] Received gymId: ${gymId} (type: ${typeof gymId})`);
+
+  if (!gymId || typeof gymId !== 'string' || gymId.trim() === '') {
+    console.error('[fetchAnnouncementsAction] Error: Valid Gym ID (UUID string) is required. Received:', gymId);
+    return { error: "Valid Gym ID (UUID string) is required to fetch announcements." };
   }
 
   const supabase = createSupabaseServerActionClient();
@@ -184,29 +185,34 @@ export async function fetchAnnouncementsAction(gymId: string): Promise<{ data?: 
     supabaseUserContext = `Exception fetching user: ${e.message}`;
   }
   console.log(`[fetchAnnouncementsAction] Supabase user context during SELECT: ${supabaseUserContext}`);
-  console.log(`[fetchAnnouncementsAction] Attempting to fetch announcements for gym_id: ${gymId}`);
+  console.log(`[fetchAnnouncementsAction] DEBUG: Attempting to fetch ALL announcements (temporarily removed gym_id filter).`);
 
   try {
+    // TEMPORARILY REMOVE .eq('gym_id', gymId) for debugging
     const { data: dbAnnouncements, error, count } = await supabase
       .from('announcements')
       .select('id, gym_id, title, content, created_at', { count: 'exact' })
-      .eq('gym_id', gymId)
+      // .eq('gym_id', gymId) // Filter REMOVED for this test
       .order('created_at', { ascending: false });
 
-    console.log(`[fetchAnnouncementsAction] Raw Supabase query result - Error: ${JSON.stringify(error)}, Count: ${count}, Data (length): ${dbAnnouncements?.length}`);
+    console.log(`[fetchAnnouncementsAction] Raw Supabase query result (ALL announcements) - Error: ${JSON.stringify(error)}, Count: ${count}, Data (length): ${dbAnnouncements?.length}`);
+    if (dbAnnouncements && dbAnnouncements.length > 0) {
+        console.log(`[fetchAnnouncementsAction] Preview of fetched announcements (ALL): ${JSON.stringify(dbAnnouncements.slice(0,5).map(a => ({id: a.id, title: a.title, gym_id: a.gym_id})))}`);
+    }
+
 
     if (error) {
       console.error('[fetchAnnouncementsAction] Error fetching announcements from DB:', error.message);
       return { error: error.message };
     }
     if (!dbAnnouncements) {
-        console.log('[fetchAnnouncementsAction] No announcements found in DB (dbAnnouncements is null/undefined).');
+        console.log('[fetchAnnouncementsAction] No announcements found in DB (dbAnnouncements is null/undefined) when fetching ALL.');
         return { data: [] };
     }
     if (dbAnnouncements.length === 0) {
-        console.log('[fetchAnnouncementsAction] No announcements found in DB for this gymId (empty array).');
+        console.log('[fetchAnnouncementsAction] No announcements found in DB (empty array) when fetching ALL.');
     } else {
-        console.log(`[fetchAnnouncementsAction] Found ${dbAnnouncements.length} announcements from DB. Preview: ${JSON.stringify(dbAnnouncements.slice(0,1))}`);
+        console.log(`[fetchAnnouncementsAction] Found ${dbAnnouncements.length} announcements in DB (when fetching ALL).`);
     }
 
     const announcements: Announcement[] = dbAnnouncements.map(dbAnn => ({
