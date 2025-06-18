@@ -32,7 +32,8 @@ export interface Member {
 
 export interface Announcement {
   id: string; // uuid (announcements.id)
-  gymId: string; // uuid, FK to gyms.id (announcements.gym_id)
+  gymId: string; // uuid, FK to gyms.id (announcements.gym_id) - This is the UUID
+  formattedGymId: string; // text (announcements.formatted_gym_id) - This is the user-friendly ID like UOFI7OIB
   title: string; // announcements.title
   content: string; // announcements.content
   createdAt: string; // timestamptz (announcements.created_at)

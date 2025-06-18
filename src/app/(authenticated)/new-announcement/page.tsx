@@ -77,19 +77,21 @@ export default function NewAnnouncementPage() {
     let content = template.content();
     if (template.dateSensitive) {
       const tomorrow = addDays(new Date(), 1);
-      content = template.content(format(tomorrow, 'd MMM yyyy')); // Updated format
+      content = template.content(format(tomorrow, 'd MMM yyyy'));
     }
     form.reset({ title: template.title, content: content });
   };
 
   async function onSubmit(data: AnnouncementFormValues) {
-    const gymDatabaseId = localStorage.getItem('gymDatabaseId');
-    if (!gymDatabaseId) {
-      toast({ variant: "destructive", title: 'Error', description: 'Gym ID not found. Please log in again.' });
+    // Use 'gymId' from localStorage which stores the formatted_gym_id (e.g., "UOFIPOIB")
+    const ownerFormattedGymId = localStorage.getItem('gymId'); 
+    if (!ownerFormattedGymId) {
+      toast({ variant: "destructive", title: 'Error', description: 'Formatted Gym ID not found. Please log in again.' });
       return;
     }
     
-    const response = await addAnnouncementAction(gymDatabaseId, data.title, data.content);
+    // Pass ownerFormattedGymId to the action
+    const response = await addAnnouncementAction(ownerFormattedGymId, data.title, data.content);
 
     if (response.error || !response.newAnnouncement) {
         toast({
@@ -100,7 +102,6 @@ export default function NewAnnouncementPage() {
         return;
     }
 
-    // Dispatch custom event to notify other components (like dashboard announcements)
     window.dispatchEvent(new Event('reloadAnnouncements'));
     
     let emailFeedback = "Email broadcast initiated.";
@@ -116,7 +117,7 @@ export default function NewAnnouncementPage() {
     toast({
       title: 'Announcement Published!',
       description: `"${data.title}" is now live. ${emailFeedback}`,
-      duration: 7000, // Increased duration for longer message
+      duration: 7000,
     });
     form.reset();
     router.push('/dashboard'); 

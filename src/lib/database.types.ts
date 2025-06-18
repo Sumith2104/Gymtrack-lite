@@ -183,13 +183,15 @@ export interface Database {
         Row: {
           id: string // uuid
           gym_id: string // uuid, foreign key to gyms.id
+          formatted_gym_id: string // text, new column
           title: string // text
           content: string // text
           created_at: string // timestamp with time zone
         }
         Insert: {
           id?: string
-          gym_id: string
+          gym_id: string // uuid
+          formatted_gym_id: string // text
           title: string
           content: string
           created_at?: string
@@ -197,6 +199,7 @@ export interface Database {
         Update: {
           id?: string
           gym_id?: string
+          formatted_gym_id?: string
           title?: string
           content?: string
           created_at?: string

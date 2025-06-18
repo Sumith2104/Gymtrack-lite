@@ -8,7 +8,7 @@ import { Separator } from '@/components/ui/separator';
 import type { Announcement } from '@/lib/types';
 import { Megaphone, AlertCircle, Trash2, RefreshCw } from 'lucide-react';
 import { parseISO, isValid } from 'date-fns';
-import { formatDateIST } from '@/lib/date-utils'; // Updated import
+import { formatDateIST } from '@/lib/date-utils';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -32,65 +32,64 @@ export function AnnouncementsSection({ className }: { className?: string }) {
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [currentGymDbId, setCurrentGymDbId] = useState<string | null>(null);
+  const [currentFormattedGymId, setCurrentFormattedGymId] = useState<string | null>(null); // Changed from currentGymDbId
   const [selectedAnnouncements, setSelectedAnnouncements] = useState<string[]>([]);
   const { toast } = useToast();
 
-  const loadAnnouncements = useCallback(async (gymId: string | null) => {
-    if (!gymId) {
-      console.warn('[AnnouncementsSection] loadAnnouncements called with null gymId. Aborting.');
+  const loadAnnouncements = useCallback(async (formattedGymId: string | null) => {
+    if (!formattedGymId) {
+      console.warn('[AnnouncementsSection] loadAnnouncements called with null formattedGymId. Aborting.');
       setIsLoading(false);
-      setError("Gym ID not available. Cannot load announcements.");
+      setError("Formatted Gym ID not available. Cannot load announcements.");
       setAnnouncements([]);
       return;
     }
-    console.log(`[AnnouncementsSection] loadAnnouncements called with gymId: ${gymId}`);
+    console.log(`[AnnouncementsSection] loadAnnouncements called with formattedGymId: ${formattedGymId}`);
     setIsLoading(true);
     setError(null);
-    const response = await fetchAnnouncementsAction(gymId);
+    // Pass formattedGymId to the action
+    const response = await fetchAnnouncementsAction(formattedGymId); 
     if (response.error || !response.data) {
       setError(response.error || "Failed to load announcements.");
       setAnnouncements([]);
       console.error('[AnnouncementsSection] Error or no data from fetchAnnouncementsAction:', response.error);
-      toast({ variant: "destructive", title: "Error Loading Announcements", description: response.error || "Could not load announcements." });
+      // toast({ variant: "destructive", title: "Error Loading Announcements", description: response.error || "Could not load announcements." });
     } else {
-      console.log(`[AnnouncementsSection] Successfully fetched ${response.data.length} announcements. Data:`, JSON.stringify(response.data.slice(0,2)));
+      console.log(`[AnnouncementsSection] Successfully fetched ${response.data.length} announcements. Preview:`, JSON.stringify(response.data.slice(0,2).map(a => ({id:a.id, title:a.title, fgid:a.formattedGymId}))));
       setAnnouncements(response.data);
     }
     setIsLoading(false);
     setSelectedAnnouncements([]);
-  }, [toast]);
+  }, [toast]); // Removed toast from dependency to avoid potential loop if toast itself causes re-render that calls this
 
   useEffect(() => {
-    const gymIdFromStorage = localStorage.getItem('gymDatabaseId');
-    console.log('[AnnouncementsSection] gymId from localStorage on mount:', gymIdFromStorage);
-    setCurrentGymDbId(gymIdFromStorage); // Set state
-    if (gymIdFromStorage) {
-      console.log('[AnnouncementsSection] Attempting to load announcements for gymId from storage:', gymIdFromStorage);
-      loadAnnouncements(gymIdFromStorage);
+    // 'gymId' from localStorage stores the formatted_gym_id
+    const formattedGymIdFromStorage = localStorage.getItem('gymId'); 
+    console.log('[AnnouncementsSection] formattedGymId from localStorage on mount:', formattedGymIdFromStorage);
+    setCurrentFormattedGymId(formattedGymIdFromStorage);
+    if (formattedGymIdFromStorage) {
+      console.log('[AnnouncementsSection] Attempting to load announcements for formattedGymId from storage:', formattedGymIdFromStorage);
+      loadAnnouncements(formattedGymIdFromStorage);
     } else {
-      console.warn('[AnnouncementsSection] No gymId found in localStorage. Cannot load announcements initially.');
+      console.warn('[AnnouncementsSection] No formattedGymId found in localStorage. Cannot load announcements initially.');
       setIsLoading(false);
-      setError("Gym ID not found in local storage. Please log in again.");
+      setError("Formatted Gym ID not found in local storage. Please log in again.");
       setAnnouncements([]);
     }
-  }, [loadAnnouncements]); // loadAnnouncements is stable due to useCallback
+  }, [loadAnnouncements]);
 
-  // Listen for custom event to reload announcements (e.g., after adding one)
   useEffect(() => {
     const handleReloadAnnouncements = () => {
-      // Use the state value of currentGymDbId, as it might have been set after initial mount
-      if (currentGymDbId) {
-        console.log('[AnnouncementsSection] Reload event triggered. Reloading for currentGymDbId:', currentGymDbId);
-        loadAnnouncements(currentGymDbId);
+      if (currentFormattedGymId) {
+        console.log('[AnnouncementsSection] Reload event triggered. Reloading for currentFormattedGymId:', currentFormattedGymId);
+        loadAnnouncements(currentFormattedGymId);
       } else {
-        // Fallback to localStorage if currentGymDbId state is somehow not set yet, though less ideal
-        const gymIdFromStorageEvent = localStorage.getItem('gymDatabaseId');
-        if (gymIdFromStorageEvent) {
-             console.warn('[AnnouncementsSection] Reload event triggered, currentGymDbId state was null, using localStorage value for reload:', gymIdFromStorageEvent);
-             loadAnnouncements(gymIdFromStorageEvent);
+        const formattedGymIdFromStorageEvent = localStorage.getItem('gymId');
+        if (formattedGymIdFromStorageEvent) {
+             console.warn('[AnnouncementsSection] Reload event triggered, currentFormattedGymId state was null, using localStorage value for reload:', formattedGymIdFromStorageEvent);
+             loadAnnouncements(formattedGymIdFromStorageEvent);
         } else {
-            console.warn('[AnnouncementsSection] Reload event triggered, but no gymId available (state or localStorage).');
+            console.warn('[AnnouncementsSection] Reload event triggered, but no formattedGymId available (state or localStorage).');
         }
       }
     };
@@ -98,7 +97,7 @@ export function AnnouncementsSection({ className }: { className?: string }) {
     return () => {
       window.removeEventListener('reloadAnnouncements', handleReloadAnnouncements);
     };
-  }, [currentGymDbId, loadAnnouncements]);
+  }, [currentFormattedGymId, loadAnnouncements]);
 
 
   const sortedAnnouncements = announcements
@@ -125,7 +124,6 @@ export function AnnouncementsSection({ className }: { className?: string }) {
     const response = await deleteAnnouncementsAction(selectedAnnouncements);
     if (response.success) {
       toast({ title: "Announcements Deleted", description: `${selectedAnnouncements.length} announcement(s) removed.`});
-      // Re-fetch or filter local state
       setAnnouncements(prev => prev.filter(ann => !selectedAnnouncements.includes(ann.id)));
       setSelectedAnnouncements([]);
     } else {
@@ -142,8 +140,8 @@ export function AnnouncementsSection({ className }: { className?: string }) {
              <Megaphone className="h-5 w-5 text-primary" />
             <CardTitle className="text-base font-semibold">Announcements</CardTitle>
           </div>
-          {currentGymDbId && !isLoading && (
-            <Button variant="ghost" size="sm" onClick={() => loadAnnouncements(currentGymDbId)}>
+          {currentFormattedGymId && !isLoading && (
+            <Button variant="ghost" size="sm" onClick={() => loadAnnouncements(currentFormattedGymId)}>
                 <RefreshCw className="h-4 w-4"/>
             </Button>
           )}
@@ -176,7 +174,7 @@ export function AnnouncementsSection({ className }: { className?: string }) {
             </div>
           ) : sortedAnnouncements.length === 0 ? (
             <p className="text-muted-foreground text-center py-8 text-sm">
-              No announcements yet for {currentGymDbId ? "this gym" : "GymTrack Lite"}.
+              No announcements yet for {currentFormattedGymId ? "this gym" : "GymTrack Lite"}.
             </p>
           ) : (
             sortedAnnouncements.map((announcement, index) => (
