@@ -25,12 +25,10 @@ export function QrScannerDialog({ isOpen, onOpenChange, onScanSuccess, onScanErr
 
   useEffect(() => {
     if (isOpen) {
-      // Ensure the div exists before trying to initialize
       const qrElement = document.getElementById(QR_READER_ELEMENT_ID);
       if (!qrElement) {
-        // Element might not be rendered yet, retry shortly
         setTimeout(() => {
-          if(isOpen && !scannerRef.current) { // Check again if still open and not initialized
+          if(isOpen && !scannerRef.current) {
              initializeScanner();
           }
         }, 100);
@@ -54,8 +52,8 @@ export function QrScannerDialog({ isOpen, onOpenChange, onScanSuccess, onScanErr
             supportedScanTypes: [Html5QrcodeSupportedFormats.QR_CODE],
             rememberLastUsedCamera: true,
             videoConstraints: {
-                facingMode: "environment", // Prefer rear camera
-                aspectRatio: 1.0 // Attempt square aspect ratio
+                facingMode: "environment", 
+                aspectRatio: 1.0 
             }
             };
 
@@ -64,30 +62,27 @@ export function QrScannerDialog({ isOpen, onOpenChange, onScanSuccess, onScanErr
             const successCallback = (decodedText: string, result: Html5QrcodeResult) => {
                 clearScanner();
                 onScanSuccess(decodedText);
-                onOpenChange(false); // Close dialog on success
+                onOpenChange(false); 
             };
 
             const errorCallback = (errorMessage: string, error: Html5QrcodeError) => {
-                // Ignore "QR code not found" errors as they are frequent
                 if (errorMessage.toLowerCase().includes("qr code parse error") || errorMessage.toLowerCase().includes("nomatched")) {
                     return;
                 }
                 console.error(`QR Scanner Error: ${errorMessage}`, error);
                 setCameraError(`Scan Error: ${errorMessage}. Try again or enter ID manually.`);
-                // Do not call onScanError for minor scan issues, only for persistent camera problems.
             };
             
-            newScanner.render(successCallback, errorCallback)
-            .catch(err => {
-                console.error("Error rendering QR Scanner:", err);
-                setCameraError(`Camera initialization failed: ${err.message || err}. Please ensure camera permissions are granted and no other app is using the camera.`);
-                onScanError(`Camera initialization failed: ${err.message || err}. Please ensure camera permissions are granted.`);
-            });
+            // The render method does not return a promise, so .catch cannot be chained here.
+            // Synchronous errors from render() or new Html5QrcodeScanner() will be caught by the outer try...catch.
+            // Asynchronous errors during scanning are handled by the errorCallback.
+            newScanner.render(successCallback, errorCallback);
+            
             scannerRef.current = newScanner;
         } catch (err: any) {
-            console.error("Failed to initialize QR Scanner instance:", err);
-            setCameraError(`Initialization error: ${err.message || "Unknown error"}. Try refreshing.`);
-            onScanError(`Initialization error: ${err.message || "Unknown error"}.`);
+            console.error("Failed to initialize QR Scanner instance or render:", err);
+            setCameraError(`Initialization/Render error: ${err.message || "Unknown error"}. Try refreshing or check permissions.`);
+            onScanError(`Initialization/Render error: ${err.message || "Unknown error"}. Please ensure camera permissions are granted.`);
         }
     }
 
@@ -107,7 +102,6 @@ export function QrScannerDialog({ isOpen, onOpenChange, onScanSuccess, onScanErr
       }
     }
     
-    // Cleanup on component unmount or when isOpen changes to false
     return () => {
       clearScanner();
     };
