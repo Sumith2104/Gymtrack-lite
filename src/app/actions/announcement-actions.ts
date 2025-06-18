@@ -70,6 +70,7 @@ export async function addAnnouncementAction(
   const supabase = createSupabaseServerActionClient();
 
   // Fetch the gym's UUID (id) and name using the ownerFormattedGymId
+  console.log(`[addAnnouncementAction] Attempting to fetch gym details for formatted_gym_id: '${ownerFormattedGymId}'`);
   const { data: gymData, error: gymError } = await supabase
     .from('gyms')
     .select('id, name') // 'id' here is the UUID
@@ -85,30 +86,33 @@ export async function addAnnouncementAction(
   console.log(`[addAnnouncementAction] Gym details found: UUID='${gymUuid}', Name='${gymNameForEmail}' for FormattedID='${ownerFormattedGymId}'`);
 
   try {
-    let userRole = 'unknown';
-    let userId = 'unknown';
-    let userAppMetadata = {};
+    let userRole = 'unknown_role_at_start_of_try_block';
+    let userId = 'unknown_userId_at_start_of_try_block';
+    let userAppMetadataJson = '{}';
+
     const { data: { user: authUser }, error: userError } = await supabase.auth.getUser();
     if (userError) {
       console.error('[addAnnouncementAction] Error fetching Supabase user for context:', userError.message);
+      userRole = `error_fetching_user: ${userError.code || 'unknown_code'}`;
     } else if (authUser) {
-      userRole = authUser.role || 'authenticated (no specific role)';
+      userRole = authUser.role || 'authenticated_user_with_no_specific_role';
       userId = authUser.id;
-      userAppMetadata = authUser.app_metadata || {};
-      console.log(`[addAnnouncementAction] Supabase Auth Context: UserID='${userId}', Role='${userRole}', AppMetadata='${JSON.stringify(userAppMetadata)}'`);
+      userAppMetadataJson = JSON.stringify(authUser.app_metadata || {});
+      console.log(`[addAnnouncementAction] Supabase Auth Context BEFORE INSERT: UserID='${userId}', Role='${userRole}', AppMetadata='${userAppMetadataJson}'`);
     } else {
-      console.log('[addAnnouncementAction] Supabase Auth Context: No active user session found by supabase.auth.getUser(). This might mean the action runs as "anon" or "service_role" depending on client setup.');
+      userRole = 'no_active_supabase_user_session';
+      console.log(`[addAnnouncementAction] Supabase Auth Context BEFORE INSERT: ${userRole}. This might mean the action runs as "anon" or "service_role" depending on client setup.`);
     }
 
     const announcementToInsert = {
-        gym_id: gymUuid,
-        formatted_gym_id: ownerFormattedGymId,
+        gym_id: gymUuid, // The UUID
+        formatted_gym_id: ownerFormattedGymId, // The text ID like UOFIPOIB
         title: validatedTitle,
         content: validatedContent,
-        created_at: new Date().toISOString()
+        created_at: new Date().toISOString() // Ensure this is a valid ISO string
     };
     console.log('[addAnnouncementAction] Attempting to insert announcement with payload:', JSON.stringify(announcementToInsert));
-    
+
     const { data, error } = await supabase
       .from('announcements')
       .insert(announcementToInsert)
@@ -116,12 +120,12 @@ export async function addAnnouncementAction(
       .single();
 
     if (error || !data) {
-      console.error(`[addAnnouncementAction] Error adding announcement to DB: ${error?.message}. Role was '${userRole}'.`);
-      console.error('[addAnnouncementAction] Supabase error object:', JSON.stringify(error, null, 2));
-      return { error: error?.message || "Failed to save announcement to database. Check RLS policy and server logs." };
+      console.error(`[addAnnouncementAction] Error adding announcement to DB: ${error?.message}. Role determined at start of try block was '${userRole}'. AppMetadata was '${userAppMetadataJson}'.`);
+      console.error('[addAnnouncementAction] Full Supabase error object from insert attempt:', JSON.stringify(error, null, 2)); // Log the full error object
+      return { error: error?.message || "Failed to save announcement to database. Check RLS policy and server logs for the role and data being inserted." };
     }
 
-    console.log('[addAnnouncementAction] Announcement successfully added to DB:', data.id);
+    console.log('[addAnnouncementAction] Announcement successfully added to DB. ID of new announcement:', data.id);
     const newAnnouncement: Announcement = {
         id: data.id,
         gymId: data.gym_id, // UUID
@@ -137,14 +141,16 @@ export async function addAnnouncementAction(
     let noEmailAddress = 0;
     let failed = 0;
 
+    console.log(`[addAnnouncementAction] Fetching members for gym UUID '${gymUuid}' for email broadcast.`);
     const { data: membersToEmail, error: memberFetchError } = await supabase
       .from('members')
       .select('name, email, membership_status, expiry_date')
-      .eq('gym_id', gymUuid);
+      .eq('gym_id', gymUuid); // Ensure we filter by the gym's UUID
 
     if (memberFetchError) {
       console.error("[addAnnouncementAction] Error fetching members for announcement email:", memberFetchError.message);
     } else if (membersToEmail && membersToEmail.length > 0) {
+      console.log(`[addAnnouncementAction] Found ${membersToEmail.length} members for gym. Filtering for email broadcast...`);
       for (const member of membersToEmail) {
         const effectiveStatus = getEffectiveMembershipStatusForEmail({
           membershipStatus: member.membership_status as MembershipStatus,
@@ -165,6 +171,7 @@ export async function addAnnouncementAction(
             <p>Please check the dashboard for more details.</p>
             <p>Regards,<br/>The ${gymNameForEmail} Team</p>
           `;
+          console.log(`[addAnnouncementAction] Attempting to send email to ${member.email}`);
           const emailResult = await sendEmail({
             to: member.email,
             subject: emailSubject,
@@ -174,11 +181,15 @@ export async function addAnnouncementAction(
             successful++;
           } else {
             failed++;
+            console.warn(`[addAnnouncementAction] Failed to send email to ${member.email}: ${emailResult.message}`);
           }
         } else if (!member.email && (effectiveStatus === 'active' || effectiveStatus === 'expiring soon')) {
           noEmailAddress++;
         }
       }
+      console.log(`[addAnnouncementAction] Email broadcast summary: Attempted=${attempted}, Successful=${successful}, NoEmailAddress=${noEmailAddress}, Failed=${failed}`);
+    } else {
+        console.log(`[addAnnouncementAction] No members found for gym UUID '${gymUuid}' or list was empty. Skipping email broadcast.`);
     }
 
     return {
@@ -187,7 +198,7 @@ export async function addAnnouncementAction(
     };
 
   } catch (e: any) {
-    console.error('[addAnnouncementAction] Unexpected error in addAnnouncementAction:', e.message);
+    console.error('[addAnnouncementAction] Unexpected error in addAnnouncementAction (outer try-catch):', e.message);
     return { error: 'An unexpected error occurred while saving the announcement.' };
   }
 }
@@ -218,15 +229,22 @@ export async function fetchAnnouncementsAction(ownerFormattedGymId: string | nul
   console.log(`[fetchAnnouncementsAction] Querying announcements for formatted_gym_id: ${ownerFormattedGymId}`);
 
   try {
+    // const { data: dbAnnouncements, error, count } = await supabase
+    //   .from('announcements')
+    //   .select('id, gym_id, formatted_gym_id, title, content, created_at', { count: 'exact' })
+    //   .eq('formatted_gym_id', ownerFormattedGymId) // Querying by the text formatted_gym_id
+    //   .order('created_at', { ascending: false });
+
+    // TEMPORARY DEBUG: Remove the .eq filter to see if RLS for SELECT is the issue
     const { data: dbAnnouncements, error, count } = await supabase
       .from('announcements')
       .select('id, gym_id, formatted_gym_id, title, content, created_at', { count: 'exact' })
-      .eq('formatted_gym_id', ownerFormattedGymId)
       .order('created_at', { ascending: false });
-
-    console.log(`[fetchAnnouncementsAction] Raw Supabase query result (for formatted_gym_id ${ownerFormattedGymId}) - Error: ${JSON.stringify(error)}, Count: ${count}, Data (length): ${dbAnnouncements?.length}`);
-    if (dbAnnouncements && dbAnnouncements.length > 0) {
-        console.log(`[fetchAnnouncementsAction] Preview of fetched announcements (for formatted_gym_id ${ownerFormattedGymId}): ${JSON.stringify(dbAnnouncements.slice(0,5).map(a => ({id: a.id, title: a.title, gym_id: a.gym_id, formatted_gym_id: a.formatted_gym_id})))}`);
+    console.log(`[fetchAnnouncementsAction] Raw Supabase query result (ALL announcements) - Error: ${JSON.stringify(error)}, Count: ${count}, Data (length): ${dbAnnouncements?.length}`);
+     if (dbAnnouncements && dbAnnouncements.length > 0) {
+        console.log(`[fetchAnnouncementsAction] Preview of ALL fetched announcements: ${JSON.stringify(dbAnnouncements.slice(0,5).map(a => ({id: a.id, title: a.title, gym_id: a.gym_id, formatted_gym_id: a.formatted_gym_id})))}`);
+        const filteredForGym = dbAnnouncements.filter(a => a.formatted_gym_id === ownerFormattedGymId);
+        console.log(`[fetchAnnouncementsAction] Manually filtered for ${ownerFormattedGymId}, found: ${filteredForGym.length}`);
     }
 
 
@@ -238,13 +256,17 @@ export async function fetchAnnouncementsAction(ownerFormattedGymId: string | nul
         console.log(`[fetchAnnouncementsAction] No announcements found in DB for formatted_gym_id ${ownerFormattedGymId} (dbAnnouncements is null/undefined).`);
         return { data: [] };
     }
-    if (dbAnnouncements.length === 0) {
-        console.log(`[fetchAnnouncementsAction] No announcements found in DB for formatted_gym_id ${ownerFormattedGymId} (empty array).`);
+    
+    // Filter client-side if we removed the .eq temporarily for debugging RLS on SELECT
+     const relevantAnnouncements = dbAnnouncements.filter(a => a.formatted_gym_id === ownerFormattedGymId);
+
+    if (relevantAnnouncements.length === 0) {
+        console.log(`[fetchAnnouncementsAction] After manual filter, no announcements found for formatted_gym_id ${ownerFormattedGymId} (empty array).`);
     } else {
-        console.log(`[fetchAnnouncementsAction] Found ${dbAnnouncements.length} announcements in DB for formatted_gym_id ${ownerFormattedGymId}.`);
+        console.log(`[fetchAnnouncementsAction] After manual filter, found ${relevantAnnouncements.length} announcements for formatted_gym_id ${ownerFormattedGymId}.`);
     }
 
-    const announcements: Announcement[] = dbAnnouncements.map(dbAnn => ({
+    const announcements: Announcement[] = relevantAnnouncements.map(dbAnn => ({
         id: dbAnn.id,
         gymId: dbAnn.gym_id, // UUID
         formattedGymId: dbAnn.formatted_gym_id, // Formatted ID
@@ -282,4 +304,6 @@ export async function deleteAnnouncementsAction(announcementIds: string[]): Prom
     return { success: false, error: 'An unexpected error occurred while deleting announcements.' };
   }
 }
+    
+
     
