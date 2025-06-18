@@ -1,122 +1,114 @@
--- supabase/rls/01_initial_rls_policies.sql
+-- RLS POLICIES: Allow ALL operations by ANYONE (anon, authenticated)
+-- WARNING: These policies disable granular RLS. Security relies on application logic.
 
 -- -----------------------------------------------------------------------------
 -- Table: gyms
 -- -----------------------------------------------------------------------------
 ALTER TABLE public.gyms ENABLE ROW LEVEL SECURITY;
+-- Drop any existing policies to avoid conflicts
+DROP POLICY IF EXISTS "Allow public access to gyms" ON public.gyms;
 DROP POLICY IF EXISTS "Allow gym owners to SELECT their own gym details" ON public.gyms;
 DROP POLICY IF EXISTS "Allow gym owners to UPDATE their own gym details" ON public.gyms;
 DROP POLICY IF EXISTS "Allow anon role to SELECT gym for login" ON public.gyms;
+DROP POLICY IF EXISTS "Allow broad SELECT on gyms for app logic" ON public.gyms;
+DROP POLICY IF EXISTS "Allow SELECT on gyms for server actions (login verification)" ON public.gyms;
 
--- Allow authenticated users (gym owners) to SELECT their own gym details
-CREATE POLICY "Allow gym owners to SELECT their own gym details"
+CREATE POLICY "Allow public access to gyms"
 ON public.gyms
-FOR SELECT
-TO authenticated
-USING (
-    (id = ((auth.jwt() -> 'app_metadata')::jsonb ->> 'gym_id')::uuid) AND
-    (formatted_gym_id = ((auth.jwt() -> 'app_metadata')::jsonb ->> 'formatted_gym_id')::text)
-);
-
--- Allow authenticated users (gym owners) to UPDATE their own gym details
-CREATE POLICY "Allow gym owners to UPDATE their own gym details"
-ON public.gyms
-FOR UPDATE
-TO authenticated
-USING (
-    (id = ((auth.jwt() -> 'app_metadata')::jsonb ->> 'gym_id')::uuid) AND
-    (formatted_gym_id = ((auth.jwt() -> 'app_metadata')::jsonb ->> 'formatted_gym_id')::text)
-)
-WITH CHECK (
-    (id = ((auth.jwt() -> 'app_metadata')::jsonb ->> 'gym_id')::uuid) AND
-    (formatted_gym_id = ((auth.jwt() -> 'app_metadata')::jsonb ->> 'formatted_gym_id')::text)
-);
-
--- Allow anon role (unauthenticated server actions like login) to SELECT specific gym details.
-CREATE POLICY "Allow anon role to SELECT gym for login"
-ON public.gyms
-FOR SELECT
-TO anon
-USING (true); -- The server action performs the actual filtering
+FOR ALL -- SELECT, INSERT, UPDATE, DELETE
+TO public -- Includes anon and authenticated roles
+USING (true)
+WITH CHECK (true);
 
 -- -----------------------------------------------------------------------------
 -- Table: plans
 -- -----------------------------------------------------------------------------
 ALTER TABLE public.plans ENABLE ROW LEVEL SECURITY;
+-- Drop any existing policies
+DROP POLICY IF EXISTS "Allow public access to plans" ON public.plans;
 DROP POLICY IF EXISTS "Allow authenticated users to SELECT all plans" ON public.plans;
+DROP POLICY IF EXISTS "Allow SELECT on active plans" ON public.plans;
 
-CREATE POLICY "Allow authenticated users to SELECT all plans"
+CREATE POLICY "Allow public access to plans"
 ON public.plans
-FOR SELECT
-TO authenticated
-USING (is_active = true);
+FOR ALL
+TO public
+USING (true)
+WITH CHECK (true);
 
 -- -----------------------------------------------------------------------------
 -- Table: members
 -- -----------------------------------------------------------------------------
 ALTER TABLE public.members ENABLE ROW LEVEL SECURITY;
+-- Drop any existing policies
+DROP POLICY IF EXISTS "Allow public access to members" ON public.members;
 DROP POLICY IF EXISTS "Allow gym owners to manage members of their own gym" ON public.members;
+DROP POLICY IF EXISTS "Data integrity checks for members" ON public.members;
+DROP POLICY IF EXISTS "RLS for members table (no JWT)" ON public.members;
 
-CREATE POLICY "Allow gym owners to manage members of their own gym"
+CREATE POLICY "Allow public access to members"
 ON public.members
 FOR ALL
-TO authenticated
-USING (
-    (gym_id = ((auth.jwt() -> 'app_metadata')::jsonb ->> 'gym_id')::uuid)
-)
-WITH CHECK (
-    (gym_id = ((auth.jwt() -> 'app_metadata')::jsonb ->> 'gym_id')::uuid)
-);
+TO public
+USING (true)
+WITH CHECK (true);
 
 -- -----------------------------------------------------------------------------
 -- Table: check_ins
 -- -----------------------------------------------------------------------------
 ALTER TABLE public.check_ins ENABLE ROW LEVEL SECURITY;
+-- Drop any existing policies
+DROP POLICY IF EXISTS "Allow public access to check_ins" ON public.check_ins;
 DROP POLICY IF EXISTS "Allow gym owners to manage check_ins for their own gym" ON public.check_ins;
+DROP POLICY IF EXISTS "Data integrity checks for check_ins" ON public.check_ins;
+DROP POLICY IF EXISTS "RLS for check_ins table (no JWT)" ON public.check_ins;
 
-CREATE POLICY "Allow gym owners to manage check_ins for their own gym"
+CREATE POLICY "Allow public access to check_ins"
 ON public.check_ins
 FOR ALL
-TO authenticated
-USING (
-    (gym_id = ((auth.jwt() -> 'app_metadata')::jsonb ->> 'gym_id')::uuid)
-)
-WITH CHECK (
-    (gym_id = ((auth.jwt() -> 'app_metadata')::jsonb ->> 'gym_id')::uuid) AND
-    EXISTS (
-        SELECT 1 FROM public.members m
-        WHERE m.id = check_ins.member_table_id AND m.gym_id = ((auth.jwt() -> 'app_metadata')::jsonb ->> 'gym_id')::uuid
-    )
-);
+TO public
+USING (true)
+WITH CHECK (true);
 
 -- -----------------------------------------------------------------------------
 -- Table: announcements
 -- -----------------------------------------------------------------------------
 ALTER TABLE public.announcements ENABLE ROW LEVEL SECURITY;
+-- Drop any existing policies
+DROP POLICY IF EXISTS "Allow public access to announcements" ON public.announcements;
 DROP POLICY IF EXISTS "Allow gym owners to manage announcements for their own gym" ON public.announcements;
+DROP POLICY IF EXISTS "Data integrity checks for announcements" ON public.announcements;
+DROP POLICY IF EXISTS "RLS for announcements table (no JWT)" ON public.announcements;
+DROP POLICY IF EXISTS "Allow_insert_announcements_if_gym_ids_match_gyms_table_for_auth_and_anon" ON public.announcements;
+DROP POLICY IF EXISTS "Permit_select_announcements_for_authenticated_users" ON public.announcements;
 
-CREATE POLICY "Allow gym owners to manage announcements for their own gym"
+
+CREATE POLICY "Allow public access to announcements"
 ON public.announcements
 FOR ALL
-TO authenticated
-USING (
-    (gym_id = ((auth.jwt() -> 'app_metadata')::jsonb ->> 'gym_id')::uuid) AND
-    (formatted_gym_id = ((auth.jwt() -> 'app_metadata')::jsonb ->> 'formatted_gym_id')::text)
-)
-WITH CHECK (
-    (gym_id = ((auth.jwt() -> 'app_metadata')::jsonb ->> 'gym_id')::uuid) AND
-    (formatted_gym_id = ((auth.jwt() -> 'app_metadata')::jsonb ->> 'formatted_gym_id')::text) AND
-    EXISTS (
-        SELECT 1 FROM public.gyms g
-        WHERE g.id = announcements.gym_id AND g.formatted_gym_id = announcements.formatted_gym_id
-    )
-);
+TO public
+USING (true)
+WITH CHECK (true);
 
--- Grant necessary permissions to roles
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.gyms TO authenticated;
-GRANT SELECT ON public.plans TO authenticated;
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.members TO authenticated;
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.check_ins TO authenticated;
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.announcements TO authenticated;
+-- -----------------------------------------------------------------------------
+-- Table: super_admins (Optional - if RLS is enabled on it)
+-- -----------------------------------------------------------------------------
+-- If you have RLS enabled on super_admins and want public access (not typical for this table):
+-- ALTER TABLE public.super_admins ENABLE ROW LEVEL SECURITY;
+-- DROP POLICY IF EXISTS "Allow public access to super_admins" ON public.super_admins;
+-- CREATE POLICY "Allow public access to super_admins"
+-- ON public.super_admins
+-- FOR ALL
+-- TO public
+-- USING (true)
+-- WITH CHECK (true);
 
-GRANT SELECT ON public.gyms TO anon;
+
+-- Grant broad table-level permissions to anon and authenticated roles.
+-- RLS being (true) for USING and WITH CHECK will allow these.
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.gyms TO anon, authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.plans TO anon, authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.members TO anon, authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.check_ins TO anon, authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.announcements TO anon, authenticated;
+-- GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.super_admins TO anon, authenticated; -- If applicable and RLS is set as public
