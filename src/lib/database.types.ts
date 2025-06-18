@@ -1,3 +1,4 @@
+
 // src/lib/database.types.ts
 // This file should align with your 00_initial_schema.sql
 
@@ -16,9 +17,9 @@ export interface Database {
         Row: {
           id: string // uuid, default gen_random_uuid()
           name: string // text
-          owner_email: string | null // text
-          owner_user_id: string | null // uuid, FK to auth.users.id
-          formatted_gym_id: string | null // text, unique
+          owner_email: string | null // text, unique
+          owner_user_id: string | null // uuid, unique, FK to auth.users.id
+          formatted_gym_id: string // text, unique. User-friendly unique ID for the gym (e.g., "UOFIPOIB")
           status: string // text, default 'active'
           created_at: string // timestamp with time zone, default now()
         }
@@ -27,7 +28,7 @@ export interface Database {
           name: string
           owner_email?: string | null
           owner_user_id?: string | null
-          formatted_gym_id?: string | null
+          formatted_gym_id: string
           status?: string
           created_at?: string
         }
@@ -36,7 +37,7 @@ export interface Database {
           name?: string
           owner_email?: string | null
           owner_user_id?: string | null
-          formatted_gym_id?: string | null
+          formatted_gym_id?: string
           status?: string
           created_at?: string
         }
@@ -52,10 +53,10 @@ export interface Database {
       plans: {
         Row: {
           id: string // uuid, default gen_random_uuid()
-          plan_id: string | null // text
-          plan_name: string // text
+          plan_id: string | null // text, unique. User-defined unique identifier for the plan (e.g., "BASIC001")
+          plan_name: string // text. e.g., "Basic", "Premium"
           price: number // numeric, default 0
-          duration_months: number | null // integer
+          duration_months: number | null // integer. e.g., 1, 3, 12
           is_active: boolean // boolean, default true
         }
         Insert: {
@@ -81,22 +82,21 @@ export interface Database {
           id: string // uuid, default gen_random_uuid()
           gym_id: string // uuid, FK to gyms.id
           plan_id: string | null // uuid, FK to plans.id
-          member_id: string | null // text
+          member_id: string // text. User-defined member ID, unique per gym
           name: string // text
           email: string | null // text
-          membership_status: string // text, default 'pending'
+          membership_status: string // text, default 'pending'. e.g., 'active', 'inactive', 'expired', 'pending'
           age: number | null // integer
           phone_number: string | null // text
           join_date: string | null // timestamp with time zone
           expiry_date: string | null // timestamp with time zone
-          membership_type: string | null // text
           created_at: string // timestamp with time zone, default now()
         }
         Insert: {
           id?: string
           gym_id: string
           plan_id?: string | null
-          member_id?: string | null
+          member_id: string
           name: string
           email?: string | null
           membership_status?: string
@@ -104,14 +104,13 @@ export interface Database {
           phone_number?: string | null
           join_date?: string | null
           expiry_date?: string | null
-          membership_type?: string | null
           created_at?: string
         }
         Update: {
           id?: string
           gym_id?: string
           plan_id?: string | null
-          member_id?: string | null
+          member_id?: string
           name?: string
           email?: string | null
           membership_status?: string
@@ -119,7 +118,6 @@ export interface Database {
           phone_number?: string | null
           join_date?: string | null
           expiry_date?: string | null
-          membership_type?: string | null
           created_at?: string
         }
         Relationships: [
@@ -141,7 +139,7 @@ export interface Database {
         Row: {
           id: string // uuid, default gen_random_uuid()
           gym_id: string // uuid, FK to gyms.id
-          member_table_id: string // uuid, FK to members.id
+          member_table_id: string // uuid, FK to members.id. References members.id (the UUID PK)
           check_in_time: string // timestamp with time zone, default now()
           check_out_time: string | null // timestamp with time zone
           created_at: string // timestamp with time zone, default now()
@@ -180,8 +178,8 @@ export interface Database {
       announcements: {
         Row: {
           id: string // uuid, default gen_random_uuid()
-          gym_id: string // uuid, FK to gyms.id
-          formatted_gym_id: string // text
+          gym_id: string // uuid, FK to gyms.id. The UUID of the gym
+          formatted_gym_id: string // text. The user-friendly formatted ID of the gym
           title: string // text
           content: string | null // text
           created_at: string // timestamp with time zone, default now()
@@ -215,7 +213,7 @@ export interface Database {
         Row: {
           id: string // uuid, default gen_random_uuid()
           email: string // text, unique
-          password_hash: string // text
+          password_hash: string // text. Store hashed passwords securely
           created_at: string // timestamp with time zone, default now()
           updated_at: string | null // timestamp with time zone, default now()
         }
@@ -241,13 +239,13 @@ export interface Database {
     }
     Functions: {
       get_current_formatted_gym_id: {
-        Args: Record<PropertyKey, never>;
-        Returns: string;
-      };
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
       get_current_gym_id_uuid: {
-        Args: Record<PropertyKey, never>;
-        Returns: string;
-      };
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
     }
     Enums: {
       [_ in never]: never
