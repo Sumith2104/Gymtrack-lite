@@ -10,12 +10,12 @@ import { Separator } from '@/components/ui/separator';
 export default function KioskPage() {
   const [newlyAddedCheckin, setNewlyAddedCheckin] = useState<FormattedCheckIn | null>(null);
   const [kioskGymName, setKioskGymName] = useState<string | null>(null);
-  // The AppHeader is rendered in RootLayout
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const gymName = localStorage.getItem('gymName');
-      setKioskGymName(gymName || 'Member'); // Default if gym name not found
+      // If gymName is null or empty, kioskGymName will be "Member Check-in" due to the ternary in h1
+      setKioskGymName(gymName); 
     }
   }, []);
 
@@ -27,10 +27,10 @@ export default function KioskPage() {
     <div className="flex-1 flex flex-col bg-black text-foreground">
       <div className="container mx-auto py-8 px-4 sm:px-6 lg:px-8 flex flex-col items-center gap-8">
         {/* Page Title & Subtitle Section */}
-        <div className="w-full max-w-2xl text-center mb-2">
+        <div className="w-full max-w-2xl text-center">
           <div className="h-1.5 w-32 rounded-full bg-primary mx-auto mb-4"></div>
           <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-foreground">
-            {kioskGymName} Check-in
+            {kioskGymName ? `${kioskGymName} Check-in` : 'Member Check-in'}
           </h1>
           <p className="mt-2 text-muted-foreground">
             Enter your member ID or scan your QR code to sign in.
@@ -38,16 +38,16 @@ export default function KioskPage() {
         </div>
         <Separator className="w-full max-w-2xl bg-border" />
 
-        {/* Main Content Area */}
+        {/* Main Content Area: Check-in Form */}
         <div className="w-full max-w-xl">
           <CheckinForm 
             onSuccessfulCheckin={handleSuccessfulCheckin}
-            // todaysCheckins prop is removed from CheckinForm as it fetches its own
           />
         </div>
         
         <Separator className="w-full max-w-4xl bg-border" />
 
+        {/* Recent Check-ins List */}
         <div className="w-full max-w-4xl">
           <RecentCheckinsCard 
             newCheckinEntry={newlyAddedCheckin}
