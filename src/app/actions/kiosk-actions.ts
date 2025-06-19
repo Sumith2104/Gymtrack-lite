@@ -4,8 +4,8 @@
 import { createSupabaseServerActionClient } from '@/lib/supabase/server';
 import type { Member, FormattedCheckIn, CheckIn, MembershipType, MembershipStatus } from '@/lib/types';
 import { sendEmail } from '@/lib/email-service';
-import { formatDateIST, parseValidISO } from '@/lib/date-utils'; // Updated import
-import { generateMotivationalQuote, type MotivationalQuoteInput } from '@/ai/flows/generate-motivational-quote';
+import { formatDateIST, parseValidISO } from '@/lib/date-utils'; 
+// Removed: import { generateMotivationalQuote, type MotivationalQuoteInput } from '@/ai/flows/generate-motivational-quote';
 import { addHours } from 'date-fns';
 
 function mapDbMemberToAppMember(dbMember: any): Member { 
@@ -60,14 +60,13 @@ export async function findMemberForCheckInAction(identifier: string, gymDatabase
   }
 }
 
-export async function recordCheckInAction(memberTableUuid: string, gymDatabaseId: string): Promise<{ success: boolean; checkInTime?: string; error?: string }> {
+export async function recordCheckInAction(memberTableUuid: string, gymDatabaseId: string): Promise<{ success: boolean; checkInTime?: string; checkInRecordId?: string; error?: string }> {
   if (!memberTableUuid || !gymDatabaseId) {
     return { success: false, error: "Member UUID and Gym ID are required to record check-in." };
   }
   const supabase = createSupabaseServerActionClient();
   const checkInTime = new Date().toISOString();
   try {
-    // Check for existing check-in today without check-out
     const todayStart = new Date();
     todayStart.setUTCHours(0,0,0,0);
     const todayEnd = new Date();
@@ -80,33 +79,33 @@ export async function recordCheckInAction(memberTableUuid: string, gymDatabaseId
         .eq('gym_id', gymDatabaseId)
         .gte('check_in_time', todayStart.toISOString())
         .lte('check_in_time', todayEnd.toISOString())
-        .is('check_out_time', null) // Only count if not checked out
+        .is('check_out_time', null) 
         .maybeSingle();
     
     if(existingError){
         console.error("Error checking for existing check-in:", existingError.message);
-        // Decide if this is a hard stop or not, for now we proceed
     }
 
     if(existingCheckin){
         return { success: false, error: "Member is already checked in today and not checked out."};
     }
 
-
-    const { error } = await supabase
+    const { data: newCheckInData, error } = await supabase
       .from('check_ins')
       .insert({
         member_table_id: memberTableUuid,
         gym_id: gymDatabaseId,
         check_in_time: checkInTime,
         created_at: new Date().toISOString(),
-      });
+      })
+      .select('id') // Select the ID of the newly inserted row
+      .single();
 
-    if (error) {
-      console.error('Error recording check-in:', error.message);
-      return { success: false, error: error.message };
+    if (error || !newCheckInData) {
+      console.error('Error recording check-in:', error?.message);
+      return { success: false, error: error?.message || "Failed to insert check-in record." };
     }
-    return { success: true, checkInTime };
+    return { success: true, checkInTime, checkInRecordId: newCheckInData.id };
 
   } catch (e: any) {
     console.error('Unexpected error in recordCheckInAction:', e.message);
@@ -131,16 +130,8 @@ export async function sendCheckInEmailAction(
     }
     const projectedCheckoutTime = addHours(checkInTimeDate, 2);
 
-    let quote = "Sweat now, shine later. Make every rep count!"; // Default quote matching image
-    try {
-      const quoteInput: MotivationalQuoteInput = { memberId: member.memberId, memberName: member.name };
-      const motivation = await generateMotivationalQuote(quoteInput);
-      if (motivation.quote) {
-        quote = motivation.quote;
-      }
-    } catch (aiError) {
-      console.error("Failed to generate motivational quote for check-in email:", aiError);
-    }
+    // AI Quote generation removed. Use a default static quote.
+    const quote = "Sweat now, shine later. Make every rep count!"; 
 
     const emailSubject = `Check-in Confirmed at ${gymName}!`;
     const formattedCheckInTime = `${formatDateIST(checkInTimeDate, 'p')} (IST)`;
@@ -214,4 +205,3 @@ export async function fetchTodaysCheckInsForKioskAction(gymDatabaseId: string, g
     return { checkIns: [], error: 'Failed to fetch today\'s check-ins.' };
   }
 }
-

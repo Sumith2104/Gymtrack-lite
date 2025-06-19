@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
-import { UserCheck, ScanLine, Loader2, AlertTriangle, CheckCircle2, PartyPopper } from 'lucide-react';
+import { UserCheck, ScanLine, Loader2, AlertTriangle } from 'lucide-react'; // Removed CheckCircle2, PartyPopper
 
 import { Button } from '@/components/ui/button';
 import {
@@ -22,7 +22,7 @@ import { useToast } from '@/hooks/use-toast';
 import type { FormattedCheckIn } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { findMemberForCheckInAction, recordCheckInAction, sendCheckInEmailAction } from '@/app/actions/kiosk-actions';
-import { generateMotivationalQuote, type MotivationalQuoteInput } from '@/ai/flows/generate-motivational-quote';
+// Removed: import { generateMotivationalQuote, type MotivationalQuoteInput } from '@/ai/flows/generate-motivational-quote';
 import { QrScannerDialog } from './qr-scanner-dialog';
 
 const checkinSchema = z.object({
@@ -31,6 +31,11 @@ const checkinSchema = z.object({
 
 type CheckinFormValues = z.infer<typeof checkinSchema>;
 
+interface CheckinStatus { // Simplified state type if success details are no longer stored here
+  type: 'error' | 'info';
+  message: string;
+}
+
 interface CheckinFormProps {
   className?: string;
   onSuccessfulCheckin: (checkinEntry: FormattedCheckIn) => void;
@@ -38,7 +43,7 @@ interface CheckinFormProps {
 
 export function CheckinForm({ className, onSuccessfulCheckin }: CheckinFormProps) {
   const { toast } = useToast();
-  const [checkinStatus, setCheckinStatus] = useState<{ type: 'success' | 'error' | 'info'; message: string; quote?: string; memberName?: string } | null>(null);
+  const [checkinStatus, setCheckinStatus] = useState<CheckinStatus | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [currentGymDatabaseId, setCurrentGymDatabaseId] = useState<string | null>(null);
   const [currentKioskGymName, setCurrentKioskGymName] = useState<string | null>(null);
@@ -99,14 +104,7 @@ export function CheckinForm({ className, onSuccessfulCheckin }: CheckinFormProps
 
     const actualCheckInTime = recordResponse.checkInTime;
 
-    let quote = "Keep pushing your limits!";
-    try {
-      const quoteInput: MotivationalQuoteInput = { memberId: member.memberId, memberName: member.name };
-      const motivation = await generateMotivationalQuote(quoteInput);
-      if (motivation.quote) quote = motivation.quote;
-    } catch (error) {
-      console.error("Failed to generate motivational quote:", error);
-    }
+    // AI Quote generation removed from here
 
     if (member.email && currentKioskGymName) {
         const emailResponse = await sendCheckInEmailAction(member, actualCheckInTime, currentKioskGymName);
@@ -114,24 +112,26 @@ export function CheckinForm({ className, onSuccessfulCheckin }: CheckinFormProps
     }
 
     const formattedCheckinForDisplay: FormattedCheckIn = {
+      checkInRecordId: recordResponse.checkInRecordId, // Assuming recordCheckInAction returns this
       memberTableId: member.id,
       memberName: member.name,
       memberId: member.memberId,
       checkInTime: new Date(actualCheckInTime),
+      checkOutTime: null, // Check-out time not known at check-in
+      createdAt: new Date(), // Assuming createdAt is now for this new check-in record
       gymName: currentKioskGymName,
     };
     onSuccessfulCheckin(formattedCheckinForDisplay);
 
-    setCheckinStatus({
-      type: 'success',
-      message: `Welcome, ${member.name}! Enjoy your workout.`,
-      quote: quote,
-      memberName: member.name,
+    // Replaced complex setCheckinStatus with a simple toast
+    toast({
+      title: "Check-in Recorded",
+      description: `Member ${member.name} checked in successfully.`,
     });
 
     form.reset();
     setIsProcessing(false);
-    setTimeout(() => setCheckinStatus(null), 10000); // Clear status message after 10 seconds
+    setTimeout(() => setCheckinStatus(null), 10000); // Clear error/info status message after 10 seconds
   }
 
   const handleScanSuccess = (decodedText: string) => {
@@ -197,22 +197,15 @@ export function CheckinForm({ className, onSuccessfulCheckin }: CheckinFormProps
             </form>
           </Form>
 
-          {checkinStatus && (
-            <Card className={`mt-6 ${ checkinStatus.type === 'success' ? 'border-green-500/50' : checkinStatus.type === 'error' ? 'border-red-500/50' : 'border-blue-500/50'} bg-card/80`}>
+          {/* Display card only for error or info messages */}
+          {checkinStatus && (checkinStatus.type === 'error' || checkinStatus.type === 'info') && (
+            <Card className={`mt-6 ${checkinStatus.type === 'error' ? 'border-red-500/50' : 'border-blue-500/50'} bg-card/80`}>
               <CardContent className="p-6 text-center">
-                {checkinStatus.type === 'success' && <CheckCircle2 className="mx-auto h-12 w-12 text-green-500 mb-3" />}
                 {checkinStatus.type === 'error' && <AlertTriangle className="mx-auto h-12 w-12 text-red-500 mb-3" />}
                 {checkinStatus.type === 'info' && <AlertTriangle className="mx-auto h-12 w-12 text-blue-500 mb-3" />}
-                <p className={`text-xl font-semibold ${ checkinStatus.type === 'success' ? 'text-green-400' : checkinStatus.type === 'error' ? 'text-red-400' : 'text-blue-400'}`}>
+                <p className={`text-xl font-semibold ${checkinStatus.type === 'error' ? 'text-red-400' : 'text-blue-400'}`}>
                   {checkinStatus.message}
                 </p>
-                {checkinStatus.quote && checkinStatus.type === 'success' && (
-                  <div className="mt-4 pt-4 border-t border-border/50">
-                    <PartyPopper className="mx-auto h-8 w-8 text-primary mb-2" />
-                    <p className="text-sm text-muted-foreground">Your motivation for today:</p>
-                    <p className="text-lg font-medium text-primary italic">"{checkinStatus.quote}"</p>
-                  </div>
-                )}
               </CardContent>
             </Card>
           )}
