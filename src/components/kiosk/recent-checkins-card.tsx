@@ -10,7 +10,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import type { FormattedCheckIn } from '@/lib/types';
 import { format, parseISO, isToday, isYesterday } from 'date-fns';
-import { ListChecks, Search, CalendarIcon as CalendarIconLucide, X, RefreshCw, AlertCircle, PackageSearch, Clock, LogOut, Edit } from 'lucide-react';
+import { ListChecks, Search, CalendarIcon as CalendarIconLucide, X, RefreshCw, AlertCircle, PackageSearch, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { fetchTodaysCheckInsForKioskAction } from '@/app/actions/kiosk-actions';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -148,7 +148,7 @@ export function RecentCheckinsCard({ newCheckinEntry, className }: RecentCheckin
                 </div>
             </div>
         </div>
-        <Separator className="mt-4 bg-primary" />
+        <Separator className="mt-4 bg-border" />
       </CardHeader>
       <CardContent className="p-0 sm:p-0">
         <ScrollArea className="h-[400px]">
@@ -191,30 +191,24 @@ export function RecentCheckinsCard({ newCheckinEntry, className }: RecentCheckin
                     <CalendarIconLucide className="mr-2 h-5 w-5 text-primary/80" />
                     <h3 className="text-sm font-semibold text-foreground/80">{formatDateGroupHeader(dateKey)}</h3>
                   </div>
-                  <Separator className="mb-3 bg-primary/30" />
+                  <Separator className="mb-3 bg-border/50" />
                   <div className="overflow-x-auto pb-4">
-                    <div className="grid grid-cols-5 gap-x-4 py-2 text-xs font-medium text-muted-foreground border-b border-primary/30">
-                      <div className="text-center">Member Name</div>
+                    <div className="grid grid-cols-3 gap-x-4 py-2 text-xs font-medium text-muted-foreground border-b border-border/50">
+                      <div className="text-left">Member Name</div>
                       <div className="text-center">Member ID</div>
                       <div className="text-center"><Clock className="inline-block mr-1 h-3 w-3"/>Checked In</div>
-                      <div className="text-center"><LogOut className="inline-block mr-1 h-3 w-3"/>Checked Out</div>
-                      <div className="text-center"><Edit className="inline-block mr-1 h-3 w-3"/>Entry Created</div>
                     </div>
-                    <div className="divide-y divide-primary/20">
-                      {groupedCheckins[dateKey].map((checkin, idx) => (
-                        <div key={checkin.checkInRecordId} className="grid grid-cols-5 gap-x-4 items-center py-3 hover:bg-muted/20 transition-colors duration-150">
-                          <div className="text-sm text-foreground truncate text-center" title={checkin.memberName}>{checkin.memberName}</div>
+                    <div className="divide-y divide-border/30">
+                      {groupedCheckins[dateKey].map((checkin) => (
+                        <div key={checkin.checkInRecordId} className="grid grid-cols-3 gap-x-4 items-center py-3 hover:bg-muted/20 transition-colors duration-150">
+                          <div className="text-sm text-foreground truncate text-left" title={checkin.memberName}>{checkin.memberName}</div>
                           <div className="text-sm text-foreground truncate text-center" title={checkin.memberId}>{checkin.memberId}</div>
                           <div className="text-sm text-muted-foreground text-center">{format(new Date(checkin.checkInTime), "d MMM, h:mm aa")}</div>
-                          <div className="text-sm text-muted-foreground text-center">
-                            {checkin.checkOutTime ? format(new Date(checkin.checkOutTime), "d MMM, h:mm aa") : 'N/A'}
-                          </div>
-                           <div className="text-sm text-muted-foreground text-center">{format(new Date(checkin.createdAt), "d MMM, h:mm aa")}</div>
                         </div>
                       ))}
                     </div>
                   </div>
-                   {groupIndex < sortedDateKeys.length - 1 && <Separator className="mt-4 bg-primary" />}
+                   {groupIndex < sortedDateKeys.length - 1 && <Separator className="mt-4 bg-border" />}
                 </div>
               ))}
             </div>
