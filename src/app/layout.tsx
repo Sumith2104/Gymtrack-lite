@@ -18,7 +18,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   const pathname = usePathname();
-  const showAppHeader = pathname !== '/login';
+  // Hide header on /login and also on / (since it redirects to /login)
+  const hideHeaderPaths = ['/login', '/'];
+  const showAppHeader = !hideHeaderPaths.includes(pathname);
 
   return (
     <html lang="en" className="dark">
