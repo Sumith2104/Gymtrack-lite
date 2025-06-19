@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
-import { UserCheck, ScanLine, Loader2, AlertTriangle } from 'lucide-react'; // Removed CheckCircle2, PartyPopper
+import { UserCheck, ScanLine, Loader2 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -22,7 +22,6 @@ import { useToast } from '@/hooks/use-toast';
 import type { FormattedCheckIn } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { findMemberForCheckInAction, recordCheckInAction, sendCheckInEmailAction } from '@/app/actions/kiosk-actions';
-// Removed: import { generateMotivationalQuote, type MotivationalQuoteInput } from '@/ai/flows/generate-motivational-quote';
 import { QrScannerDialog } from './qr-scanner-dialog';
 
 const checkinSchema = z.object({
@@ -31,11 +30,6 @@ const checkinSchema = z.object({
 
 type CheckinFormValues = z.infer<typeof checkinSchema>;
 
-interface CheckinStatus { // Simplified state type if success details are no longer stored here
-  type: 'error' | 'info';
-  message: string;
-}
-
 interface CheckinFormProps {
   className?: string;
   onSuccessfulCheckin: (checkinEntry: FormattedCheckIn) => void;
@@ -43,7 +37,6 @@ interface CheckinFormProps {
 
 export function CheckinForm({ className, onSuccessfulCheckin }: CheckinFormProps) {
   const { toast } = useToast();
-  const [checkinStatus, setCheckinStatus] = useState<CheckinStatus | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [currentGymDatabaseId, setCurrentGymDatabaseId] = useState<string | null>(null);
   const [currentKioskGymName, setCurrentKioskGymName] = useState<string | null>(null);
@@ -65,10 +58,9 @@ export function CheckinForm({ className, onSuccessfulCheckin }: CheckinFormProps
 
   async function onSubmit(data: CheckinFormValues) {
     setIsProcessing(true);
-    setCheckinStatus(null);
 
     if (!currentGymDatabaseId || !currentKioskGymName) {
-        setCheckinStatus({ type: 'error', message: 'Kiosk configuration error. Please contact admin (Gym ID/Name missing).' });
+        toast({ variant: "destructive", title: "Kiosk Error", description: 'Kiosk configuration error. Please contact admin (Gym ID/Name missing).' });
         setIsProcessing(false);
         return;
     }
@@ -76,7 +68,7 @@ export function CheckinForm({ className, onSuccessfulCheckin }: CheckinFormProps
     const findMemberResponse = await findMemberForCheckInAction(data.identifier, currentGymDatabaseId);
 
     if (findMemberResponse.error || !findMemberResponse.member) {
-      setCheckinStatus({ type: 'error', message: findMemberResponse.error || 'Member not found or ID is invalid for this gym.' });
+      toast({ variant: "destructive", title: "Check-in Failed", description: findMemberResponse.error || 'Member not found or ID is invalid for this gym.' });
       setIsProcessing(false);
       return;
     }
@@ -84,46 +76,42 @@ export function CheckinForm({ className, onSuccessfulCheckin }: CheckinFormProps
     const member = findMemberResponse.member;
 
     if (member.membershipStatus === 'expired') {
-      setCheckinStatus({ type: 'error', message: `Membership for ${member.name} is expired. Please see reception.` });
+      toast({ variant: "destructive", title: "Membership Expired", description: `Membership for ${member.name} is expired. Please see reception.` });
       setIsProcessing(false); return;
     }
     if (member.membershipStatus === 'inactive') {
-      setCheckinStatus({ type: 'error', message: `Hi ${member.name}, your membership is inactive. Please contact support.` });
+      toast({ variant: "destructive", title: "Membership Inactive", description: `Hi ${member.name}, your membership is inactive. Please contact support.` });
       setIsProcessing(false); return;
     }
     if (member.membershipStatus === 'pending') {
-      setCheckinStatus({ type: 'info', message: `Hi ${member.name}, your membership is pending. Please see reception.` });
+      toast({ title: "Membership Pending", description: `Hi ${member.name}, your membership is pending. Please see reception.` });
       setIsProcessing(false); return;
     }
 
     const recordResponse = await recordCheckInAction(member.id, currentGymDatabaseId);
     if (!recordResponse.success || !recordResponse.checkInTime) {
-        setCheckinStatus({ type: 'error', message: recordResponse.error || "Failed to record check-in. You might already be checked in today." });
+        toast({ variant: "destructive", title: "Check-in Failed", description: recordResponse.error || "Failed to record check-in. You might already be checked in today." });
         setIsProcessing(false); return;
     }
 
     const actualCheckInTime = recordResponse.checkInTime;
 
-    // AI Quote generation removed from here
-
     if (member.email && currentKioskGymName) {
-        const emailResponse = await sendCheckInEmailAction(member, actualCheckInTime, currentKioskGymName);
-        // console.log("Check-in email status:", emailResponse.message);
+        await sendCheckInEmailAction(member, actualCheckInTime, currentKioskGymName);
     }
 
     const formattedCheckinForDisplay: FormattedCheckIn = {
-      checkInRecordId: recordResponse.checkInRecordId, // Assuming recordCheckInAction returns this
+      checkInRecordId: recordResponse.checkInRecordId,
       memberTableId: member.id,
       memberName: member.name,
       memberId: member.memberId,
       checkInTime: new Date(actualCheckInTime),
-      checkOutTime: null, // Check-out time not known at check-in
-      createdAt: new Date(), // Assuming createdAt is now for this new check-in record
+      checkOutTime: null,
+      createdAt: new Date(),
       gymName: currentKioskGymName,
     };
     onSuccessfulCheckin(formattedCheckinForDisplay);
 
-    // Replaced complex setCheckinStatus with a simple toast
     toast({
       title: "Check-in Recorded",
       description: `Member ${member.name} checked in successfully.`,
@@ -131,7 +119,6 @@ export function CheckinForm({ className, onSuccessfulCheckin }: CheckinFormProps
 
     form.reset();
     setIsProcessing(false);
-    setTimeout(() => setCheckinStatus(null), 10000); // Clear error/info status message after 10 seconds
   }
 
   const handleScanSuccess = (decodedText: string) => {
@@ -187,7 +174,7 @@ export function CheckinForm({ className, onSuccessfulCheckin }: CheckinFormProps
                   </Button>
                   <Button 
                     type="button" 
-                    onClick={() => { setCheckinStatus(null); setIsQrScannerOpen(true);}} 
+                    onClick={() => setIsQrScannerOpen(true)} 
                     className="w-full text-lg py-6 bg-primary text-primary-foreground hover:bg-primary/90 sm:flex-1" 
                     disabled={isProcessing || !currentGymDatabaseId}
                   >
@@ -196,19 +183,6 @@ export function CheckinForm({ className, onSuccessfulCheckin }: CheckinFormProps
               </div>
             </form>
           </Form>
-
-          {/* Display card only for error or info messages */}
-          {checkinStatus && (checkinStatus.type === 'error' || checkinStatus.type === 'info') && (
-            <Card className={`mt-6 ${checkinStatus.type === 'error' ? 'border-red-500/50' : 'border-blue-500/50'} bg-card/80`}>
-              <CardContent className="p-6 text-center">
-                {checkinStatus.type === 'error' && <AlertTriangle className="mx-auto h-12 w-12 text-red-500 mb-3" />}
-                {checkinStatus.type === 'info' && <AlertTriangle className="mx-auto h-12 w-12 text-blue-500 mb-3" />}
-                <p className={`text-xl font-semibold ${checkinStatus.type === 'error' ? 'text-red-400' : 'text-blue-400'}`}>
-                  {checkinStatus.message}
-                </p>
-              </CardContent>
-            </Card>
-          )}
         </CardContent>
       </Card>
       <QrScannerDialog
