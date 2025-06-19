@@ -8,6 +8,7 @@ import { UserPlus, AlertCircle } from 'lucide-react';
 import { ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { getNewMembersMonthly } from '@/app/actions/analytics-actions';
 import { Skeleton } from '@/components/ui/skeleton';
+import { subMonths, parse as parseDateFns, isValid as isDateValidFns, format as formatDateFns } from 'date-fns';
 
 interface MonthlyNewMembers {
   month: string; // Format "MMM 'yy", e.g., "Jan '23"
@@ -50,7 +51,30 @@ export function NewMembersMonthlyChart() {
           setError(response.error);
           setChartData([]);
         } else {
-          setChartData(response.data);
+          let processedData = response.data;
+          if (response.data && response.data.length === 1 && response.data[0].count > 0) {
+            try {
+              const singleMonthData = response.data[0];
+              const [monthAbbr, yearSuffixWithQuote] = singleMonthData.month.split(" ");
+              const yearSuffix = yearSuffixWithQuote.substring(1);
+              
+              const currentFullYear = new Date().getFullYear();
+              const century = Math.floor(currentFullYear / 100) * 100;
+              const fullYear = century + parseInt(yearSuffix, 10);
+
+              const parseableDateStr = `${monthAbbr} 01 ${fullYear}`;
+              const dateObj = parseDateFns(parseableDateStr, "MMM dd yyyy", new Date());
+
+              if (isDateValidFns(dateObj)) {
+                const prevMonthDate = subMonths(dateObj, 1);
+                const prevMonthFormatted = formatDateFns(prevMonthDate, "MMM 'yy");
+                processedData = [{ month: prevMonthFormatted, count: 0 }, singleMonthData];
+              }
+            } catch (e) {
+              // console.warn("Error prepending previous month data point:", e);
+            }
+          }
+          setChartData(processedData);
         }
       })
       .catch(err => {
@@ -64,8 +88,7 @@ export function NewMembersMonthlyChart() {
   
   const tickFormatter = (value: string, index: number) => {
     if (chartData.length === 0) return '';
-    // Show first, last, and roughly every Nth tick to avoid clutter
-    const N = Math.max(1, Math.floor(chartData.length / 12)); // Aim for around 12 ticks if possible
+    const N = Math.max(1, Math.floor(chartData.length / 12)); 
     if (index === 0 || index === chartData.length - 1 || index % N === 0) {
       return value;
     }
