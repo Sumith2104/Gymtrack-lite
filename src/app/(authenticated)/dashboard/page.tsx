@@ -5,6 +5,7 @@ import { useState, useEffect } from 'react';
 import { OccupancyCard } from '@/components/dashboard/occupancy-card';
 import { CheckinTrendsChart } from '@/components/dashboard/checkin-trends-chart';
 import { AnnouncementsSection } from '@/components/dashboard/announcements-section';
+import { Separator } from '@/components/ui/separator';
 
 
 export default function DashboardPage() {
@@ -33,6 +34,8 @@ export default function DashboardPage() {
         <CheckinTrendsChart className="lg:col-span-2" />
       </div>
       
+      <Separator className="my-2 bg-border" /> 
+
       <div className="grid grid-cols-1 gap-6">
         <AnnouncementsSection />
       </div>
