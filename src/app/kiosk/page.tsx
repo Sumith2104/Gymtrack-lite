@@ -27,13 +27,13 @@ export default function KioskPage() {
       <div className="container mx-auto py-8 px-4 sm:px-6 lg:px-8 flex flex-col items-center gap-8">
         {/* Page Title & Subtitle Section */}
         <div className="w-full max-w-4xl text-center">
-          <div className="h-1.5 w-32 rounded-full bg-primary mx-auto mb-4"></div>
           <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-foreground">
             {kioskGymName ? `${kioskGymName} Check-in` : 'Member Check-in'}
           </h1>
-          <p className="mt-2 text-muted-foreground">
+          <p className="text-muted-foreground mt-1">
             Enter your member ID or scan your QR code to sign in.
           </p>
+          <div className="mt-3 h-1 w-24 bg-primary rounded-full mx-auto"></div>
         </div>
         <Separator className="w-full max-w-4xl bg-border" />
 
