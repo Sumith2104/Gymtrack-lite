@@ -166,21 +166,22 @@ export async function fetchTodaysCheckInsForKioskAction(gymDatabaseId: string, g
   if (!gymDatabaseId) return { checkIns: [], error: "Gym ID is required." };
 
   const supabase = createSupabaseServerActionClient();
-  const today = new Date();
-  const startOfDay = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate(), 0, 0, 0, 0)).toISOString();
-  const endOfDay = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate(), 23, 59, 59, 999)).toISOString();
+  // Removed date filtering to fetch all check-ins
+  // const today = new Date();
+  // const startOfDay = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate(), 0, 0, 0, 0)).toISOString();
+  // const endOfDay = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate(), 23, 59, 59, 999)).toISOString();
 
   try {
     const { data: dbCheckIns, error } = await supabase
       .from('check_ins')
       .select('id, member_table_id, check_in_time, check_out_time, created_at, members(name, member_id)')
       .eq('gym_id', gymDatabaseId)
-      .gte('check_in_time', startOfDay)
-      .lte('check_in_time', endOfDay)
+      // .gte('check_in_time', startOfDay) // Removed start of day filter
+      // .lte('check_in_time', endOfDay)   // Removed end of day filter
       .order('check_in_time', { ascending: false });
 
     if (error) {
-      console.error('Error fetching today\'s check-ins:', error.message);
+      console.error('Error fetching check-ins:', error.message);
       return { checkIns: [], error: error.message };
     }
     if (!dbCheckIns) {
@@ -201,7 +202,8 @@ export async function fetchTodaysCheckInsForKioskAction(gymDatabaseId: string, g
     return { checkIns: formattedCheckIns };
 
   } catch (e: any) {
-    console.error('Unexpected error fetching today\'s check-ins:', e.message);
-    return { checkIns: [], error: 'Failed to fetch today\'s check-ins.' };
+    console.error('Unexpected error fetching check-ins:', e.message);
+    return { checkIns: [], error: 'Failed to fetch check-ins.' };
   }
 }
+
