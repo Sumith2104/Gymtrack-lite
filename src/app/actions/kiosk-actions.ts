@@ -182,7 +182,7 @@ export async function fetchTodaysCheckInsForKioskAction(gymDatabaseId: string, g
   try {
     const { data: dbCheckIns, error } = await supabase
       .from('check_ins')
-      .select('id, member_table_id, check_in_time, members(name, member_id)')
+      .select('id, member_table_id, check_in_time, check_out_time, created_at, members(name, member_id)')
       .eq('gym_id', gymDatabaseId)
       .gte('check_in_time', startOfDay)
       .lte('check_in_time', endOfDay)
@@ -197,10 +197,13 @@ export async function fetchTodaysCheckInsForKioskAction(gymDatabaseId: string, g
     }
 
     const formattedCheckIns: FormattedCheckIn[] = dbCheckIns.map((ci: any) => ({ 
+      checkInRecordId: ci.id,
       memberTableId: ci.member_table_id,
       memberName: ci.members?.name || 'Unknown Member',
       memberId: ci.members?.member_id || 'N/A',
       checkInTime: new Date(ci.check_in_time),
+      checkOutTime: ci.check_out_time ? new Date(ci.check_out_time) : null,
+      createdAt: new Date(ci.created_at),
       gymName: gymName, 
     }));
     

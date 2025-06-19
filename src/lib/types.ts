@@ -70,10 +70,13 @@ export interface CheckIn { // This is the raw DB record type for check_ins table
 
 // Type for displaying formatted check-in information in the UI
 export interface FormattedCheckIn {
+  checkInRecordId: string; // The actual UUID of the check_in record from check_ins table
   memberTableId: string; // The actual UUID of the member from members table
   memberName: string;
   memberId: string; // The user-facing MBR001 style ID
   checkInTime: Date; // Use Date object for easier manipulation client-side
+  checkOutTime: Date | null; // New field for check_out_time
+  createdAt: Date; // New field for when the check_in record was created
   gymName: string; // Name of the gym where check-in occurred
 }
 
@@ -113,3 +116,4 @@ export interface MemberWithPlanDetails extends Omit<Member, 'membershipType' | '
     duration_months: number | null;
   } | null;
 }
+
