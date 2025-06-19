@@ -33,7 +33,7 @@ import { getActiveMembershipPlans } from '@/app/actions/plan-actions';
 import { addMemberFormSchema, type AddMemberFormValues } from '@/lib/schemas/member-schemas';
 import { Skeleton } from '@/components/ui/skeleton';
 
-// Not used directly for editing status here, but useful for reference
+
 const memberStatuses: MembershipStatus[] = ['active', 'inactive', 'expired', 'pending'];
 
 interface AddMemberDialogProps {
@@ -55,8 +55,8 @@ export function AddMemberDialog({ isOpen, onOpenChange, onMemberSaved, memberToE
     defaultValues: {
       name: '',
       email: '',
-      phoneNumber: '', // Changed from null
-      age: undefined, // Changed from null, coerce will handle empty string
+      phoneNumber: '', 
+      age: undefined, 
       selectedPlanUuid: '', 
     },
   });
@@ -141,7 +141,7 @@ export function AddMemberDialog({ isOpen, onOpenChange, onMemberSaved, memberToE
       if (response.data?.newMember) {
         onMemberSaved(response.data.newMember);
         toast({ title: 'Member Added!', description: `${response.data.newMember.name} registered. ${response.data.emailStatus}` });
-        window.dispatchEvent(new Event('reloadAnnouncements')); // Notify dashboard to reload announcements
+        window.dispatchEvent(new Event('reloadAnnouncements')); 
         onOpenChange(false);
       }
     }
@@ -212,4 +212,3 @@ export function AddMemberDialog({ isOpen, onOpenChange, onMemberSaved, memberToE
     </Dialog>
   );
 }
-

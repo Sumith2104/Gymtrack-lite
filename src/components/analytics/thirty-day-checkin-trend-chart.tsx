@@ -37,7 +37,6 @@ export function ThirtyDayCheckinTrendChart() {
   useEffect(() => {
     if (!gymDbId) {
       setIsLoading(false);
-      // setError("Gym ID not found. Cannot load 30-day trend.");
       setChartData([]);
       return;
     }
@@ -54,7 +53,7 @@ export function ThirtyDayCheckinTrendChart() {
         }
       })
       .catch(err => {
-        console.error("ThirtyDayCheckinTrendChart fetch error:", err);
+        
         setError("Failed to load 30-day check-in trend data.");
         setChartData([]);
       })
@@ -99,7 +98,7 @@ export function ThirtyDayCheckinTrendChart() {
                   tickMargin={8}
                   fontSize={10} 
                   interval="preserveStartEnd" 
-                  tickFormatter={(value, index) => index % 4 === 0 || index === chartData.length -1 ? value : ''} // Show fewer ticks
+                  tickFormatter={(value, index) => index % 4 === 0 || index === chartData.length -1 ? value : ''} 
                 />
                 <YAxis 
                   tickLine={false}
@@ -130,5 +129,3 @@ export function ThirtyDayCheckinTrendChart() {
     </Card>
   );
 }
-
-    

@@ -5,19 +5,17 @@ import type { Member, MembershipType, DailyCheckIns } from '@/lib/types';
 import { subDays, format, getMonth, getYear, parseISO, startOfYear, endOfYear, startOfToday } from 'date-fns';
 import { createSupabaseServerActionClient } from '@/lib/supabase/server';
 
-// Helper to map DB row to Member type (if needed, usually for complex joins not done here)
-// For analytics, we often just need specific fields.
 
 export async function getMembershipDistribution(gymDatabaseId: string): Promise<{ data: Array<{ type: MembershipType | string; count: number }>; error?: string }> {
   if (!gymDatabaseId) return { data: [], error: 'Gym ID not provided.' };
   const supabase = createSupabaseServerActionClient();
   try {
-    // Fetch all members for the gym, then aggregate client-side (or server-side in JS)
+    
     const { data: gymMembers, error: memberError } = await supabase
       .from('members')
       .select('membership_type')
       .eq('gym_id', gymDatabaseId)
-      .eq('membership_status', 'active'); // Consider if you want only active members for distribution
+      .eq('membership_status', 'active'); 
 
     if (memberError) throw memberError;
     if (!gymMembers) return { data: [] };
@@ -29,13 +27,13 @@ export async function getMembershipDistribution(gymDatabaseId: string): Promise<
     });
     
     const result = Object.entries(distribution).map(([type, count]) => ({
-      type: type as MembershipType, // Cast, assuming membership_type in DB matches MembershipType
+      type: type as MembershipType, 
       count: count || 0,
     }));
     
     return { data: result };
   } catch (e: any) {
-    console.error('Error in getMembershipDistribution:', e.message);
+    
     return { data: [], error: e.message || 'Failed to fetch membership distribution.' };
   }
 }
@@ -45,8 +43,8 @@ export async function getThirtyDayCheckInTrend(gymDatabaseId: string): Promise<{
   if (!gymDatabaseId) return { data: [], error: 'Gym ID not provided.' };
   const supabase = createSupabaseServerActionClient();
   try {
-    const thirtyDaysAgo = subDays(startOfToday(), 29).toISOString(); // Start of 30 days ago
-    const todayEnd = new Date().toISOString(); // End of today
+    const thirtyDaysAgo = subDays(startOfToday(), 29).toISOString(); 
+    const todayEnd = new Date().toISOString(); 
 
     const { data: checkIns, error: checkInError } = await supabase
       .from('check_ins')
@@ -74,7 +72,7 @@ export async function getThirtyDayCheckInTrend(gymDatabaseId: string): Promise<{
     const result: DailyCheckIns[] = Array.from(trendsMap, ([date, count]) => ({ date, count }));
     return { data: result };
   } catch (e: any) {
-    console.error('Error in getThirtyDayCheckInTrend:', e.message);
+    
     return { data: [], error: e.message || 'Failed to fetch 30-day check-in trend.' };
   }
 }
@@ -96,14 +94,14 @@ export async function getNewMembersMonthly(gymDatabaseId: string): Promise<{ dat
     if (memberError) throw memberError;
     if (!members) return { data: [] };
     
-    const monthlyData: { [key: number]: number } = {}; // Key is month index 0-11
+    const monthlyData: { [key: number]: number } = {}; 
     const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
     for (let i = 0; i < 12; i++) monthlyData[i] = 0;
 
     members.forEach(member => {
       if (member.join_date) {
         const joinDate = parseISO(member.join_date);
-        const month = getMonth(joinDate); // 0-11
+        const month = getMonth(joinDate); 
         monthlyData[month] = (monthlyData[month] || 0) + 1;
       }
     });
@@ -115,7 +113,7 @@ export async function getNewMembersMonthly(gymDatabaseId: string): Promise<{ dat
     
     return { data: result };
   } catch (e: any) {
-    console.error('Error in getNewMembersMonthly:', e.message);
+    
     return { data: [], error: e.message || 'Failed to fetch new members monthly.' };
   }
 }
@@ -124,7 +122,7 @@ export async function getNewMembersYearly(gymDatabaseId: string): Promise<{ data
   if (!gymDatabaseId) return { data: [], error: 'Gym ID not provided.' };
   const supabase = createSupabaseServerActionClient();
   try {
-    const fiveYearsAgoStart = startOfYear(subDays(new Date(), 365 * 5)).toISOString(); // Approximation
+    const fiveYearsAgoStart = startOfYear(subDays(new Date(), 365 * 5)).toISOString(); 
     const currentYearEnd = endOfYear(new Date()).toISOString();
 
     const { data: members, error: memberError } = await supabase
@@ -160,7 +158,7 @@ export async function getNewMembersYearly(gymDatabaseId: string): Promise<{ data
 
     return { data: result };
   } catch (e: any) {
-    console.error('Error in getNewMembersYearly:', e.message);
+    
     return { data: [], error: e.message || 'Failed to fetch new members yearly.' };
   }
 }

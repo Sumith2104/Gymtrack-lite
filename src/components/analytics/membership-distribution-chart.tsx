@@ -33,8 +33,7 @@ export function MembershipDistributionChart() {
   useEffect(() => {
     if (!gymDbId) {
       setIsLoading(false);
-      // setError("Gym ID not found. Cannot load membership distribution.");
-      setChartData([]); // Show empty state or placeholder if no gym ID
+      setChartData([]); 
       return;
     }
 
@@ -47,7 +46,7 @@ export function MembershipDistributionChart() {
           setChartData([]);
         } else {
           setChartData(response.data);
-          // Dynamically create chartConfig based on fetched data
+          
           const newChartConfig = response.data.reduce((acc, item, index) => {
             const key = item.type.toLowerCase().replace(/\s+/g, '_') || `type_${index}`;
             acc[key] = {
@@ -60,7 +59,7 @@ export function MembershipDistributionChart() {
         }
       })
       .catch(err => {
-        console.error("MembershipDistributionChart fetch error:", err);
+        
         setError("Failed to load membership distribution data.");
         setChartData([]);
       })
@@ -127,5 +126,3 @@ export function MembershipDistributionChart() {
     </Card>
   );
 }
-
-    

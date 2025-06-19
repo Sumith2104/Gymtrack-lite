@@ -14,7 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 import { APP_NAME } from '@/lib/constants';
 import { Megaphone, Send, Lightbulb } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { addDays, format, parse, isValid } from 'date-fns'; // Added parse and isValid
+import { addDays, format, parse, isValid } from 'date-fns'; 
 import { addAnnouncementAction } from '@/app/actions/announcement-actions'; 
 
 const announcementSchema = z.object({
@@ -88,7 +88,7 @@ export default function NewAnnouncementPage() {
   const handleTemplateClick = (template: QuickTemplate) => {
     let contentValue: string;
     if (template.dateSensitive) {
-      const tomorrow = addDays(new Date(), 1); // Default holiday date for template is tomorrow
+      const tomorrow = addDays(new Date(), 1); 
       const formattedHolidayDate = format(tomorrow, 'd MMM yyyy');
       contentValue = template.content(formattedHolidayDate);
     } else {

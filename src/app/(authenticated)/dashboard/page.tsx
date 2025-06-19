@@ -5,6 +5,8 @@ import { useState, useEffect } from 'react';
 import { OccupancyCard } from '@/components/dashboard/occupancy-card';
 import { CheckinTrendsChart } from '@/components/dashboard/checkin-trends-chart';
 import { AnnouncementsSection } from '@/components/dashboard/announcements-section';
+import { Separator } from '@/components/ui/separator';
+
 
 export default function DashboardPage() {
   const [gymName, setGymName] = useState<string | null>(null);
@@ -25,7 +27,7 @@ export default function DashboardPage() {
         <p className="text-muted-foreground mt-1">
           Overview of current gym status, activity trends, and important updates.
         </p>
-        <div className="mt-3 h-1 w-24 bg-primary rounded-full"></div> {/* Gold underline */}
+        <div className="mt-3 h-1 w-24 bg-primary rounded-full"></div> 
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -33,6 +35,9 @@ export default function DashboardPage() {
         <CheckinTrendsChart className="lg:col-span-2" />
       </div>
       
+       <Separator className="my-2 bg-primary h-0.5" />
+
+
       <div className="grid grid-cols-1 gap-6">
         <AnnouncementsSection />
       </div>

@@ -31,9 +31,6 @@ export default function AuthenticatedLayout({
   }
 
   if (authStatus === 'unauthenticated') {
-    // This case should ideally not be visible for long due to router.replace,
-    // but it's good practice to handle it.
-    // You could return null or a different loading/redirecting message.
     return (
         <div className="flex flex-1 h-full items-center justify-center bg-background">
             <p className="text-foreground">Redirecting to login...</p>
@@ -41,7 +38,6 @@ export default function AuthenticatedLayout({
     );
   }
 
-  // Only render children if authenticated
   return (
     <div className="flex-1 container mx-auto py-6 px-4 sm:px-6 lg:px-8">
       {children}

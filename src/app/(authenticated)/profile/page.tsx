@@ -43,14 +43,14 @@ export default function ProfilePage() {
           }
         })
         .catch(err => {
-          console.error("ProfilePage earnings fetch error:", err);
+          
           setEarningsError("An unexpected error occurred while fetching earnings.");
           setEarningsData(null);
         })
         .finally(() => {
           setIsLoadingEarnings(false);
         });
-    } else if (gymName !== null) { // If gymName is loaded but no dbId, implies an issue
+    } else if (gymName !== null) { 
         setIsLoadingEarnings(false);
         setEarningsError("Gym Database ID not found. Cannot load earnings.");
     }
@@ -124,7 +124,7 @@ export default function ProfilePage() {
         <div className="mt-3 h-1 w-24 bg-primary rounded-full"></div>
       </div>
 
-      {/* Gym Details Card */}
+      
       <Card className="shadow-lg">
         <CardHeader>
           <div className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -150,7 +150,7 @@ export default function ProfilePage() {
       </Card>
 
 
-      {/* Earnings Overview Card */}
+      
       <Card className="shadow-lg">
         <CardHeader>
           <div className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -164,7 +164,7 @@ export default function ProfilePage() {
         </CardContent>
       </Card>
 
-      {/* Activity Snapshot */}
+      
       <div>
         <h2 className="text-2xl font-semibold tracking-tight text-foreground mb-4">Activity Snapshot</h2>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

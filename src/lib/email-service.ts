@@ -73,15 +73,7 @@ function getBaseEmailHtml(content: string, subject: string): string {
 
 export async function sendEmail({ to, subject, htmlBody }: EmailOptions): Promise<{ success: boolean; message: string }> {
   if (!transporter) {
-    console.log('-------------------- EMAIL SIMULATION --------------------');
-    console.log(`To: ${to}`);
-    console.log(`From: ${SMTP_FROM_EMAIL}`);
-    console.log(`Subject: ${subject}`);
-    console.log('--- HTML Body (raw) ---');
-    console.log(htmlBody); 
-    console.log('--- HTML Body (templated) ---');
-    console.log(getBaseEmailHtml(htmlBody, subject));
-    console.log('------------------ END EMAIL SIMULATION ------------------');
+    
     return { success: true, message: 'Email logged to console (SMTP not configured).' };
   }
 
@@ -100,5 +92,3 @@ export async function sendEmail({ to, subject, htmlBody }: EmailOptions): Promis
     return { success: false, message: `Failed to send email: ${error.message}` };
   }
 }
-
-    

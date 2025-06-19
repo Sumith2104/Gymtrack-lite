@@ -46,11 +46,7 @@ export async function addAnnouncementAction(
   title: string,
   content: string
 ): Promise<AddAnnouncementResponse> {
-  console.log('[addAnnouncementAction] Received ownerFormattedGymId:', ownerFormattedGymId);
-  console.log('[addAnnouncementAction] Received title:', title);
-
   if (!ownerFormattedGymId) {
-    console.error('[addAnnouncementAction] Error: Formatted Gym ID is required.');
     return { error: "Formatted Gym ID is required to add an announcement." };
   }
 
@@ -60,7 +56,6 @@ export async function addAnnouncementAction(
     let errorMessages = Object.entries(fieldErrors)
       .map(([key, messages]) => `${key}: ${(messages as string[]).join(', ')}`)
       .join('; ');
-    console.error('[addAnnouncementAction] Validation failed:', errorMessages);
     return { error: `Validation failed: ${errorMessages || 'Check inputs.'}` };
   }
 
@@ -69,49 +64,26 @@ export async function addAnnouncementAction(
 
   const supabase = createSupabaseServerActionClient();
 
-  // Fetch the gym's UUID (id) and name using the ownerFormattedGymId
-  console.log(`[addAnnouncementAction] Attempting to fetch gym details for formatted_gym_id: '${ownerFormattedGymId}'`);
   const { data: gymData, error: gymError } = await supabase
     .from('gyms')
-    .select('id, name') // 'id' here is the UUID
+    .select('id, name') 
     .eq('formatted_gym_id', ownerFormattedGymId)
     .single();
 
   if (gymError || !gymData) {
-    console.error(`[addAnnouncementAction] Error fetching gym details for formatted_gym_id '${ownerFormattedGymId}':`, gymError?.message);
     return { error: gymError?.message || `Gym not found with formatted ID: ${ownerFormattedGymId}.` };
   }
-  const gymUuid = gymData.id; // This is the actual UUID for the gym_id foreign key
+  const gymUuid = gymData.id; 
   const gymNameForEmail = gymData.name;
-  console.log(`[addAnnouncementAction] Gym details found: UUID='${gymUuid}', Name='${gymNameForEmail}' for FormattedID='${ownerFormattedGymId}'`);
-
+  
   try {
-    let userRole = 'unknown_role_at_start_of_try_block';
-    let userId = 'unknown_userId_at_start_of_try_block';
-    let userAppMetadataJson = '{}';
-
-    const { data: { user: authUser }, error: userError } = await supabase.auth.getUser();
-    if (userError) {
-      console.error('[addAnnouncementAction] Error fetching Supabase user for context:', userError.message);
-      userRole = `error_fetching_user: ${userError.code || 'unknown_code'}`;
-    } else if (authUser) {
-      userRole = authUser.role || 'authenticated_user_with_no_specific_role';
-      userId = authUser.id;
-      userAppMetadataJson = JSON.stringify(authUser.app_metadata || {});
-      console.log(`[addAnnouncementAction] Supabase Auth Context BEFORE INSERT: UserID='${userId}', Role='${userRole}', AppMetadata='${userAppMetadataJson}'`);
-    } else {
-      userRole = 'no_active_supabase_user_session';
-      console.log(`[addAnnouncementAction] Supabase Auth Context BEFORE INSERT: ${userRole}. This might mean the action runs as "anon" or "service_role" depending on client setup.`);
-    }
-
     const announcementToInsert = {
-        gym_id: gymUuid, // The UUID
-        formatted_gym_id: ownerFormattedGymId, // The text ID like UOFIPOIB
+        gym_id: gymUuid, 
+        formatted_gym_id: ownerFormattedGymId, 
         title: validatedTitle,
         content: validatedContent,
-        created_at: new Date().toISOString() // Ensure this is a valid ISO string
+        created_at: new Date().toISOString() 
     };
-    console.log('[addAnnouncementAction] Attempting to insert announcement with payload:', JSON.stringify(announcementToInsert));
 
     const { data, error } = await supabase
       .from('announcements')
@@ -120,37 +92,31 @@ export async function addAnnouncementAction(
       .single();
 
     if (error || !data) {
-      console.error(`[addAnnouncementAction] Error adding announcement to DB: ${error?.message}. Role determined at start of try block was '${userRole}'. AppMetadata was '${userAppMetadataJson}'.`);
-      console.error('[addAnnouncementAction] Full Supabase error object from insert attempt:', JSON.stringify(error, null, 2)); // Log the full error object
       return { error: error?.message || "Failed to save announcement to database. Check RLS policy and server logs for the role and data being inserted." };
     }
 
-    console.log('[addAnnouncementAction] Announcement successfully added to DB. ID of new announcement:', data.id);
     const newAnnouncement: Announcement = {
         id: data.id,
-        gymId: data.gym_id, // UUID
-        formattedGymId: data.formatted_gym_id, // Formatted ID
+        gymId: data.gym_id, 
+        formattedGymId: data.formatted_gym_id, 
         title: data.title,
         content: data.content,
         createdAt: data.created_at,
     };
 
-    // Email broadcast logic
     let attempted = 0;
     let successful = 0;
     let noEmailAddress = 0;
     let failed = 0;
 
-    console.log(`[addAnnouncementAction] Fetching members for gym UUID '${gymUuid}' for email broadcast.`);
     const { data: membersToEmail, error: memberFetchError } = await supabase
       .from('members')
       .select('name, email, membership_status, expiry_date')
-      .eq('gym_id', gymUuid); // Ensure we filter by the gym's UUID
+      .eq('gym_id', gymUuid); 
 
     if (memberFetchError) {
-      console.error("[addAnnouncementAction] Error fetching members for announcement email:", memberFetchError.message);
+      // Not returning error, just logging, as announcement itself was successful
     } else if (membersToEmail && membersToEmail.length > 0) {
-      console.log(`[addAnnouncementAction] Found ${membersToEmail.length} members for gym. Filtering for email broadcast...`);
       for (const member of membersToEmail) {
         const effectiveStatus = getEffectiveMembershipStatusForEmail({
           membershipStatus: member.membership_status as MembershipStatus,
@@ -171,7 +137,6 @@ export async function addAnnouncementAction(
             <p>Please check the dashboard for more details.</p>
             <p>Regards,<br/>The ${gymNameForEmail} Team</p>
           `;
-          console.log(`[addAnnouncementAction] Attempting to send email to ${member.email}`);
           const emailResult = await sendEmail({
             to: member.email,
             subject: emailSubject,
@@ -181,15 +146,11 @@ export async function addAnnouncementAction(
             successful++;
           } else {
             failed++;
-            console.warn(`[addAnnouncementAction] Failed to send email to ${member.email}: ${emailResult.message}`);
           }
         } else if (!member.email && (effectiveStatus === 'active' || effectiveStatus === 'expiring soon')) {
           noEmailAddress++;
         }
       }
-      console.log(`[addAnnouncementAction] Email broadcast summary: Attempted=${attempted}, Successful=${successful}, NoEmailAddress=${noEmailAddress}, Failed=${failed}`);
-    } else {
-        console.log(`[addAnnouncementAction] No members found for gym UUID '${gymUuid}' or list was empty. Skipping email broadcast.`);
     }
 
     return {
@@ -198,78 +159,35 @@ export async function addAnnouncementAction(
     };
 
   } catch (e: any) {
-    console.error('[addAnnouncementAction] Unexpected error in addAnnouncementAction (outer try-catch):', e.message);
     return { error: 'An unexpected error occurred while saving the announcement.' };
   }
 }
 
 export async function fetchAnnouncementsAction(ownerFormattedGymId: string | null): Promise<{ data?: Announcement[]; error?: string }> {
-  console.log(`[fetchAnnouncementsAction] Received ownerFormattedGymId: ${ownerFormattedGymId} (type: ${typeof ownerFormattedGymId})`);
-
   if (!ownerFormattedGymId || typeof ownerFormattedGymId !== 'string' || ownerFormattedGymId.trim() === '') {
-    console.error('[fetchAnnouncementsAction] Error: Valid Formatted Gym ID (text) is required. Received:', ownerFormattedGymId);
     return { error: "Valid Formatted Gym ID (text) is required to fetch announcements." };
   }
 
   const supabase = createSupabaseServerActionClient();
-  let supabaseUserContext = 'N/A';
+  
   try {
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
-    if (userError) {
-      supabaseUserContext = `Error fetching user: ${userError.message}`;
-    } else if (user) {
-      supabaseUserContext = `User ID: ${user.id}, Role: ${user.role}, App Metadata: ${JSON.stringify(user.app_metadata)}`;
-    } else {
-      supabaseUserContext = 'No active Supabase user session.';
-    }
-  } catch (e: any) {
-    supabaseUserContext = `Exception fetching user: ${e.message}`;
-  }
-  console.log(`[fetchAnnouncementsAction] Supabase user context during SELECT: ${supabaseUserContext}`);
-  console.log(`[fetchAnnouncementsAction] Querying announcements for formatted_gym_id: ${ownerFormattedGymId}`);
-
-  try {
-    // const { data: dbAnnouncements, error, count } = await supabase
-    //   .from('announcements')
-    //   .select('id, gym_id, formatted_gym_id, title, content, created_at', { count: 'exact' })
-    //   .eq('formatted_gym_id', ownerFormattedGymId) // Querying by the text formatted_gym_id
-    //   .order('created_at', { ascending: false });
-
-    // TEMPORARY DEBUG: Remove the .eq filter to see if RLS for SELECT is the issue
-    const { data: dbAnnouncements, error, count } = await supabase
+    const { data: dbAnnouncements, error } = await supabase
       .from('announcements')
-      .select('id, gym_id, formatted_gym_id, title, content, created_at', { count: 'exact' })
+      .select('id, gym_id, formatted_gym_id, title, content, created_at')
+      .eq('formatted_gym_id', ownerFormattedGymId) 
       .order('created_at', { ascending: false });
-    console.log(`[fetchAnnouncementsAction] Raw Supabase query result (ALL announcements) - Error: ${JSON.stringify(error)}, Count: ${count}, Data (length): ${dbAnnouncements?.length}`);
-     if (dbAnnouncements && dbAnnouncements.length > 0) {
-        console.log(`[fetchAnnouncementsAction] Preview of ALL fetched announcements: ${JSON.stringify(dbAnnouncements.slice(0,5).map(a => ({id: a.id, title: a.title, gym_id: a.gym_id, formatted_gym_id: a.formatted_gym_id})))}`);
-        const filteredForGym = dbAnnouncements.filter(a => a.formatted_gym_id === ownerFormattedGymId);
-        console.log(`[fetchAnnouncementsAction] Manually filtered for ${ownerFormattedGymId}, found: ${filteredForGym.length}`);
-    }
-
 
     if (error) {
-      console.error('[fetchAnnouncementsAction] Error fetching announcements from DB:', error.message);
       return { error: error.message };
     }
     if (!dbAnnouncements) {
-        console.log(`[fetchAnnouncementsAction] No announcements found in DB for formatted_gym_id ${ownerFormattedGymId} (dbAnnouncements is null/undefined).`);
         return { data: [] };
     }
     
-    // Filter client-side if we removed the .eq temporarily for debugging RLS on SELECT
-     const relevantAnnouncements = dbAnnouncements.filter(a => a.formatted_gym_id === ownerFormattedGymId);
-
-    if (relevantAnnouncements.length === 0) {
-        console.log(`[fetchAnnouncementsAction] After manual filter, no announcements found for formatted_gym_id ${ownerFormattedGymId} (empty array).`);
-    } else {
-        console.log(`[fetchAnnouncementsAction] After manual filter, found ${relevantAnnouncements.length} announcements for formatted_gym_id ${ownerFormattedGymId}.`);
-    }
-
-    const announcements: Announcement[] = relevantAnnouncements.map(dbAnn => ({
+    const announcements: Announcement[] = dbAnnouncements.map(dbAnn => ({
         id: dbAnn.id,
-        gymId: dbAnn.gym_id, // UUID
-        formattedGymId: dbAnn.formatted_gym_id, // Formatted ID
+        gymId: dbAnn.gym_id, 
+        formattedGymId: dbAnn.formatted_gym_id, 
         title: dbAnn.title,
         content: dbAnn.content,
         createdAt: dbAnn.created_at,
@@ -277,7 +195,6 @@ export async function fetchAnnouncementsAction(ownerFormattedGymId: string | nul
     return { data: announcements };
 
   } catch (e: any) {
-    console.error('[fetchAnnouncementsAction] Unexpected error in fetchAnnouncementsAction:', e.message);
     return { error: 'An unexpected error occurred while fetching announcements.' };
   }
 }
@@ -294,13 +211,11 @@ export async function deleteAnnouncementsAction(announcementIds: string[]): Prom
       .in('id', announcementIds);
 
     if (error) {
-      console.error('Error deleting announcements from DB:', error.message);
       return { success: false, error: error.message };
     }
     return { success: true };
 
   } catch (e: any) {
-    console.error('Unexpected error in deleteAnnouncementsAction:', e.message);
     return { success: false, error: 'An unexpected error occurred while deleting announcements.' };
   }
 }

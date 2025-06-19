@@ -16,7 +16,7 @@ export async function getCurrentOccupancy(gymDatabaseId: string): Promise<{ curr
 
   try {
     const { data, error, count } = await supabase
-      .from('check_ins') // Changed from 'check_in_records'
+      .from('check_ins') 
       .select('id', { count: 'exact', head: false }) 
       .eq('gym_id', gymDatabaseId)
       .gte('check_in_time', todayStartUTC.toISOString())
@@ -24,14 +24,14 @@ export async function getCurrentOccupancy(gymDatabaseId: string): Promise<{ curr
       .is('check_out_time', null);
 
     if (error) {
-      console.error('Error fetching current occupancy:', error.message);
+      
       return { currentOccupancy: 0, error: error.message };
     }
     
     return { currentOccupancy: data?.length ?? 0 };
 
   } catch (e: any) {
-    console.error('Unexpected error in getCurrentOccupancy:', e.message);
+    
     return { currentOccupancy: 0, error: 'Failed to fetch occupancy data.' };
   }
 }
@@ -61,13 +61,13 @@ export async function getDailyCheckInTrends(gymDatabaseId: string): Promise<{ tr
 
   try {
     const { data, error } = await supabase
-      .from('check_ins') // Changed from 'check_in_records'
+      .from('check_ins') 
       .select('check_in_time')
       .eq('gym_id', gymDatabaseId)
       .gte('check_in_time', sevenDaysAgoUTC.toISOString());
 
     if (error) {
-      console.error('Error fetching check-in trends:', error.message);
+      
       return { trends: [], error: error.message };
     }
 
@@ -87,7 +87,7 @@ export async function getDailyCheckInTrends(gymDatabaseId: string): Promise<{ tr
     return { trends };
 
   } catch (e: any) {
-    console.error('Unexpected error in getDailyCheckInTrends:', e.message);
+    
      return { trends: [], error: 'Failed to fetch check-in trends.' };
   }
 }

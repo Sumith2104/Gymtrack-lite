@@ -37,7 +37,6 @@ export function NewMembersMonthlyChart() {
   useEffect(() => {
     if (!gymDbId) {
       setIsLoading(false);
-      // setError("Gym ID not found. Cannot load monthly new members.");
       setChartData(Array(12).fill(0).map((_, i) => ({ month: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][i], count: 0 })));
       return;
     }
@@ -54,7 +53,7 @@ export function NewMembersMonthlyChart() {
         }
       })
       .catch(err => {
-        console.error("NewMembersMonthlyChart fetch error:", err);
+        
         setError("Failed to load monthly new members data.");
         setChartData(Array(12).fill(0).map((_, i) => ({ month: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][i], count: 0 })));
       })
@@ -124,5 +123,3 @@ export function NewMembersMonthlyChart() {
     </Card>
   );
 }
-
-    

@@ -19,7 +19,7 @@ export async function getActiveMembershipPlans(): Promise<GetActiveMembershipPla
       .order('price', { ascending: true });
 
     if (error) {
-      console.error('Error fetching active membership plans:', error.message);
+      
       return { error: `Database error: ${error.message}` };
     }
 
@@ -28,9 +28,9 @@ export async function getActiveMembershipPlans(): Promise<GetActiveMembershipPla
     }
     
     const fetchedPlans: FetchedMembershipPlan[] = plansData.map(plan => ({
-      uuid: plan.id, // This is the plans.id (uuid)
-      planIdText: plan.plan_id, // This is plans.plan_id (text e.g. BAS0599)
-      name: plan.plan_name as MembershipType, // This is plans.plan_name
+      uuid: plan.id, 
+      planIdText: plan.plan_id, 
+      name: plan.plan_name as MembershipType, 
       price: plan.price,
       durationMonths: plan.duration_months,
     }));
@@ -38,7 +38,7 @@ export async function getActiveMembershipPlans(): Promise<GetActiveMembershipPla
     return { data: fetchedPlans };
 
   } catch (e: any) {
-    console.error('Unexpected error in getActiveMembershipPlans:', e.message);
+    
     return { error: `Unexpected error fetching plans: ${e.message}` };
   }
 }

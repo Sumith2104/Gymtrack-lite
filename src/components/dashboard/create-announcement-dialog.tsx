@@ -53,17 +53,15 @@ export function CreateAnnouncementDialog({ onAnnouncementCreated }: CreateAnnoun
   });
 
   async function onSubmit(data: AnnouncementFormValues) {
-    // In a real app, gymId (UUID) would come from auth context or props.
-    // localStorage.getItem('gymId') currently stores the formattedGymId.
-    // For mock purposes, we use this formattedGymId.
     const gymIdentifier = localStorage.getItem('gymId') || 'GYM123_default'; 
     
     const newAnnouncement: Announcement = {
-      id: `announcement_${Date.now()}`, // Mock UUID
+      id: `announcement_${Date.now()}`, 
       title: data.title,
       content: data.content,
       createdAt: new Date().toISOString(),
-      gymId: gymIdentifier, // This should be the actual gym's UUID (gyms.id) in a real app
+      gymId: gymIdentifier, 
+      formattedGymId: gymIdentifier,
     };
     onAnnouncementCreated(newAnnouncement);
     toast({

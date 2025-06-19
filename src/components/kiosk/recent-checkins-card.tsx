@@ -10,7 +10,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import type { FormattedCheckIn } from '@/lib/types';
 import { format, parseISO, isToday, isYesterday } from 'date-fns';
-import { ListChecks, Search, CalendarIcon as CalendarIconLucide, X, RefreshCw, AlertCircle, PackageSearch, Clock } from 'lucide-react';
+import { ListChecks, Search, CalendarIcon as CalendarIconLucide, X, RefreshCw, AlertCircle, PackageSearch, Clock, FileClock, Fingerprint } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { fetchTodaysCheckInsForKioskAction } from '@/app/actions/kiosk-actions';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -66,7 +66,7 @@ export function RecentCheckinsCard({ newCheckinEntry, className }: RecentCheckin
   useEffect(() => {
     if (newCheckinEntry) {
       setAllFetchedCheckins((prevCheckins) => 
-        [newCheckinEntry, ...prevCheckins.filter(ci => ci.checkInRecordId !== newCheckinEntry.checkInRecordId)] // Use checkInRecordId for uniqueness
+        [newCheckinEntry, ...prevCheckins.filter(ci => ci.checkInRecordId !== newCheckinEntry.checkInRecordId)] 
         .sort((a, b) => new Date(b.checkInTime).getTime() - new Date(a.checkInTime).getTime())
       );
     }
@@ -112,14 +112,14 @@ export function RecentCheckinsCard({ newCheckinEntry, className }: RecentCheckin
 
   return (
     <Card className={cn("shadow-xl w-full bg-card/75 text-card-foreground backdrop-blur-sm bg-opacity-75 border-border rounded-lg", className)}>
-      <CardHeader className="p-6 pb-4">
+      <CardHeader className="p-6 pb-4 border-b border-border">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div className='flex-grow flex items-center'>
                 <ListChecks className="h-6 w-6 text-primary mr-3" />
                 <div>
                     <CardTitle className="text-xl font-semibold text-foreground/90">Recent Check-ins</CardTitle>
                     <CardDescription className="text-xs text-muted-foreground mt-1">
-                      A log of the latest member check-ins, grouped by date. Filter by name, ID, or date.
+                      Log of member check-ins. Filter by name, ID, or date.
                     </CardDescription>
                 </div>
                  {gymDbId && gymNameForDisplay && !isLoading && (
@@ -148,7 +148,6 @@ export function RecentCheckinsCard({ newCheckinEntry, className }: RecentCheckin
                 </div>
             </div>
         </div>
-        <Separator className="mt-4 bg-border" />
       </CardHeader>
       <CardContent className="p-0 sm:p-0">
         <ScrollArea className="h-[400px]">
@@ -172,7 +171,7 @@ export function RecentCheckinsCard({ newCheckinEntry, className }: RecentCheckin
                   <AlertTitle>No Matching Check-ins</AlertTitle>
                 </div>
                 <AlertDescription>
-                  No check-ins match your current filters or no check-ins have been recorded for this gym today.
+                  No check-ins match your current filters or no check-ins have been recorded for this gym.
                 </AlertDescription>
               </Alert>
             </div>
@@ -193,17 +192,19 @@ export function RecentCheckinsCard({ newCheckinEntry, className }: RecentCheckin
                   </div>
                   <Separator className="mb-3 bg-border/50" />
                   <div className="overflow-x-auto pb-4">
-                    <div className="grid grid-cols-3 gap-x-4 py-2 text-xs font-medium text-muted-foreground border-b border-border/50">
-                      <div className="text-left">Member Name</div>
-                      <div className="text-center">Member ID</div>
+                    <div className="grid grid-cols-5 gap-x-4 py-2 text-xs font-medium text-muted-foreground border-b border-border/50">
+                      <div className="text-left col-span-2">Member Name</div>
+                      <div className="text-center"><Fingerprint className="inline-block mr-1 h-3 w-3"/>Member ID</div>
                       <div className="text-center"><Clock className="inline-block mr-1 h-3 w-3"/>Checked In</div>
+                      <div className="text-center"><FileClock className="inline-block mr-1 h-3 w-3"/>Entry Created</div>
                     </div>
                     <div className="divide-y divide-border/30">
                       {groupedCheckins[dateKey].map((checkin) => (
-                        <div key={checkin.checkInRecordId} className="grid grid-cols-3 gap-x-4 items-center py-3 hover:bg-muted/20 transition-colors duration-150">
-                          <div className="text-sm text-foreground truncate text-left" title={checkin.memberName}>{checkin.memberName}</div>
+                        <div key={checkin.checkInRecordId} className="grid grid-cols-5 gap-x-4 items-center py-3 hover:bg-muted/20 transition-colors duration-150">
+                          <div className="text-sm text-foreground truncate text-left col-span-2" title={checkin.memberName}>{checkin.memberName}</div>
                           <div className="text-sm text-foreground truncate text-center" title={checkin.memberId}>{checkin.memberId}</div>
                           <div className="text-sm text-muted-foreground text-center">{format(new Date(checkin.checkInTime), "d MMM, h:mm aa")}</div>
+                          <div className="text-sm text-muted-foreground text-center">{format(new Date(checkin.createdAt), "d MMM, h:mm aa")}</div>
                         </div>
                       ))}
                     </div>
@@ -218,4 +219,3 @@ export function RecentCheckinsCard({ newCheckinEntry, className }: RecentCheckin
     </Card>
   );
 }
-    

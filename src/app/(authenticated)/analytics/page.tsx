@@ -1,6 +1,6 @@
 
-import { OccupancyCard } from '@/components/dashboard/occupancy-card'; // Reused from dashboard for Current Occupancy
-import { CheckinTrendsChart } from '@/components/dashboard/checkin-trends-chart'; // Reused from dashboard for 7-day trends
+import { OccupancyCard } from '@/components/dashboard/occupancy-card'; 
+import { CheckinTrendsChart } from '@/components/dashboard/checkin-trends-chart'; 
 import { MembershipDistributionChart } from '@/components/analytics/membership-distribution-chart';
 import { ThirtyDayCheckinTrendChart } from '@/components/analytics/thirty-day-checkin-trend-chart';
 import { NewMembersMonthlyChart } from '@/components/analytics/new-members-monthly-chart';
@@ -17,19 +17,19 @@ export default function AnalyticsPage() {
         <div className="mt-3 h-1 w-24 bg-primary rounded-full"></div>
       </div>
 
-      {/* Row 1: Current Occupancy & 7-Day Check-in Trends */}
+      
       <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-2">
-        <OccupancyCard /> {/* Replaced OccupancyChart (hourly) with OccupancyCard (current) */}
+        <OccupancyCard /> 
         <CheckinTrendsChart />
       </div>
       
-      {/* Row 2: Membership Distribution & 30-Day Check-in Trend */}
+      
       <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-2">
         <MembershipDistributionChart />
         <ThirtyDayCheckinTrendChart />
       </div>
 
-      {/* Row 3: New Members Monthly & New Members Yearly */}
+      
       <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-2">
         <NewMembersMonthlyChart />
         <NewMembersYearlyChart />

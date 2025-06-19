@@ -138,23 +138,21 @@ export async function addMember(
       emailStatus = emailResult.message;
     }
 
-    // Create a welcome announcement for the new member
     const announcementTitle = `Welcome New Member: ${newMemberAppFormat.name}!`;
     const announcementContent = `Let's all give a warm welcome to ${newMemberAppFormat.name} (ID: ${newMemberAppFormat.memberId}), who joined us on ${newMemberAppFormat.joinDate ? formatDateIST(newMemberAppFormat.joinDate, 'PPP') : 'a recent date'} with a ${newMemberAppFormat.membershipType || 'new'} membership! We're excited to have them in the ${gymName} community.`;
     
     const announcementResult = await addAnnouncementAction(gymDatabaseId, announcementTitle, announcementContent);
     if (announcementResult.error) {
-      console.error("Failed to create welcome announcement in DB for new member:", announcementResult.error);
       // Do not return error here, member addition was successful
     } else if (announcementResult.newAnnouncement?.id) {
-       console.log("Welcome announcement created in DB for new member:", announcementResult.newAnnouncement.id);
+       // Welcome announcement created
     }
 
     return { data: { newMember: newMemberAppFormat, emailStatus } };
 
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred.';
-    console.error("Error in addMember server action:", errorMessage, error);
+    
     return { error: `Error in addMember: ${errorMessage}` };
   }
 }
@@ -216,7 +214,6 @@ export async function editMember(
       plan_id: selectedPlanUuid,
       membership_type: planDetails.plan_name as MembershipType,
       expiry_date: expiryDate.toISOString(),
-      // membership_status: 'active', // Status should ideally not be reset on every edit unless intended
     };
 
     const { data: updatedMemberData, error: updateError } = await supabase
@@ -235,7 +232,7 @@ export async function editMember(
 
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred.';
-    console.error("Error in editMember server action:", errorMessage, error);
+    
     return { error: `Error in editMember: ${errorMessage}` };
   }
 }
@@ -252,7 +249,7 @@ export async function fetchMembers(gymDatabaseId: string): Promise<{ data?: Memb
       .order('created_at', { ascending: false });
 
     if (error) {
-      console.error('Error fetching members:', error.message);
+      
       return { error: error.message };
     }
     if (!dbMembers) {
@@ -263,7 +260,7 @@ export async function fetchMembers(gymDatabaseId: string): Promise<{ data?: Memb
     return { data: members };
 
   } catch (e: any) {
-    console.error('Unexpected error in fetchMembers:', e.message);
+    
     return { error: 'Failed to fetch members due to an unexpected error.' };
   }
 }
@@ -274,16 +271,16 @@ export async function deleteMemberAction(memberDbId: string): Promise<{ success:
   try {
     const { error: checkinError } = await supabase.from('check_ins').delete().eq('member_table_id', memberDbId);
      if (checkinError) {
-      console.warn('Could not delete related check-ins, but proceeding with member deletion:', checkinError.message);
+      // Could not delete related check-ins, but proceeding with member deletion
     }
     const { error } = await supabase.from('members').delete().eq('id', memberDbId);
     if (error) {
-      console.error('Error deleting member:', error.message);
+      
       return { success: false, error: error.message };
     }
     return { success: true };
   } catch (e: any) {
-    console.error('Unexpected error deleting member:', e.message);
+    
     return { success: false, error: 'Failed to delete member due to an unexpected error.' };
   }
 }
@@ -300,13 +297,13 @@ export async function updateMemberStatusAction(memberDbId: string, newStatus: Me
       .single();
 
     if (error || !updatedDbMember) {
-      console.error('Error updating member status:', error?.message);
+      
       return { error: error?.message || "Failed to update member status or member not found." };
     }
     const updatedMemberAppFormat = mapDbMemberToAppMember(updatedDbMember);
     return { updatedMember: updatedMemberAppFormat };
   } catch (e: any) {
-    console.error('Unexpected error updating member status:', e.message);
+    
     return { error: 'Failed to update status due to an unexpected error.' };
   }
 }
@@ -323,14 +320,14 @@ export async function deleteMembersAction(memberDbIds: string[]): Promise<{ succ
   for (const memberId of memberDbIds) {
     const { error: checkinError } = await supabase.from('check_ins').delete().eq('member_table_id', memberId);
     if (checkinError) {
-      console.warn(`Could not delete check-ins for member ${memberId}: ${checkinError.message}. Proceeding with member deletion.`);
+      // Could not delete check-ins for member, Proceeding with member deletion.
     }
 
     const { error: memberDeleteError } = await supabase.from('members').delete().eq('id', memberId);
     if (memberDeleteError) {
       ECount++;
       lastError = memberDeleteError.message;
-      console.error(`Error deleting member ${memberId}:`, memberDeleteError.message);
+      
     } else {
       SCount++;
     }
@@ -355,7 +352,7 @@ export async function bulkUpdateMemberStatusAction(memberDbIds: string[], newSta
       .select('id'); 
 
     if (error) {
-      console.error('Error bulk updating member statuses:', error.message);
+      
       return { successCount: 0, errorCount: memberDbIds.length, error: error.message };
     }
     
@@ -366,7 +363,7 @@ export async function bulkUpdateMemberStatusAction(memberDbIds: string[], newSta
 
   } catch (e: any)
 {
-    console.error('Unexpected error in bulkUpdateMemberStatusAction:', e.message);
+    
     return { successCount: 0, errorCount: memberDbIds.length, error: 'An unexpected error occurred during bulk status update.' };
   }
 }
@@ -399,7 +396,7 @@ export async function sendBulkCustomEmailAction(
       .in('id', memberDbIds);
 
     if (fetchError) {
-      console.error('Error fetching members for bulk email:', fetchError.message);
+      
       return { attempted, successful, noEmailAddress, failed, error: `Failed to fetch member details: ${fetchError.message}` };
     }
 
@@ -442,9 +439,8 @@ export async function sendBulkCustomEmailAction(
     return { attempted, successful, noEmailAddress, failed };
 
   } catch (e: any) {
-    console.error('Unexpected error in sendBulkCustomEmailAction:', e.message);
+    
     return { attempted, successful, noEmailAddress, failed, error: 'An unexpected error occurred while sending emails.' };
   }
 }
     
-

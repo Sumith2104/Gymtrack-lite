@@ -1,16 +1,12 @@
 
-'use client'; // Required for usePathname
+'use client'; 
 
 import type {Metadata} from 'next';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
 import { AppHeader } from '@/components/layout/app-header';
-import { usePathname } from 'next/navigation'; // Added import
+import { usePathname } from 'next/navigation'; 
 
-// export const metadata: Metadata = { // Metadata cannot be used with 'use client'
-//   title: 'GymTrack Lite',
-//   description: 'Simplified Gym Management',
-// };
 
 export default function RootLayout({
   children,
@@ -18,14 +14,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   const pathname = usePathname();
-  // Hide header on /login and also on / (since it redirects to /login)
+  
   const hideHeaderPaths = ['/login', '/'];
   const showAppHeader = !hideHeaderPaths.includes(pathname);
 
   return (
     <html lang="en" className="dark">
       <head>
-        {/* Metadata can be set here if needed, or in individual page.tsx files if dynamic */}
+        
         <title>GymTrack Lite</title>
         <meta name="description" content="Simplified Gym Management" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />

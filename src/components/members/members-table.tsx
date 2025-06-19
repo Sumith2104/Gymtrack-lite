@@ -198,7 +198,6 @@ export function MembersTable() {
     if (response.updatedMember) {
         toast({ title: "Status Updated", description: `${member.name}'s status changed to ${newStatus}.` });
         loadMembers(currentGymDatabaseId); 
-        console.log(`SIMULATING: Email notification to ${member.email} about status change to ${newStatus}.`);
     } else {
         toast({ variant: "destructive", title: "Error Updating Status", description: response.error });
     }

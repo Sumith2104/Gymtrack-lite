@@ -1,4 +1,3 @@
-// src/ai/flows/generate-motivational-quote.ts
 'use server';
 
 /**

@@ -1,9 +1,6 @@
-// src/lib/date-utils.ts
-
 import { formatInTimeZone } from 'date-fns-tz';
-import { isValid, parseISO as dateFnsParseISO } from 'date-fns'; // Added parseISO for robust parsing
+import { isValid, parseISO as dateFnsParseISO } from 'date-fns'; 
 
-// Wrapper for parseISO to handle potential invalid dates gracefully
 export function parseValidISO(dateString: string | null | undefined): Date | null {
   if (!dateString) return null;
   try {
@@ -30,8 +27,7 @@ export function formatDateIST(date: Date | string | number, formatString: string
     }
     
     if (!dateObj || !isValid(dateObj)) {
-      // console.warn('Invalid date value provided to formatDateIST:', date);
-      return "Invalid Date"; // Or "N/A" or throw error
+      return "Invalid Date"; 
     }
     return formatInTimeZone(dateObj, 'Asia/Kolkata', formatString);
   } catch (error) {

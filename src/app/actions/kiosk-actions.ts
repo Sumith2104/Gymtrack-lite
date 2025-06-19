@@ -5,7 +5,7 @@ import { createSupabaseServerActionClient } from '@/lib/supabase/server';
 import type { Member, FormattedCheckIn, CheckIn, MembershipType, MembershipStatus } from '@/lib/types';
 import { sendEmail } from '@/lib/email-service';
 import { formatDateIST, parseValidISO } from '@/lib/date-utils'; 
-// Removed: import { generateMotivationalQuote, type MotivationalQuoteInput } from '@/ai/flows/generate-motivational-quote';
+
 import { addHours } from 'date-fns';
 
 function mapDbMemberToAppMember(dbMember: any): Member { 
@@ -43,7 +43,7 @@ export async function findMemberForCheckInAction(identifier: string, gymDatabase
       .single();
 
     if (error) {
-      console.error('Error finding member for check-in:', error.message);
+      
       if (error.code === 'PGRST116') return { error: "Member not found at this gym."} 
       return { error: error.message };
     }
@@ -55,7 +55,7 @@ export async function findMemberForCheckInAction(identifier: string, gymDatabase
     return { member };
 
   } catch (e: any) {
-    console.error('Unexpected error in findMemberForCheckInAction:', e.message);
+    
     return { error: 'An unexpected error occurred while finding the member.' };
   }
 }
@@ -83,7 +83,7 @@ export async function recordCheckInAction(memberTableUuid: string, gymDatabaseId
         .maybeSingle();
     
     if(existingError){
-        console.error("Error checking for existing check-in:", existingError.message);
+        // console.error("Error checking for existing check-in:", existingError.message);
     }
 
     if(existingCheckin){
@@ -98,17 +98,17 @@ export async function recordCheckInAction(memberTableUuid: string, gymDatabaseId
         check_in_time: checkInTime,
         created_at: new Date().toISOString(),
       })
-      .select('id') // Select the ID of the newly inserted row
+      .select('id') 
       .single();
 
     if (error || !newCheckInData) {
-      console.error('Error recording check-in:', error?.message);
+      
       return { success: false, error: error?.message || "Failed to insert check-in record." };
     }
     return { success: true, checkInTime, checkInRecordId: newCheckInData.id };
 
   } catch (e: any) {
-    console.error('Unexpected error in recordCheckInAction:', e.message);
+    
     return { success: false, error: 'An unexpected error occurred while recording the check-in.' };
   }
 }
@@ -130,7 +130,6 @@ export async function sendCheckInEmailAction(
     }
     const projectedCheckoutTime = addHours(checkInTimeDate, 2);
 
-    // AI Quote generation removed. Use a default static quote.
     const quote = "Sweat now, shine later. Make every rep count!"; 
 
     const emailSubject = `Check-in Confirmed at ${gymName}!`;
@@ -156,7 +155,7 @@ export async function sendCheckInEmailAction(
     });
 
   } catch (error: any) {
-    console.error("Error in sendCheckInEmailAction:", error);
+    
     return { success: false, message: `Failed to process check-in email: ${error.message}` };
   }
 }
@@ -166,22 +165,16 @@ export async function fetchTodaysCheckInsForKioskAction(gymDatabaseId: string, g
   if (!gymDatabaseId) return { checkIns: [], error: "Gym ID is required." };
 
   const supabase = createSupabaseServerActionClient();
-  // Removed date filtering to fetch all check-ins
-  // const today = new Date();
-  // const startOfDay = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate(), 0, 0, 0, 0)).toISOString();
-  // const endOfDay = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate(), 23, 59, 59, 999)).toISOString();
-
+  
   try {
     const { data: dbCheckIns, error } = await supabase
       .from('check_ins')
       .select('id, member_table_id, check_in_time, check_out_time, created_at, members(name, member_id)')
       .eq('gym_id', gymDatabaseId)
-      // .gte('check_in_time', startOfDay) // Removed start of day filter
-      // .lte('check_in_time', endOfDay)   // Removed end of day filter
       .order('check_in_time', { ascending: false });
 
     if (error) {
-      console.error('Error fetching check-ins:', error.message);
+      
       return { checkIns: [], error: error.message };
     }
     if (!dbCheckIns) {
@@ -202,8 +195,7 @@ export async function fetchTodaysCheckInsForKioskAction(gymDatabaseId: string, g
     return { checkIns: formattedCheckIns };
 
   } catch (e: any) {
-    console.error('Unexpected error fetching check-ins:', e.message);
+    
     return { checkIns: [], error: 'Failed to fetch check-ins.' };
   }
 }
-

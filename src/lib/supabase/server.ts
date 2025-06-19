@@ -1,7 +1,6 @@
-// src/lib/supabase/server.ts
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { cookies } from 'next/headers';
-import type { Database } from '@/lib/database.types'; // We'll create this if it doesn't exist
+import type { Database } from '@/lib/database.types'; 
 
 export function createSupabaseServerClient() {
   const cookieStore = cookies();
@@ -39,7 +38,7 @@ export function createSupabaseServerClient() {
 // Specific client for Server Actions
 export function createSupabaseServerActionClient() {
   const cookieStore = cookies();
-  return createServerClient<Database>( // Using the generic createServerClient as it's flexible
+  return createServerClient<Database>( 
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {

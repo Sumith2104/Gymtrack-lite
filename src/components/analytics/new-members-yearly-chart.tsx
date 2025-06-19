@@ -37,7 +37,6 @@ export function NewMembersYearlyChart() {
   useEffect(() => {
     if (!gymDbId) {
       setIsLoading(false);
-      // setError("Gym ID not found. Cannot load yearly new members.");
       const currentYear = new Date().getFullYear();
       setChartData(Array(5).fill(0).map((_, i) => ({ year: (currentYear - 4 + i).toString(), count: 0 })));
       return;
@@ -56,7 +55,7 @@ export function NewMembersYearlyChart() {
         }
       })
       .catch(err => {
-        console.error("NewMembersYearlyChart fetch error:", err);
+        
         setError("Failed to load yearly new members data.");
         const currentYear = new Date().getFullYear();
           setChartData(Array(5).fill(0).map((_, i) => ({ year: (currentYear - 4 + i).toString(), count: 0 })));
@@ -123,5 +122,3 @@ export function NewMembersYearlyChart() {
     </Card>
   );
 }
-
-    

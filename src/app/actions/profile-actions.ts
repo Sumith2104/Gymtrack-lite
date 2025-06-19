@@ -13,7 +13,7 @@ export interface EarningsData {
 }
 
 interface RawMemberPlanData {
-  membership_status: string; // Though we filter by active, it's good practice if the type reflects what could be selected
+  membership_status: string; 
   plans: {
     price: number;
     duration_months: number | null;
@@ -28,7 +28,7 @@ export async function getGymEarningsData(gymDatabaseId: string): Promise<{ data?
   const supabase = createSupabaseServerActionClient();
 
   try {
-    // Fetch only active members for these calculations
+    
     const { data: membersData, error: membersError } = await supabase
       .from('members')
       .select(`
@@ -43,11 +43,11 @@ export async function getGymEarningsData(gymDatabaseId: string): Promise<{ data?
       .eq('membership_status', 'active'); 
 
     if (membersError) {
-      console.error('Error fetching active members for earnings data:', membersError.message);
+      
       return { error: `DB error fetching active members: ${membersError.message}` };
     }
 
-    // Initialize with default values, especially if no active members are found
+    
     if (!membersData || membersData.length === 0) {
       return {
         data: {
@@ -69,17 +69,13 @@ export async function getGymEarningsData(gymDatabaseId: string): Promise<{ data?
       if (member.plans && member.plans.price > 0) {
         totalValueOfActivePlans += member.plans.price;
 
-        // Calculate contribution to monthly revenue
+        
         if (member.plans.duration_months && member.plans.duration_months > 0) {
           currentMonthlyRevenueSum += member.plans.price / member.plans.duration_months;
         } else if (member.plans.duration_months === 1) { 
-           // Explicitly count 1-month plans as their full price for MRR
            currentMonthlyRevenueSum += member.plans.price;
         }
-        // Note: Plans with null or 0 duration (other than 1) are complex for MRR.
-        // This logic assumes duration_months is the period over which the price is spread for MRR.
-        // E.g. A plan for $120 with duration_months = 12 contributes $10 to MRR.
-        // A plan for $50 with duration_months = 1 contributes $50 to MRR.
+        
 
         const planName = member.plans.plan_name || 'Unknown Plan';
         planCounts[planName] = (planCounts[planName] || 0) + 1;
@@ -92,9 +88,9 @@ export async function getGymEarningsData(gymDatabaseId: string): Promise<{ data?
     if (Object.keys(planCounts).length > 0) {
       const topPlanEntry = Object.entries(planCounts).reduce(
         (top, current) => (current[1] > top[1] ? current : top),
-        ['', 0] // Initialize with a dummy entry
+        ['', 0] 
       );
-      if (topPlanEntry[0]) { // Check if a top plan was actually found
+      if (topPlanEntry[0]) { 
          topPerformingPlanName = topPlanEntry[0];
       }
     }
@@ -110,7 +106,7 @@ export async function getGymEarningsData(gymDatabaseId: string): Promise<{ data?
     };
 
   } catch (e: any) {
-    console.error('Unexpected error in getGymEarningsData:', e.message);
+    
     return { error: `Calculation error: ${e.message}` };
   }
 }

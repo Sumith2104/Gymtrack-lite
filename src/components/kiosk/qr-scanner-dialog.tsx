@@ -23,12 +23,9 @@ export function QrScannerDialog({ isOpen, onOpenChange, onScanSuccess, onScanErr
   const [showInitialPrompt, setShowInitialPrompt] = useState(false);
 
   const initializeScanner = () => {
-    // Guard against multiple initializations or if the target element isn't ready
     if (scannerRef.current || !document.getElementById(QR_READER_ELEMENT_ID)) {
       return;
     }
-    // `setCameraError` and `setShowInitialPrompt` are called in useEffect before this
-    // to ensure the DOM is stable before `render()` is called.
 
     try {
       const config = {
@@ -57,10 +54,9 @@ export function QrScannerDialog({ isOpen, onOpenChange, onScanSuccess, onScanErr
             .finally(() => {
               scannerRef.current = null;
               onScanSuccess(decodedText);
-              onOpenChange(false); // This will trigger useEffect cleanup
+              onOpenChange(false); 
             });
         } else {
-           // Fallback if ref is somehow null
           onScanSuccess(decodedText);
           onOpenChange(false);
         }
@@ -68,41 +64,34 @@ export function QrScannerDialog({ isOpen, onOpenChange, onScanSuccess, onScanErr
 
       const errorCallback = (errorMessage: string, error: Html5QrcodeError) => {
         if (errorMessage.toLowerCase().includes("qr code parse error") || errorMessage.toLowerCase().includes("nomatched")) {
-          // These are common "no QR found" errors, not critical camera/permission issues.
-          // console.warn("QR Scanner: No QR code found or parse error - ", errorMessage);
           return;
         }
-        console.error(`QR Scanner Error: ${errorMessage}`, error);
+        
         if (errorMessage.toLowerCase().includes("permission") || errorMessage.toLowerCase().includes("not found") || errorMessage.toLowerCase().includes("constraint")) {
            setCameraError(`Scan Error: ${errorMessage}. Try again or enter ID manually.`);
         }
       };
       
-      // This is line 80 (approx) from the error.
       newScanner.render(successCallback, errorCallback);
 
     } catch (err: any) {
-      console.error("Failed to initialize QR Scanner instance or render:", err);
+      
       setCameraError(`Initialization/Render error: ${err.message || "Unknown error"}. Try refreshing or check permissions.`);
-      // Optionally call onScanError if initialization itself fails critically
-      // onScanError(`Initialization/Render error: ${err.message || "Unknown error"}.`);
     }
   };
   
   useEffect(() => {
     if (isOpen) {
-      setCameraError(null); // Reset error on open
-      setShowInitialPrompt(true); // Set prompt to true, which may show "grant access" alert
+      setCameraError(null); 
+      setShowInitialPrompt(true); 
 
       const timer = setTimeout(() => {
-        // Check isOpen again in case it was closed quickly
         if (isOpen && !scannerRef.current && document.getElementById(QR_READER_ELEMENT_ID)) {
           initializeScanner();
         }
-      }, 150); // Delay to ensure DOM is ready and initial state updates are processed
+      }, 150); 
       return () => clearTimeout(timer);
     } else {
-      // Cleanup when dialog is closed
       if (scannerRef.current) {
         scannerRef.current.clear()
           .catch(e => {
@@ -112,7 +101,6 @@ export function QrScannerDialog({ isOpen, onOpenChange, onScanSuccess, onScanErr
             scannerRef.current = null;
           });
       }
-      // Reset these states when the dialog is fully closed
       setCameraError(null);
       setShowInitialPrompt(false);
     }
@@ -120,12 +108,11 @@ export function QrScannerDialog({ isOpen, onOpenChange, onScanSuccess, onScanErr
   }, [isOpen]); 
 
   const handleDialogClose = () => {
-    // onOpenChange(false) will trigger the useEffect's cleanup logic.
     onOpenChange(false);
   }
 
   return (
-    <Dialog open={isOpen} onOpenChange={onOpenChange}> {/* Pass onOpenChange directly */}
+    <Dialog open={isOpen} onOpenChange={onOpenChange}> 
       <DialogOverlay className="bg-black/80 backdrop-blur-sm" />
       <DialogContent className="sm:max-w-md p-4 bg-card text-card-foreground border-border rounded-lg">
         <DialogHeader>
@@ -135,7 +122,6 @@ export function QrScannerDialog({ isOpen, onOpenChange, onScanSuccess, onScanErr
           </DialogDescription>
         </DialogHeader>
         
-        {/* This div is solely for the html5-qrcode library to render into. Keep it empty of React children. */}
         <div className="w-full aspect-square max-w-xs mx-auto my-4">
           <div 
             id={QR_READER_ELEMENT_ID} 
@@ -145,7 +131,6 @@ export function QrScannerDialog({ isOpen, onOpenChange, onScanSuccess, onScanErr
           </div>
         </div>
         
-        {/* Informational and Error Alerts - Rendered outside the scanner's dedicated div */}
         {isOpen && showInitialPrompt && !cameraError && !scannerRef.current && (
             <Alert className="mt-4 border-primary/50 bg-primary/10">
                 <Info className="h-5 w-5 text-primary" />
@@ -164,7 +149,6 @@ export function QrScannerDialog({ isOpen, onOpenChange, onScanSuccess, onScanErr
           </Alert>
         )}
 
-        {/* Fallback message if scanner is initializing but not yet visible via ref */}
         {isOpen && !showInitialPrompt && !cameraError && !scannerRef.current && (
            <Alert variant="default" className="mt-4">
              <Info className="h-5 w-5" />
@@ -182,4 +166,3 @@ export function QrScannerDialog({ isOpen, onOpenChange, onScanSuccess, onScanErr
     </Dialog>
   );
 }
-
