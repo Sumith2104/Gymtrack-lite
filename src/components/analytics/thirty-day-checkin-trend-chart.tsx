@@ -6,11 +6,11 @@ import { Line, LineChart, ResponsiveContainer, XAxis, YAxis, CartesianGrid } fro
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { TrendingUp, AlertCircle } from 'lucide-react';
 import { ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
-import { getThirtyDayCheckInTrend } from '@/app/actions/analytics-actions';
+import { getThirtyDayCheckInTrend } from '@/app/actions/analytics-actions'; // Action name is kept, but logic inside is changed
 import { Skeleton } from '@/components/ui/skeleton';
 
 interface DailyCheckin {
-  date: string; 
+  date: string; // Format 'dd/MM/yy'
   count: number;
 }
 
@@ -38,12 +38,13 @@ export function ThirtyDayCheckinTrendChart() {
     if (!gymDbId) {
       setIsLoading(false);
       setChartData([]);
+      setError("Gym ID not found. Cannot load trend data.");
       return;
     }
 
     setIsLoading(true);
     setError(null);
-    getThirtyDayCheckInTrend(gymDbId)
+    getThirtyDayCheckInTrend(gymDbId) // Action name is kept, its internal logic is updated
       .then(response => {
         if (response.error) {
           setError(response.error);
@@ -53,8 +54,7 @@ export function ThirtyDayCheckinTrendChart() {
         }
       })
       .catch(err => {
-        
-        setError("Failed to load 30-day check-in trend data.");
+        setError("Failed to load check-in trend data.");
         setChartData([]);
       })
       .finally(() => {
@@ -62,14 +62,25 @@ export function ThirtyDayCheckinTrendChart() {
       });
   }, [gymDbId]);
 
+  const tickFormatter = (value: string, index: number) => {
+    if (chartData.length === 0) return '';
+    // Show first, last, and roughly every Nth tick to avoid clutter
+    // N can be adjusted based on typical data length. e.g. 7 for weekly if many days.
+    const N = Math.max(1, Math.floor(chartData.length / 10)); // Aim for around 10-15 ticks
+    if (index === 0 || index === chartData.length - 1 || index % N === 0) {
+      return value;
+    }
+    return '';
+  };
+
   return (
     <Card className="shadow-lg">
       <CardHeader>
         <div className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">30-Day Check-in Trend</CardTitle>
+          <CardTitle className="text-sm font-medium">Check-in Trend Since Gym Creation</CardTitle>
            <TrendingUp className="h-5 w-5 text-primary" />
         </div>
-        <CardDescription>Daily member check-ins over the past 30 days</CardDescription>
+        <CardDescription>Daily member check-ins since the gym was registered. Dates are DD/MM/YY.</CardDescription>
       </CardHeader>
       <CardContent>
         {isLoading ? (
@@ -79,30 +90,33 @@ export function ThirtyDayCheckinTrendChart() {
         ) : error ? (
           <div className="h-[300px] w-full flex flex-col items-center justify-center text-destructive">
             <AlertCircle className="h-12 w-12 mb-2" />
-            <p className="text-sm text-center">Error loading 30-day trend.</p>
+            <p className="text-sm text-center">Error loading trend data.</p>
             <p className="text-xs text-center mt-1">{error}</p>
           </div>
         ) : chartData.length === 0 && !isLoading ? (
            <div className="h-[300px] w-full flex items-center justify-center text-muted-foreground">
-            No check-in data available for the last 30 days for this gym.
+            No check-in data available for this gym.
           </div>
         ) : (
           <ChartContainer config={chartConfig} className="h-[300px] w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={chartData} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
+              <LineChart data={chartData} margin={{ top: 5, right: 20, left: -10, bottom: 20 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border) / 0.5)" />
                 <XAxis
                   dataKey="date"
                   tickLine={false}
-                  axisLine={false}
+                  axisLine={true}
                   tickMargin={8}
                   fontSize={10} 
-                  interval="preserveStartEnd" 
-                  tickFormatter={(value, index) => index % 4 === 0 || index === chartData.length -1 ? value : ''} 
+                  interval="preserveStartEnd"
+                  tickFormatter={tickFormatter}
+                  angle={chartData.length > 30 ? -30 : 0}
+                  textAnchor={chartData.length > 30 ? "end" : "middle"}
+                  minTickGap={chartData.length > 60 ? 20 : 5}
                 />
                 <YAxis 
                   tickLine={false}
-                  axisLine={false}
+                  axisLine={true}
                   tickMargin={8}
                   fontSize={12}
                   allowDecimals={false}
@@ -118,7 +132,7 @@ export function ThirtyDayCheckinTrendChart() {
                   dataKey="count"
                   stroke="var(--color-checkins)"
                   strokeWidth={2}
-                  dot={{ r: 2, fill: "var(--color-checkins)", strokeWidth:1, stroke: "hsl(var(--background))" }}
+                  dot={{ r: chartData.length > 90 ? 0 : (chartData.length > 30 ? 1 : 2), fill: "var(--color-checkins)", strokeWidth:1, stroke: "hsl(var(--background))" }}
                   activeDot={{ r: 4, strokeWidth: 2 }}
                 />
               </LineChart>
@@ -129,3 +143,4 @@ export function ThirtyDayCheckinTrendChart() {
     </Card>
   );
 }
+```

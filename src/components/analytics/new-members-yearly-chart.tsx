@@ -10,7 +10,7 @@ import { getNewMembersYearly } from '@/app/actions/analytics-actions';
 import { Skeleton } from '@/components/ui/skeleton';
 
 interface YearlyNewMembers {
-  year: string;
+  year: string; // Format "yyyy"
   count: number;
 }
 
@@ -37,8 +37,8 @@ export function NewMembersYearlyChart() {
   useEffect(() => {
     if (!gymDbId) {
       setIsLoading(false);
-      const currentYear = new Date().getFullYear();
-      setChartData(Array(5).fill(0).map((_, i) => ({ year: (currentYear - 4 + i).toString(), count: 0 })));
+      setChartData([]);
+      setError("Gym ID not found. Cannot load yearly new members data.");
       return;
     }
 
@@ -48,17 +48,14 @@ export function NewMembersYearlyChart() {
       .then(response => {
         if (response.error) {
           setError(response.error);
-          const currentYear = new Date().getFullYear();
-          setChartData(Array(5).fill(0).map((_, i) => ({ year: (currentYear - 4 + i).toString(), count: 0 })));
+          setChartData([]);
         } else {
           setChartData(response.data);
         }
       })
       .catch(err => {
-        
         setError("Failed to load yearly new members data.");
-        const currentYear = new Date().getFullYear();
-          setChartData(Array(5).fill(0).map((_, i) => ({ year: (currentYear - 4 + i).toString(), count: 0 })));
+        setChartData([]);
       })
       .finally(() => {
         setIsLoading(false);
@@ -70,10 +67,10 @@ export function NewMembersYearlyChart() {
     <Card className="shadow-lg">
       <CardHeader>
         <div className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Yearly New Members Trend</CardTitle>
+          <CardTitle className="text-sm font-medium">Yearly New Members Trend (Since Creation)</CardTitle>
            <Users className="h-5 w-5 text-primary" />
         </div>
-        <CardDescription>Total new members acquired each year (Past 5 Years)</CardDescription>
+        <CardDescription>Total new members acquired each year since gym creation</CardDescription>
       </CardHeader>
       <CardContent>
          {isLoading ? (
@@ -86,7 +83,11 @@ export function NewMembersYearlyChart() {
             <p className="text-sm text-center">Error loading yearly data.</p>
             <p className="text-xs text-center mt-1">{error}</p>
           </div>
-        ) : (
+        ) : chartData.length === 0 && !isLoading ? (
+          <div className="h-[300px] w-full flex items-center justify-center text-muted-foreground">
+            No new member data available for this gym.
+          </div>
+        ): (
           <ChartContainer config={chartConfig} className="h-[300px] w-full">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={chartData} margin={{ top: 5, right: 0, left: -25, bottom: 5 }}>
@@ -94,14 +95,14 @@ export function NewMembersYearlyChart() {
                 <XAxis
                   dataKey="year"
                   tickLine={false}
-                  axisLine={false}
+                  axisLine={true}
                   tickMargin={8}
                   fontSize={12}
                   stroke="hsl(var(--muted-foreground))"
                 />
                 <YAxis 
                   tickLine={false}
-                  axisLine={false}
+                  axisLine={true}
                   tickMargin={8}
                   fontSize={12}
                   stroke="hsl(var(--muted-foreground))"
@@ -113,7 +114,7 @@ export function NewMembersYearlyChart() {
                   content={<ChartTooltipContent indicator="line" hideLabel hideIndicator={false} />}
                   formatter={(value, name, props) => [`${value} new members in ${props.payload.year}`, null]}
                 />
-                <Bar dataKey="count" fill="var(--color-annualNewMembers)" radius={[4, 4, 0, 0]} barSize={30} />
+                <Bar dataKey="count" fill="var(--color-annualNewMembers)" radius={[4, 4, 0, 0]} barSize={chartData.length > 10 ? 15: 30} />
               </BarChart>
             </ResponsiveContainer>
           </ChartContainer>
@@ -122,3 +123,4 @@ export function NewMembersYearlyChart() {
     </Card>
   );
 }
+```
