@@ -5,26 +5,112 @@ import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { OccupancyCard } from '@/components/dashboard/occupancy-card';
 import { CheckinTrendsChart } from '@/components/dashboard/checkin-trends-chart';
-import { DollarSign, Users, TrendingUp, Landmark } from 'lucide-react';
+import { DollarSign, Users, TrendingUp, Landmark, AlertCircle, Trophy, PackageOpen } from 'lucide-react';
+import { getGymEarningsData, type EarningsData } from '@/app/actions/profile-actions';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 
-// Mock data for earnings - replace with actual data fetching later
-const mockEarnings = {
-  totalRevenue: 75000,
-  monthlyRevenue: 6500,
-  averageRevenuePerMember: 120,
-  topPerformingPlan: 'Premium Annual',
-};
 
 export default function ProfilePage() {
   const [gymName, setGymName] = useState<string | null>(null);
   const [ownerEmail, setOwnerEmail] = useState<string | null>(null);
+  const [gymDatabaseId, setGymDatabaseId] = useState<string | null>(null);
+
+  const [earningsData, setEarningsData] = useState<EarningsData | null>(null);
+  const [isLoadingEarnings, setIsLoadingEarnings] = useState(true);
+  const [earningsError, setEarningsError] = useState<string | null>(null);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
       setGymName(localStorage.getItem('gymName'));
       setOwnerEmail(localStorage.getItem('gymOwnerEmail'));
+      const dbId = localStorage.getItem('gymDatabaseId');
+      setGymDatabaseId(dbId);
     }
   }, []);
+
+  useEffect(() => {
+    if (gymDatabaseId) {
+      setIsLoadingEarnings(true);
+      setEarningsError(null);
+      getGymEarningsData(gymDatabaseId)
+        .then(response => {
+          if (response.error || !response.data) {
+            setEarningsError(response.error || 'Failed to load earnings data.');
+            setEarningsData(null);
+          } else {
+            setEarningsData(response.data);
+          }
+        })
+        .catch(err => {
+          console.error("ProfilePage earnings fetch error:", err);
+          setEarningsError("An unexpected error occurred while fetching earnings.");
+          setEarningsData(null);
+        })
+        .finally(() => {
+          setIsLoadingEarnings(false);
+        });
+    } else if (gymName !== null) { // If gymName is loaded but no dbId, implies an issue
+        setIsLoadingEarnings(false);
+        setEarningsError("Gym Database ID not found. Cannot load earnings.");
+    }
+  }, [gymDatabaseId, gymName]);
+
+  const renderEarningsContent = () => {
+    if (isLoadingEarnings) {
+      return (
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+          <Skeleton className="h-24 rounded-lg" />
+          <Skeleton className="h-24 rounded-lg" />
+          <Skeleton className="h-24 rounded-lg" />
+          <Skeleton className="h-24 rounded-lg" />
+        </div>
+      );
+    }
+
+    if (earningsError) {
+      return (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Error Loading Earnings</AlertTitle>
+          <AlertDescription>{earningsError}</AlertDescription>
+        </Alert>
+      );
+    }
+
+    if (!earningsData) {
+      return (
+         <Alert variant="default">
+            <PackageOpen className="h-4 w-4" />
+            <AlertTitle>No Earnings Data</AlertTitle>
+            <AlertDescription>No earnings data available for this gym yet, or an error occurred.</AlertDescription>
+        </Alert>
+      );
+    }
+    
+    return (
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+        <div className="p-4 bg-muted/30 rounded-lg">
+          <h3 className="text-sm font-medium text-muted-foreground">Total Value of Active Plans</h3>
+          <p className="text-2xl font-bold text-primary">₹{earningsData.totalValueOfActivePlans.toLocaleString()}</p>
+        </div>
+        <div className="p-4 bg-muted/30 rounded-lg">
+          <h3 className="text-sm font-medium text-muted-foreground">Current Monthly Revenue (Est.)</h3>
+          <p className="text-2xl font-bold text-primary">₹{earningsData.currentMonthlyRevenue.toLocaleString()}</p>
+        </div>
+        <div className="p-4 bg-muted/30 rounded-lg">
+          <h3 className="text-sm font-medium text-muted-foreground">Avg. Monthly Revenue/Active Member</h3>
+          <p className="text-2xl font-bold text-primary">₹{earningsData.averageRevenuePerActiveMember.toLocaleString()}</p>
+        </div>
+        <div className="p-4 bg-muted/30 rounded-lg">
+          <h3 className="text-sm font-medium text-muted-foreground">Top Plan (by Active Members)</h3>
+          <p className="text-lg font-semibold text-foreground">{earningsData.topPerformingPlanName || 'N/A'}</p>
+           <p className="text-xs text-muted-foreground">Based on {earningsData.activeMemberCount} active member(s)</p>
+        </div>
+      </div>
+    );
+  };
+
 
   return (
     <div className="flex flex-col gap-8">
@@ -64,32 +150,17 @@ export default function ProfilePage() {
       </Card>
 
 
-      {/* Earnings Overview Card - Placeholder */}
+      {/* Earnings Overview Card */}
       <Card className="shadow-lg">
         <CardHeader>
           <div className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-lg font-semibold">Earnings Overview (Mock Data)</CardTitle>
+            <CardTitle className="text-lg font-semibold">Earnings Overview</CardTitle>
             <DollarSign className="h-5 w-5 text-primary" />
           </div>
-          <CardDescription>A summary of your gym's financial performance.</CardDescription>
+          <CardDescription>Summary of your gym's current financial standing based on active memberships.</CardDescription>
         </CardHeader>
-        <CardContent className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-          <div className="p-4 bg-muted/30 rounded-lg">
-            <h3 className="text-sm font-medium text-muted-foreground">Total Revenue</h3>
-            <p className="text-2xl font-bold text-primary">₹{mockEarnings.totalRevenue.toLocaleString()}</p>
-          </div>
-          <div className="p-4 bg-muted/30 rounded-lg">
-            <h3 className="text-sm font-medium text-muted-foreground">This Month's Revenue</h3>
-            <p className="text-2xl font-bold text-primary">₹{mockEarnings.monthlyRevenue.toLocaleString()}</p>
-          </div>
-          <div className="p-4 bg-muted/30 rounded-lg">
-            <h3 className="text-sm font-medium text-muted-foreground">Avg. Revenue/Member</h3>
-            <p className="text-2xl font-bold text-primary">₹{mockEarnings.averageRevenuePerMember.toLocaleString()}</p>
-          </div>
-          <div className="p-4 bg-muted/30 rounded-lg">
-            <h3 className="text-sm font-medium text-muted-foreground">Top Plan</h3>
-            <p className="text-lg font-semibold text-foreground">{mockEarnings.topPerformingPlan}</p>
-          </div>
+        <CardContent>
+          {renderEarningsContent()}
         </CardContent>
       </Card>
 
