@@ -155,7 +155,7 @@ export function CheckinForm({ className, onSuccessfulCheckin }: CheckinFormProps
                       <Input 
                         placeholder="Enter your Member ID" 
                         {...field} 
-                        className="text-base h-auto py-6 px-4 bg-input text-foreground focus:ring-primary focus:ring-2 focus:border-primary" 
+                        className="text-base h-auto py-4 px-4 bg-input text-foreground focus:ring-primary focus:ring-2 focus:border-primary" 
                         autoFocus 
                       />
                     </FormControl>
