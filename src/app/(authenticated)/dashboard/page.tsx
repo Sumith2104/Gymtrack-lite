@@ -27,6 +27,7 @@ export default function DashboardPage() {
         <p className="text-muted-foreground mt-1">
           Overview of current gym status, activity trends, and important updates.
         </p>
+        <div className="mt-3 h-1 w-24 bg-primary rounded-full"></div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -42,4 +43,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-
