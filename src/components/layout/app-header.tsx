@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import type { LucideIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { APP_NAME, APP_LOGO as AppLogoIcon, NAV_LINKS_HEADER } from '@/lib/constants';
+import { APP_NAME, APP_LOGO as AppLogoIcon, NAV_LINKS_HEADER, USER_NAV_LINKS } from '@/lib/constants';
 import { cn } from '@/lib/utils';
 import {
   DropdownMenu,
@@ -18,12 +18,12 @@ import {
 import {
   Sheet,
   SheetContent,
-  SheetHeader, // Added
-  SheetTitle,  // Added
+  SheetHeader, 
+  SheetTitle,  
   SheetTrigger,
   SheetClose,
 } from '@/components/ui/sheet';
-import { UserCircle, LogOut, Menu as MenuIcon } from 'lucide-react';
+import { UserCircle, Menu as MenuIcon } from 'lucide-react'; // LogOut and Settings will come from USER_NAV_LINKS
 import { useState, useEffect } from 'react';
 
 
@@ -40,7 +40,7 @@ export function AppHeader() {
   const router = useRouter();
   const [displayGymName, setDisplayGymName] = useState('Gym Owner');
   const [displayOwnerEmail, setDisplayOwnerEmail] = useState('owner@example.com');
-  const [isSheetOpen, setIsSheetOpen] = useState(false); // State for mobile nav sheet
+  const [isSheetOpen, setIsSheetOpen] = useState(false); 
 
   useEffect(() => {
     const storedGymName = localStorage.getItem('gymName');
@@ -61,7 +61,7 @@ export function AppHeader() {
     localStorage.removeItem('gymDatabaseId');
     setDisplayGymName('Gym Owner');
     setDisplayOwnerEmail('owner@example.com');
-    setIsSheetOpen(false); // Close sheet on logout
+    setIsSheetOpen(false); 
     router.push('/login');
   };
 
@@ -179,10 +179,22 @@ export function AppHeader() {
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={handleLogout} className="cursor-pointer">
-                <LogOut className="mr-2 h-4 w-4" />
-                <span>Log out</span>
-              </DropdownMenuItem>
+              {USER_NAV_LINKS.map((item) => (
+                <DropdownMenuItem
+                  key={item.label}
+                  onClick={() => {
+                    if (item.action === 'logout') {
+                      handleLogout();
+                    } else {
+                      router.push(item.href);
+                    }
+                  }}
+                  className="cursor-pointer"
+                >
+                  <item.icon className="mr-2 h-4 w-4" />
+                  <span>{item.label}</span>
+                </DropdownMenuItem>
+              ))}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
