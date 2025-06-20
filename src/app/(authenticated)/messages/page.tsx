@@ -118,9 +118,10 @@ export default function MessagesPage() {
     if (response.error || !response.newMessage) {
       toast({ variant: "destructive", title: "Message Failed", description: response.error || "Could not send message." });
     } else {
-      toast({ title: "Message Sent!", description: `Your message to ${selectedMember.name} has been sent.` });
+      // toast({ title: "Message Sent!", description: `Your message to ${selectedMember.name} has been sent.` }); // Removed success toast
       setNewMessageInput('');
       
+      // Refresh conversation to show the new message
       fetchConversation(gymDatabaseId, adminSenderId, selectedMember);
     }
     setIsSending(false);
@@ -223,7 +224,7 @@ export default function MessagesPage() {
                         {dateHeaderElement}
                         <div className={cn("flex", msg.senderId === adminSenderId ? "justify-end" : "justify-start")}>
                           <div className={cn(
-                            "max-w-[70%] p-3 rounded-2xl shadow", // Changed from rounded-lg
+                            "max-w-[70%] p-3 rounded-2xl shadow", 
                             msg.senderId === adminSenderId ? "bg-primary text-primary-foreground" : "bg-card text-card-foreground border"
                           )}>
                             <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
