@@ -111,7 +111,7 @@ export interface AttendanceSummary {
 // Used for mapping Supabase member row with plan details
 export interface MemberWithPlanDetails extends Omit<Member, 'membershipType' | 'planPrice'> {
   plans: {
-    plan_name: string; // Changed from MembershipType
+    plan_name: string; 
     price: number;
     duration_months: number | null;
   } | null;
@@ -119,3 +119,18 @@ export interface MemberWithPlanDetails extends Omit<Member, 'membershipType' | '
 
 // UI Display Status type, derived from MembershipStatus and expiryDate
 export type EffectiveMembershipStatus = 'active' | 'expiring soon' | 'expired';
+
+export type MessageSenderType = 'admin' | 'member';
+export type MessageReceiverType = 'admin' | 'member';
+
+export interface Message {
+  id: string; // uuid
+  gymId: string; // uuid, FK to gyms.id
+  senderId: string; // uuid, can be gym owner's user_id or member's table id
+  receiverId: string; // uuid, can be gym owner's user_id or member's table id
+  senderType: MessageSenderType;
+  receiverType: MessageReceiverType;
+  content: string;
+  createdAt: string; // timestamptz
+  readAt?: string | null; // timestamptz
+}

@@ -1,6 +1,6 @@
 
 import type { NavItem } from '@/components/layout/app-header';
-import { LayoutDashboard, Users, BarChart3, ScanLine, Megaphone, Settings, Dumbbell, LogOut } from 'lucide-react';
+import { LayoutDashboard, Users, BarChart3, ScanLine, Megaphone, Settings, Dumbbell, LogOut, MessageSquare } from 'lucide-react';
 
 export const APP_NAME = "GymTrack Lite";
 export const APP_LOGO = Dumbbell;
@@ -37,9 +37,14 @@ export const NAV_LINKS_HEADER: NavItem[] = [
 
 export const USER_NAV_LINKS = [
   {
-    href: '/profile', // Mock
+    href: '/profile', 
     icon: Settings,
     label: 'Profile',
+  },
+  {
+    href: '/messages',
+    icon: MessageSquare,
+    label: 'Messages',
   },
    {
     href: '/login',

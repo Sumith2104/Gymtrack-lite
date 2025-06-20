@@ -215,6 +215,52 @@ export interface Database {
           }
         ]
       }
+      messages: { // New messages table definition
+        Row: {
+          id: string // uuid
+          gym_id: string // uuid
+          sender_id: string // uuid
+          receiver_id: string // uuid
+          sender_type: string // text, 'admin' or 'member'
+          receiver_type: string // text, 'admin' or 'member'
+          content: string // text
+          created_at: string // timestamp with time zone
+          read_at: string | null // timestamp with time zone
+        }
+        Insert: {
+          id?: string
+          gym_id: string
+          sender_id: string
+          receiver_id: string
+          sender_type: string
+          receiver_type: string
+          content: string
+          created_at?: string
+          read_at?: string | null
+        }
+        Update: {
+          id?: string
+          gym_id?: string
+          sender_id?: string
+          receiver_id?: string
+          sender_type?: string
+          receiver_type?: string
+          content?: string
+          created_at?: string
+          read_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "messages_gym_id_fkey"
+            columns: ["gym_id"]
+            referencedRelation: "gyms"
+            referencedColumns: ["id"]
+          }
+          // Note: FKs to members(id) for sender_id/receiver_id or auth.users(id)
+          // are not explicitly defined here to keep it simple, but would be good for data integrity.
+          // You'd add them if sender_id/receiver_id directly reference member UUIDs or auth user UUIDs.
+        ]
+      }
       super_admins: {
         Row: {
           id: string // uuid, default gen_random_uuid()
