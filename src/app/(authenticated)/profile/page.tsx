@@ -9,7 +9,7 @@ import { DollarSign, Users, TrendingUp, Landmark, AlertCircle, Trophy, PackageOp
 import { getGymEarningsData, type EarningsData } from '@/app/actions/profile-actions';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
-import { CreatePlanForm } from '@/components/profile/create-plan-form'; // Import the new component
+import { CreatePlanForm } from '@/components/profile/create-plan-form';
 
 
 export default function ProfilePage() {
@@ -104,7 +104,7 @@ export default function ProfilePage() {
           <p className="text-2xl font-bold text-primary mt-2">₹{earningsData.averageRevenuePerActiveMember.toLocaleString()}</p>
         </div>
         <div className="p-4 bg-muted/30 rounded-lg flex flex-col">
-          <h3 className="text-sm font-medium text-muted-foreground h-10">Top Plan (by Active Members)</h3>
+          <h3 className="text-sm font-medium text-muted-foreground h-10">Most Bought Plan (Active Members)</h3>
           <p className="text-lg font-semibold text-foreground mt-2">{earningsData.topPerformingPlanName || 'N/A'}</p>
            <p className="text-xs text-muted-foreground mt-1">Based on {earningsData.activeMemberCount} active member(s)</p>
         </div>
