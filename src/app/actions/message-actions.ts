@@ -1,33 +1,32 @@
 
 'use server';
 
-import { createSupabaseServiceRoleClient } from '@/lib/supabase/server'; // Changed to service role client
+import { createSupabaseServiceRoleClient } from '@/lib/supabase/server';
 import type { Message } from '@/lib/types';
+import { format } from 'date-fns';
 
 /**
- * Fetches messages for the current gym owner or a specific member.
- * This is a placeholder and will need more sophisticated logic for conversation grouping.
+ * Fetches the conversation history between an admin (gym) and a specific member.
  */
 export async function fetchMessagesAction(
   gymDatabaseId: string,
-  userId: string, 
-  userType: 'admin' | 'member'
+  adminFormattedGymId: string,
+  memberUuid: string
 ): Promise<{ data?: Message[]; error?: string }> {
-  if (!gymDatabaseId || !userId) {
-    return { error: 'Gym ID and User ID are required.' };
+  if (!gymDatabaseId || !adminFormattedGymId || !memberUuid) {
+    return { error: 'Gym ID, Admin ID, and Member ID are required to fetch conversation.' };
   }
-  // For fetching messages, RLS should ideally be used.
-  // If using service role here, ensure it's necessary or secure with filters.
-  // For now, keeping the server action client for reads, assuming RLS is set up for reads.
-  // Or, if service role is needed universally, switch this too and add robust filters.
-  const supabase = createSupabaseServiceRoleClient(); // Or createSupabaseServerActionClient() if RLS for reads is fine
+
+  const supabase = createSupabaseServiceRoleClient();
   try {
     const { data, error } = await supabase
       .from('messages')
       .select('*')
       .eq('gym_id', gymDatabaseId)
-      .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`) 
-      .order('created_at', { ascending: false });
+      .or(
+        `and(sender_id.eq.${adminFormattedGymId},sender_type.eq.admin,receiver_id.eq.${memberUuid},receiver_type.eq.member),and(sender_id.eq.${memberUuid},sender_type.eq.member,receiver_id.eq.${adminFormattedGymId},receiver_type.eq.admin)`
+      )
+      .order('created_at', { ascending: true });
 
     if (error) {
       return { error: error.message };
@@ -50,8 +49,7 @@ export async function sendMessageAction(
   if (!gymDatabaseId || !adminSenderFormattedGymId || !memberReceiverUuid || !content.trim()) {
     return { error: 'Gym Database ID, Admin Sender Gym ID, Member Receiver UUID, and message content are required.' };
   }
-  
-  // Use the service role client to bypass RLS for this trusted server operation
+
   const supabase = createSupabaseServiceRoleClient();
 
   try {
@@ -59,9 +57,9 @@ export async function sendMessageAction(
       .from('messages')
       .insert({
         gym_id: gymDatabaseId,
-        sender_id: adminSenderFormattedGymId, 
+        sender_id: adminSenderFormattedGymId,
         sender_type: 'admin',
-        receiver_id: memberReceiverUuid, 
+        receiver_id: memberReceiverUuid,
         receiver_type: 'member',
         content: content.trim(),
         created_at: new Date().toISOString(),
@@ -83,13 +81,13 @@ export async function sendMessageAction(
  */
 export async function markMessagesAsReadAction(
   gymDatabaseId: string,
-  receiverId: string, 
+  receiverId: string,
   messageIdsToUpdate: string[]
 ): Promise<{ success: boolean; error?: string }> {
   if (!gymDatabaseId || !receiverId || messageIdsToUpdate.length === 0) {
     return { success: false, error: 'Gym ID, receiver ID, and message IDs are required.' };
   }
-  const supabase = createSupabaseServiceRoleClient(); // Or regular client if RLS allows receiver to update
+  const supabase = createSupabaseServiceRoleClient();
   try {
     const { error } = await supabase
       .from('messages')
@@ -97,7 +95,7 @@ export async function markMessagesAsReadAction(
       .eq('gym_id', gymDatabaseId)
       .eq('receiver_id', receiverId)
       .in('id', messageIdsToUpdate)
-      .is('read_at', null); 
+      .is('read_at', null);
 
     if (error) {
       return { success: false, error: error.message };
