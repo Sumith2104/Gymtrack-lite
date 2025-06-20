@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { MessageSquare, Users, Send, AlertCircle, Search, Loader2 } from 'lucide-react';
+import { MessageSquare, Users, Send, AlertCircle, Search, Loader2, X } from 'lucide-react';
 import type { Member } from '@/lib/types';
 import { fetchMembers as fetchMembersAction } from '@/app/actions/member-actions';
 import { Input } from '@/components/ui/input';
@@ -61,7 +61,7 @@ export default function MessagesPage() {
 
   const filteredMembers = members.filter(member =>
     member.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    member.memberId.toLowerCase().includes(searchTerm.toLowerCase())
+    (member.memberId && member.memberId.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   // const handleSendMessage = () => {
@@ -147,7 +147,7 @@ export default function MessagesPage() {
                       </Avatar>
                       <div className="flex-1 min-w-0">
                         <div className="font-medium text-foreground truncate">{member.name}</div>
-                        <div className="text-xs text-muted-foreground truncate">{member.memberId}</div>
+                        <div className="text-xs text-muted-foreground truncate">{member.memberId || 'N/A'}</div>
                         {/* TODO: Add unread message indicator here using a small dot or count */}
                       </div>
                     </Button>
@@ -163,16 +163,22 @@ export default function MessagesPage() {
           {selectedMember ? (
             <>
               <CardHeader className="border-b shrink-0">
-                <div className="flex items-center space-x-3">
-                  <Avatar className="h-10 w-10">
-                     <AvatarFallback className="bg-primary/20 text-primary font-semibold">
-                        {getInitials(selectedMember.name)}
-                      </AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <CardTitle className="text-xl">{selectedMember.name}</CardTitle>
-                    <CardDescription>{selectedMember.memberId}</CardDescription>
-                  </div>
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                        <Avatar className="h-10 w-10">
+                            <AvatarFallback className="bg-primary/20 text-primary font-semibold">
+                                {getInitials(selectedMember.name)}
+                            </AvatarFallback>
+                        </Avatar>
+                        <div>
+                            <CardTitle className="text-xl">{selectedMember.name}</CardTitle>
+                            <CardDescription>{selectedMember.memberId || 'N/A'}</CardDescription>
+                        </div>
+                    </div>
+                    <Button variant="ghost" size="icon" onClick={() => setSelectedMember(null)} className="text-muted-foreground hover:text-destructive">
+                        <X className="h-5 w-5" />
+                        <span className="sr-only">Close chat</span>
+                    </Button>
                 </div>
               </CardHeader>
               <CardContent className="flex-1 p-4 space-y-4 overflow-y-auto min-h-0">
@@ -194,7 +200,7 @@ export default function MessagesPage() {
                     disabled // Disabled until message sending is implemented
                   />
                   <Button /*onClick={handleSendMessage}*/ disabled> {/* Disabled */}
-                    <Send className="h-4 w-4" /> 
+                    <Send className="h-4 w-4" />
                   </Button>
                 </div>
               </CardFooter>
