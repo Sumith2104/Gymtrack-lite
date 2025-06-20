@@ -58,7 +58,7 @@ export function AddMemberDialog({ isOpen, onOpenChange, onMemberSaved, memberToE
     }
   }, []);
 
-  const { control, handleSubmit, setValue, reset, formState } = useForm<AddMemberFormValues>({
+  const formMethods = useForm<AddMemberFormValues>({
     resolver: zodResolver(addMemberFormSchema),
     defaultValues: {
       name: '',
@@ -68,6 +68,8 @@ export function AddMemberDialog({ isOpen, onOpenChange, onMemberSaved, memberToE
       selectedPlanUuid: '',
     },
   });
+
+  const { control, handleSubmit, setValue, reset, formState } = formMethods;
 
   useEffect(() => {
     async function fetchPlans() {
@@ -175,7 +177,7 @@ export function AddMemberDialog({ isOpen, onOpenChange, onMemberSaved, memberToE
             {isEditing ? "Update the member's information." : "Fill in the details to register a new gym member."}
           </DialogDescription>
         </DialogHeader>
-        <Form {...{ control, handleSubmit, setValue, reset, formState }}>
+        <Form {...formMethods}>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <FormField control={control} name="name" render={({ field }) => (
                 <FormItem><FormLabel className="text-foreground">Full Name</FormLabel><FormControl><Input className="bg-input text-foreground placeholder:text-muted-foreground border-border" placeholder="Enter member's full name" {...field} /></FormControl><FormMessage /></FormItem>
