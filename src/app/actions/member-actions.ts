@@ -6,9 +6,9 @@ import type { Member, MembershipStatus, EffectiveMembershipStatus } from '@/lib/
 import { APP_NAME } from '@/lib/constants';
 import { addMemberFormSchema, type AddMemberFormValues } from '@/lib/schemas/member-schemas';
 import { createSupabaseServerActionClient } from '@/lib/supabase/server';
-import { addAnnouncementAction } from './announcement-actions'; 
+import { addAnnouncementAction } from './announcement-actions';
 import { sendEmail } from '@/lib/email-service';
-import { formatDateIST, parseValidISO } from '@/lib/date-utils'; 
+import { formatDateIST, parseValidISO } from '@/lib/date-utils';
 
 interface AddMemberServerResponse {
   data?: {
@@ -20,9 +20,6 @@ interface AddMemberServerResponse {
 
 function mapDbMemberToAppMember(dbMember: any): Member {
   const planDetails = dbMember.plans;
-  // If membership_type is directly on dbMember (from the members table), use it.
-  // Otherwise, fall back to planDetails.plan_name.
-  // This handles cases where the DB might store it and cases where it's only derived.
   const typeFromDbMember = dbMember.membership_type as string | undefined;
 
   return {
@@ -32,13 +29,13 @@ function mapDbMemberToAppMember(dbMember: any): Member {
     memberId: dbMember.member_id,
     name: dbMember.name,
     email: dbMember.email,
-    membershipStatus: dbMember.membership_status as MembershipStatus, // DB stores 'active' or 'expired'
+    membershipStatus: dbMember.membership_status as MembershipStatus,
     createdAt: dbMember.created_at,
     age: dbMember.age,
     phoneNumber: dbMember.phone_number,
     joinDate: dbMember.join_date,
     expiryDate: dbMember.expiry_date,
-    membershipType: typeFromDbMember || planDetails?.plan_name || 'N/A', 
+    membershipType: typeFromDbMember || planDetails?.plan_name || 'N/A',
     planPrice: planDetails?.price ?? 0,
   };
 }
@@ -46,8 +43,8 @@ function mapDbMemberToAppMember(dbMember: any): Member {
 
 export async function addMember(
   formData: AddMemberFormValues,
-  gymDatabaseId: string, 
-  formattedGymId: string, 
+  gymDatabaseId: string,
+  formattedGymId: string,
   gymName: string
 ): Promise<AddMemberServerResponse> {
   const supabase = createSupabaseServerActionClient();
@@ -67,7 +64,7 @@ export async function addMember(
       .from('plans')
       .select('plan_name, price, duration_months')
       .eq('id', selectedPlanUuid)
-      .eq('gym_id', gymDatabaseId) // Ensure plan belongs to the gym
+      .eq('gym_id', gymDatabaseId)
       .eq('is_active', true)
       .single();
 
@@ -80,7 +77,7 @@ export async function addMember(
 
     const joinDate = new Date();
     const expiryDate = addMonths(joinDate, planDetails.duration_months);
-    
+
     const memberIdSuffix = Date.now().toString().slice(-4) + Math.random().toString(36).substring(2, 4).toUpperCase();
     const memberId = `${gymName.substring(0, 3).toUpperCase()}${name.substring(0,1).toUpperCase()}${memberIdSuffix}`.replace(/[^A-Z0-9]/g, '').substring(0, 10);
 
@@ -93,8 +90,8 @@ export async function addMember(
       email,
       phone_number: phoneNumber,
       age,
-      membership_status: 'active' as MembershipStatus, 
-      membership_type: planDetails.plan_name, // Add membership_type from plan_name
+      membership_status: 'active' as MembershipStatus,
+      membership_type: planDetails.plan_name,
       join_date: joinDate.toISOString(),
       expiry_date: expiryDate.toISOString(),
       created_at: new Date().toISOString(),
@@ -103,7 +100,7 @@ export async function addMember(
     const { data: insertedMemberData, error: insertError } = await supabase
       .from('members')
       .insert(newMemberForDb)
-      .select('*, plans (plan_name, price, duration_months)') 
+      .select('*, plans (plan_name, price, duration_months)')
       .single();
 
     if (insertError || !insertedMemberData) {
@@ -116,7 +113,7 @@ export async function addMember(
     if (newMemberAppFormat.email) {
       const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(newMemberAppFormat.memberId)}`;
       const emailSubject = `Welcome to ${gymName}, ${newMemberAppFormat.name}!`;
-      
+
       const emailHtmlBody = `
         <p>Dear ${newMemberAppFormat.name},</p>
         <p>We're thrilled to have you as a new member of ${gymName}.</p>
@@ -136,7 +133,7 @@ export async function addMember(
         <p>If you have any questions, feel free to contact us.</p>
         <p>Best regards,<br/>The ${gymName} Team</p>
       `;
-      
+
       const emailResult = await sendEmail({
         to: newMemberAppFormat.email,
         subject: emailSubject,
@@ -145,24 +142,23 @@ export async function addMember(
       emailStatus = emailResult.message;
     }
 
-    
+
     const announcementTitle = `Welcome New Member: ${newMemberAppFormat.name}!`;
     const announcementContent = `Let's all give a warm welcome to ${newMemberAppFormat.name} (ID: ${newMemberAppFormat.memberId}), who joined us on ${newMemberAppFormat.joinDate ? formatDateIST(newMemberAppFormat.joinDate, 'PPP') : 'a recent date'} with a ${newMemberAppFormat.membershipType || 'new'} membership! We're excited to have them in the ${gymName} community.`;
-    
-    
-    const announcementResult = await addAnnouncementAction(formattedGymId, announcementTitle, announcementContent);
+
+
+    // Call addAnnouncementAction with broadcastEmail set to false
+    const announcementResult = await addAnnouncementAction(formattedGymId, announcementTitle, announcementContent, false);
     if (announcementResult.error) {
-      
       console.warn(`Failed to create welcome announcement for ${newMemberAppFormat.name}: ${announcementResult.error}`);
     } else if (announcementResult.newAnnouncement?.id) {
-       
+        // Successfully created dashboard-only announcement
     }
 
     return { data: { newMember: newMemberAppFormat, emailStatus } };
 
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred.';
-    
     return { error: `Error in addMember: ${errorMessage}` };
   }
 }
@@ -174,8 +170,8 @@ interface EditMemberServerResponse {
 
 export async function editMember(
   formData: AddMemberFormValues,
-  memberOriginalDbId: string, 
-  gymDatabaseId: string 
+  memberOriginalDbId: string,
+  gymDatabaseId: string
 ): Promise<EditMemberServerResponse> {
   const supabase = createSupabaseServerActionClient();
   try {
@@ -187,20 +183,20 @@ export async function editMember(
 
     const { data: existingMember, error: fetchError } = await supabase
       .from('members')
-      .select('join_date, member_id, membership_status') 
+      .select('join_date, member_id, membership_status')
       .eq('id', memberOriginalDbId)
-      .eq('gym_id', gymDatabaseId) 
+      .eq('gym_id', gymDatabaseId)
       .single();
 
     if (fetchError || !existingMember) {
         return { error: `Member with ID ${memberOriginalDbId} not found at this gym. ${fetchError?.message || ''}`};
     }
-    
+
     const { data: planDetails, error: planError } = await supabase
       .from('plans')
       .select('plan_name, price, duration_months')
       .eq('id', selectedPlanUuid)
-      .eq('gym_id', gymDatabaseId) // Ensure plan belongs to the gym
+      .eq('gym_id', gymDatabaseId)
       .eq('is_active', true)
       .single();
 
@@ -210,8 +206,8 @@ export async function editMember(
     if (planDetails.duration_months === null || planDetails.duration_months === undefined) {
         return { error: `Selected new plan '${planDetails.plan_name}' has an invalid duration.`};
     }
-    
-    const joinDateForCalc = existingMember.join_date ? parseValidISO(existingMember.join_date) : new Date(); 
+
+    const joinDateForCalc = existingMember.join_date ? parseValidISO(existingMember.join_date) : new Date();
     if (!joinDateForCalc) {
         return { error: "Could not parse existing member's join date."}
     }
@@ -225,26 +221,25 @@ export async function editMember(
       plan_id: selectedPlanUuid,
       expiry_date: expiryDate.toISOString(),
       membership_status: 'active' as MembershipStatus,
-      membership_type: planDetails.plan_name, // Update membership_type if plan changes
+      membership_type: planDetails.plan_name,
     };
 
     const { data: updatedMemberData, error: updateError } = await supabase
       .from('members')
       .update(memberUpdateForDb)
       .eq('id', memberOriginalDbId)
-      .select('*, plans (plan_name, price, duration_months)') 
+      .select('*, plans (plan_name, price, duration_months)')
       .single();
 
     if (updateError || !updatedMemberData) {
       return { error: `Failed to update member: ${updateError?.message || "Unknown DB error."}` };
     }
-    
+
     const updatedMemberAppFormat = mapDbMemberToAppMember(updatedMemberData);
     return { data: { updatedMember: updatedMemberAppFormat, message: "Member details updated." } };
 
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred.';
-    
     return { error: `Error in editMember: ${errorMessage}` };
   }
 }
@@ -256,23 +251,21 @@ export async function fetchMembers(gymDatabaseId: string): Promise<{ data?: Memb
   try {
     const { data: dbMembers, error } = await supabase
       .from('members')
-      .select('*, plans (plan_name, price, duration_months)') 
+      .select('*, plans (plan_name, price, duration_months)')
       .eq('gym_id', gymDatabaseId)
       .order('created_at', { ascending: false });
 
     if (error) {
-      
       return { error: error.message };
     }
     if (!dbMembers) {
         return { data: [] };
     }
-    
+
     const members = dbMembers.map(mapDbMemberToAppMember);
     return { data: members };
 
   } catch (e: any) {
-    
     return { error: 'Failed to fetch members due to an unexpected error.' };
   }
 }
@@ -283,16 +276,13 @@ export async function deleteMemberAction(memberDbId: string): Promise<{ success:
   try {
     const { error: checkinError } = await supabase.from('check_ins').delete().eq('member_table_id', memberDbId);
      if (checkinError) {
-      
     }
     const { error } = await supabase.from('members').delete().eq('id', memberDbId);
     if (error) {
-      
       return { success: false, error: error.message };
     }
     return { success: true };
   } catch (e: any) {
-    
     return { success: false, error: 'Failed to delete member due to an unexpected error.' };
   }
 }
@@ -307,12 +297,12 @@ export async function updateMemberStatusAction(memberDbId: string, newStatus: Me
   const supabase = createSupabaseServerActionClient();
   try {
     const updateData: { membership_status: MembershipStatus; expiry_date?: string } = { membership_status: newStatus };
-    
+
     const { data: updatedDbMember, error } = await supabase
       .from('members')
       .update(updateData)
       .eq('id', memberDbId)
-      .select('*, plans (plan_name, price, duration_months)') 
+      .select('*, plans (plan_name, price, duration_months)')
       .single();
 
     if (error || !updatedDbMember) {
@@ -337,19 +327,17 @@ export async function deleteMembersAction(memberDbIds: string[]): Promise<{ succ
   for (const memberId of memberDbIds) {
     const { error: checkinError } = await supabase.from('check_ins').delete().eq('member_table_id', memberId);
     if (checkinError) {
-      
     }
 
     const { error: memberDeleteError } = await supabase.from('members').delete().eq('id', memberId);
     if (memberDeleteError) {
       ECount++;
       lastError = memberDeleteError.message;
-      
     } else {
       SCount++;
     }
   }
-  
+
   return { successCount: SCount, errorCount: ECount, error: lastError };
 }
 
@@ -367,12 +355,12 @@ export async function bulkUpdateMemberStatusAction(memberDbIds: string[], newSta
       .from('members')
       .update({ membership_status: newStatus })
       .in('id', memberDbIds)
-      .select('id'); 
+      .select('id');
 
     if (error) {
       return { successCount: 0, errorCount: memberDbIds.length, error: error.message };
     }
-    
+
     const SCount = data ? data.length : 0;
     const ECount = memberDbIds.length - SCount;
 
@@ -386,11 +374,11 @@ export async function bulkUpdateMemberStatusAction(memberDbIds: string[], newSta
 
 
 export async function sendBulkCustomEmailAction(
-  memberDbIds: string[], 
-  subject: string, 
+  memberDbIds: string[],
+  subject: string,
   body: string,
   gymName: string,
-  includeQrCode: boolean 
+  includeQrCode: boolean
 ): Promise<{ attempted: number; successful: number; noEmailAddress: number; failed: number; error?: string }> {
   if (!memberDbIds || memberDbIds.length === 0) {
     return { attempted: 0, successful: 0, noEmailAddress: 0, failed: 0, error: "No member IDs provided for email." };
@@ -398,7 +386,7 @@ export async function sendBulkCustomEmailAction(
   if (!subject || !body) {
     return { attempted: 0, successful: 0, noEmailAddress: 0, failed: 0, error: "Subject and body are required for email." };
   }
-  
+
   const supabase = createSupabaseServerActionClient();
   let attempted = 0;
   let successful = 0;
@@ -408,7 +396,7 @@ export async function sendBulkCustomEmailAction(
   try {
     const { data: members, error: fetchError } = await supabase
       .from('members')
-      .select('id, name, email, member_id') 
+      .select('id, name, email, member_id')
       .in('id', memberDbIds);
 
     if (fetchError) {
@@ -433,7 +421,7 @@ export async function sendBulkCustomEmailAction(
             </div>
           `;
         }
-        
+
         emailHtmlBody += `<p>Regards,<br/>The ${gymName} Team</p>`;
 
         const emailResult = await sendEmail({
@@ -457,6 +445,3 @@ export async function sendBulkCustomEmailAction(
     return { attempted, successful, noEmailAddress, failed, error: 'An unexpected error occurred while sending emails.' };
   }
 }
-    
-
-    

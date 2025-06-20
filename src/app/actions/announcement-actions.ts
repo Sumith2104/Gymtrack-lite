@@ -46,7 +46,8 @@ interface AddAnnouncementResponse {
 export async function addAnnouncementAction(
   ownerFormattedGymId: string,
   title: string,
-  content: string
+  content: string,
+  broadcastEmail: boolean = true // New parameter to control email broadcast
 ): Promise<AddAnnouncementResponse> {
   if (!ownerFormattedGymId) {
     return { error: "Formatted Gym ID is required to add an announcement." };
@@ -68,23 +69,23 @@ export async function addAnnouncementAction(
 
   const { data: gymData, error: gymError } = await supabase
     .from('gyms')
-    .select('id, name') 
+    .select('id, name')
     .eq('formatted_gym_id', ownerFormattedGymId)
     .single();
 
   if (gymError || !gymData) {
     return { error: gymError?.message || `Gym not found with formatted ID: ${ownerFormattedGymId}.` };
   }
-  const gymUuid = gymData.id; 
+  const gymUuid = gymData.id;
   const gymNameForEmail = gymData.name;
-  
+
   try {
     const announcementToInsert = {
-        gym_id: gymUuid, 
-        formatted_gym_id: ownerFormattedGymId, 
+        gym_id: gymUuid,
+        formatted_gym_id: ownerFormattedGymId,
         title: validatedTitle,
         content: validatedContent,
-        created_at: new Date().toISOString() 
+        created_at: new Date().toISOString()
     };
 
     const { data, error } = await supabase
@@ -99,8 +100,8 @@ export async function addAnnouncementAction(
 
     const newAnnouncement: Announcement = {
         id: data.id,
-        gymId: data.gym_id, 
-        formattedGymId: data.formatted_gym_id, 
+        gymId: data.gym_id,
+        formattedGymId: data.formatted_gym_id,
         title: data.title,
         content: data.content,
         createdAt: data.created_at,
@@ -111,47 +112,49 @@ export async function addAnnouncementAction(
     let noEmailAddress = 0;
     let failed = 0;
 
-    const { data: membersToEmail, error: memberFetchError } = await supabase
-      .from('members')
-      .select('name, email, membership_status, expiry_date') // membership_status here is DB status
-      .eq('gym_id', gymUuid); 
+    if (broadcastEmail) { // Only proceed with email broadcast if flag is true
+      const { data: membersToEmail, error: memberFetchError } = await supabase
+        .from('members')
+        .select('name, email, membership_status, expiry_date') // membership_status here is DB status
+        .eq('gym_id', gymUuid);
 
-    if (memberFetchError) {
-      // Not returning error, just logging, as announcement itself was successful
-    } else if (membersToEmail && membersToEmail.length > 0) {
-      for (const member of membersToEmail) {
-        const effectiveStatus = getEffectiveMembershipStatusForEmail({
-          membershipStatus: member.membership_status as MembershipStatus, // Cast to DB status type
-          expiryDate: member.expiry_date,
-        });
-
-        // Send email if effective status is 'active' or 'expiring soon'
-        if (member.email && (effectiveStatus === 'active' || effectiveStatus === 'expiring soon')) {
-          attempted++;
-          const emailSubject = `New Announcement from ${gymNameForEmail}: ${newAnnouncement.title}`;
-          const emailHtmlBody = `
-            <p>Dear ${member.name || 'Member'},</p>
-            <p>A new announcement has been posted at ${gymNameForEmail}:</p>
-            <h2>${newAnnouncement.title}</h2>
-            <p><em>Posted on: ${formatDateIST(newAnnouncement.createdAt, 'PP')}</em></p>
-            <div class="announcement-content" style="padding: 10px; border-left: 3px solid #FFD700; margin: 10px 0; background-color: #222;">
-              ${newAnnouncement.content.replace(/\n/g, '<br />')}
-            </div>
-            <p>Please check the dashboard for more details.</p>
-            <p>Regards,<br/>The ${gymNameForEmail} Team</p>
-          `;
-          const emailResult = await sendEmail({
-            to: member.email,
-            subject: emailSubject,
-            htmlBody: emailHtmlBody,
+      if (memberFetchError) {
+        // Not returning error, just logging, as announcement itself was successful
+      } else if (membersToEmail && membersToEmail.length > 0) {
+        for (const member of membersToEmail) {
+          const effectiveStatus = getEffectiveMembershipStatusForEmail({
+            membershipStatus: member.membership_status as MembershipStatus, // Cast to DB status type
+            expiryDate: member.expiry_date,
           });
-          if (emailResult.success) {
-            successful++;
-          } else {
-            failed++;
+
+          // Send email if effective status is 'active' or 'expiring soon'
+          if (member.email && (effectiveStatus === 'active' || effectiveStatus === 'expiring soon')) {
+            attempted++;
+            const emailSubject = `New Announcement from ${gymNameForEmail}: ${newAnnouncement.title}`;
+            const emailHtmlBody = `
+              <p>Dear ${member.name || 'Member'},</p>
+              <p>A new announcement has been posted at ${gymNameForEmail}:</p>
+              <h2>${newAnnouncement.title}</h2>
+              <p><em>Posted on: ${formatDateIST(newAnnouncement.createdAt, 'PP')}</em></p>
+              <div class="announcement-content" style="padding: 10px; border-left: 3px solid #FFD700; margin: 10px 0; background-color: #222;">
+                ${newAnnouncement.content.replace(/\n/g, '<br />')}
+              </div>
+              <p>Please check the dashboard for more details.</p>
+              <p>Regards,<br/>The ${gymNameForEmail} Team</p>
+            `;
+            const emailResult = await sendEmail({
+              to: member.email,
+              subject: emailSubject,
+              htmlBody: emailHtmlBody,
+            });
+            if (emailResult.success) {
+              successful++;
+            } else {
+              failed++;
+            }
+          } else if (!member.email && (effectiveStatus === 'active' || effectiveStatus === 'expiring soon')) {
+            noEmailAddress++;
           }
-        } else if (!member.email && (effectiveStatus === 'active' || effectiveStatus === 'expiring soon')) {
-          noEmailAddress++;
         }
       }
     }
@@ -172,12 +175,12 @@ export async function fetchAnnouncementsAction(ownerFormattedGymId: string | nul
   }
 
   const supabase = createSupabaseServerActionClient();
-  
+
   try {
     const { data: dbAnnouncements, error } = await supabase
       .from('announcements')
       .select('id, gym_id, formatted_gym_id, title, content, created_at')
-      .eq('formatted_gym_id', ownerFormattedGymId) 
+      .eq('formatted_gym_id', ownerFormattedGymId)
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -186,11 +189,11 @@ export async function fetchAnnouncementsAction(ownerFormattedGymId: string | nul
     if (!dbAnnouncements) {
         return { data: [] };
     }
-    
+
     const announcements: Announcement[] = dbAnnouncements.map(dbAnn => ({
         id: dbAnn.id,
-        gymId: dbAnn.gym_id, 
-        formattedGymId: dbAnn.formatted_gym_id, 
+        gymId: dbAnn.gym_id,
+        formattedGymId: dbAnn.formatted_gym_id,
         title: dbAnn.title,
         content: dbAnn.content,
         createdAt: dbAnn.created_at,
@@ -222,7 +225,3 @@ export async function deleteAnnouncementsAction(announcementIds: string[]): Prom
     return { success: false, error: 'An unexpected error occurred while deleting announcements.' };
   }
 }
-    
-
-    
-
