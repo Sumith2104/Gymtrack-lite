@@ -138,10 +138,10 @@ export default function MessagesPage() {
                       key={member.id}
                       variant="ghost"
                       className={cn(
-                        'w-full justify-start h-auto p-3 text-left rounded-md',
+                        'group w-full justify-start h-auto p-3 text-left rounded-md', // Added 'group'
                         selectedMember?.id === member.id
                           ? 'bg-muted text-foreground' // Selected state
-                          : 'hover:bg-muted/50 focus:bg-muted/70' // Default hover/focus
+                          : 'hover:bg-muted/60 focus:bg-muted/70' // Adjusted hover, focus remains
                       )}
                       onClick={() => setSelectedMember(member)}
                     >
@@ -153,11 +153,11 @@ export default function MessagesPage() {
                       <div className="flex-1 min-w-0">
                         <div className={cn(
                           "font-medium truncate",
-                           selectedMember?.id === member.id ? "text-foreground" : "text-foreground" 
+                           selectedMember?.id === member.id ? "text-foreground" : "text-foreground"
                         )}>{member.name}</div>
                         <div className={cn(
                           "text-xs truncate",
-                          selectedMember?.id === member.id ? "text-foreground/80" : "text-muted-foreground" 
+                          selectedMember?.id === member.id ? "text-foreground/80" : "text-muted-foreground group-hover:text-foreground/80" // Added group-hover effect
                         )}>{member.memberId || 'N/A'}</div>
                         {/* TODO: Add unread message indicator here using a small dot or count */}
                       </div>
@@ -237,3 +237,4 @@ export default function MessagesPage() {
     </div>
   );
 }
+
