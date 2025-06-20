@@ -20,7 +20,7 @@ export async function getActiveMembershipPlans(gymDatabaseId: string | null): Pr
     const { data: plansData, error } = await supabase
       .from('plans')
       .select('id, plan_id, plan_name, price, duration_months')
-      .eq('gym_id', gymDatabaseId) // Filter by gym_id
+      .eq('gym_id', gymDatabaseId) 
       .eq('is_active', true)
       .order('price', { ascending: true });
 
@@ -68,12 +68,11 @@ export async function addPlanAction(formData: AddPlanFormValues, gymDatabaseId: 
     
     const { planIdText, name, price, durationMonths } = validationResult.data;
 
-    // Check if plan_id (textual one) already exists for this gym
     const { data: existingPlan, error: fetchError } = await supabase
         .from('plans')
         .select('id')
         .eq('plan_id', planIdText)
-        .eq('gym_id', gymDatabaseId) // Scope check to current gym
+        .eq('gym_id', gymDatabaseId) 
         .maybeSingle();
 
     if (fetchError) {
@@ -84,7 +83,7 @@ export async function addPlanAction(formData: AddPlanFormValues, gymDatabaseId: 
     }
 
     const newPlanForDb = {
-      gym_id: gymDatabaseId, // Associate plan with the gym
+      gym_id: gymDatabaseId, 
       plan_id: planIdText,
       plan_name: name,
       price: price,
@@ -115,5 +114,120 @@ export async function addPlanAction(formData: AddPlanFormValues, gymDatabaseId: 
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred.';
     return { error: `Error in addPlanAction: ${errorMessage}` };
+  }
+}
+
+interface UpdatePlanResponse {
+  data?: FetchedMembershipPlan;
+  error?: string;
+  fieldErrors?: Record<string, string[]>;
+}
+
+export async function updatePlanAction(
+  planUuid: string,
+  formData: AddPlanFormValues,
+  gymDatabaseId: string | null
+): Promise<UpdatePlanResponse> {
+  if (!gymDatabaseId) {
+    return { error: 'Gym ID not provided. Cannot update plan.' };
+  }
+  if (!planUuid) {
+    return { error: 'Plan UUID not provided. Cannot update plan.' };
+  }
+
+  const supabase = createSupabaseServerActionClient();
+  try {
+    const validationResult = addPlanFormSchema.safeParse(formData);
+    if (!validationResult.success) {
+      const zodError = validationResult.error as ZodError;
+      return { error: "Validation failed", fieldErrors: zodError.flatten().fieldErrors };
+    }
+
+    const { planIdText, name, price, durationMonths } = validationResult.data;
+
+    // Check if the new planIdText is already taken by another plan in the same gym
+    if (planIdText) {
+      const { data: conflictingPlan, error: fetchError } = await supabase
+        .from('plans')
+        .select('id')
+        .eq('plan_id', planIdText)
+        .eq('gym_id', gymDatabaseId)
+        .neq('id', planUuid) // Exclude the current plan being edited
+        .maybeSingle();
+
+      if (fetchError) {
+        return { error: `DB error checking for conflicting plan ID: ${fetchError.message}` };
+      }
+      if (conflictingPlan) {
+        return { error: `Plan ID '${planIdText}' already exists for another plan in this gym.` };
+      }
+    }
+
+    const planUpdateForDb = {
+      plan_id: planIdText,
+      plan_name: name,
+      price: price,
+      duration_months: durationMonths,
+      // is_active is not changed here, only through softDelete
+    };
+
+    const { data: updatedPlanData, error: updateError } = await supabase
+      .from('plans')
+      .update(planUpdateForDb)
+      .eq('id', planUuid)
+      .eq('gym_id', gymDatabaseId) // Ensure we only update the plan for the correct gym
+      .select('id, plan_id, plan_name, price, duration_months')
+      .single();
+
+    if (updateError || !updatedPlanData) {
+      return { error: `Failed to update plan: ${updateError?.message || "Unknown DB error or plan not found."}` };
+    }
+
+    const updatedPlanAppFormat: FetchedMembershipPlan = {
+      uuid: updatedPlanData.id,
+      planIdText: updatedPlanData.plan_id,
+      name: updatedPlanData.plan_name,
+      price: updatedPlanData.price,
+      durationMonths: updatedPlanData.duration_months,
+    };
+
+    return { data: updatedPlanAppFormat };
+
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred.';
+    return { error: `Error in updatePlanAction: ${errorMessage}` };
+  }
+}
+
+interface SoftDeletePlanResponse {
+  success: boolean;
+  error?: string;
+}
+
+export async function softDeletePlanAction(planUuid: string, gymDatabaseId: string | null): Promise<SoftDeletePlanResponse> {
+  if (!gymDatabaseId) {
+    return { success: false, error: 'Gym ID not provided. Cannot delete plan.' };
+  }
+  if (!planUuid) {
+    return { success: false, error: 'Plan UUID not provided. Cannot delete plan.' };
+  }
+
+  const supabase = createSupabaseServerActionClient();
+  try {
+    const { error } = await supabase
+      .from('plans')
+      .update({ is_active: false })
+      .eq('id', planUuid)
+      .eq('gym_id', gymDatabaseId);
+
+    if (error) {
+      return { success: false, error: `Failed to mark plan as inactive: ${error.message}` };
+    }
+
+    return { success: true };
+
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred.';
+    return { success: false, error: `Error in softDeletePlanAction: ${errorMessage}` };
   }
 }

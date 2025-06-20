@@ -10,13 +10,23 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { addPlanFormSchema, type AddPlanFormValues } from '@/lib/schemas/plan-schemas';
-import { addPlanAction, getActiveMembershipPlans } from '@/app/actions/plan-actions';
+import { addPlanAction, getActiveMembershipPlans, updatePlanAction, softDeletePlanAction } from '@/app/actions/plan-actions';
 import type { FetchedMembershipPlan } from '@/lib/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { List, PlusCircle, Tag, PackagePlus, AlertCircle, RefreshCw } from 'lucide-react';
+import { List, PlusCircle, Edit, Trash2, PackagePlus, AlertCircle, RefreshCw, XCircle } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Separator } from '../ui/separator';
-
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 export function CreatePlanForm() {
   const { toast } = useToast();
@@ -25,6 +35,10 @@ export function CreatePlanForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [fetchPlansError, setFetchPlansError] = useState<string | null>(null);
   const [currentGymDbId, setCurrentGymDbId] = useState<string | null>(null);
+
+  const [editingPlan, setEditingPlan] = useState<FetchedMembershipPlan | null>(null);
+  const [planToDelete, setPlanToDelete] = useState<FetchedMembershipPlan | null>(null);
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -68,6 +82,49 @@ export function CreatePlanForm() {
     },
   });
 
+  useEffect(() => {
+    if (editingPlan) {
+      form.reset({
+        planIdText: editingPlan.planIdText || '',
+        name: editingPlan.name,
+        price: editingPlan.price,
+        durationMonths: editingPlan.durationMonths || undefined,
+      });
+    } else {
+      form.reset({ planIdText: '', name: '', price: undefined, durationMonths: undefined });
+    }
+  }, [editingPlan, form]);
+
+  const handleEditClick = (plan: FetchedMembershipPlan) => {
+    setEditingPlan(plan);
+    window.scrollTo({ top: 0, behavior: 'smooth' }); // Scroll to form
+  };
+
+  const handleCancelEdit = () => {
+    setEditingPlan(null);
+    // form.reset() is handled by useEffect for editingPlan
+  };
+
+  const handleDeleteClick = (plan: FetchedMembershipPlan) => {
+    setPlanToDelete(plan);
+    setIsDeleteConfirmOpen(true);
+  };
+
+  const confirmDeletePlan = async () => {
+    if (!planToDelete || !currentGymDbId) return;
+    setIsSubmitting(true);
+    const response = await softDeletePlanAction(planToDelete.uuid, currentGymDbId);
+    if (response.success) {
+      toast({ title: 'Plan Deactivated', description: `Plan "${planToDelete.name}" has been marked as inactive.` });
+      fetchExistingPlans();
+    } else {
+      toast({ variant: "destructive", title: 'Error Deactivating Plan', description: response.error });
+    }
+    setIsSubmitting(false);
+    setIsDeleteConfirmOpen(false);
+    setPlanToDelete(null);
+  };
+
   async function onSubmit(data: AddPlanFormValues) {
     setIsSubmitting(true);
     form.clearErrors();
@@ -78,7 +135,19 @@ export function CreatePlanForm() {
       return;
     }
     
-    const response = await addPlanAction(data, currentGymDbId);
+    let response;
+    if (editingPlan) {
+      response = await updatePlanAction(editingPlan.uuid, data, currentGymDbId);
+      if (response.data) {
+        toast({ title: 'Plan Updated!', description: `Plan "${response.data.name}" updated successfully.` });
+        setEditingPlan(null);
+      }
+    } else {
+      response = await addPlanAction(data, currentGymDbId);
+      if (response.data) {
+        toast({ title: 'Plan Created!', description: `Plan "${response.data.name}" added successfully.` });
+      }
+    }
 
     if (response.error) {
       if (response.fieldErrors) {
@@ -89,11 +158,10 @@ export function CreatePlanForm() {
         }
         toast({ variant: "destructive", title: 'Validation Error', description: "Please check the form fields for errors." });
       } else {
-        toast({ variant: "destructive", title: 'Error Creating Plan', description: response.error });
+        toast({ variant: "destructive", title: editingPlan ? 'Error Updating Plan' : 'Error Creating Plan', description: response.error });
       }
-    } else if (response.data) {
-      toast({ title: 'Plan Created!', description: `Plan "${response.data.name}" added successfully.` });
-      form.reset();
+    } else {
+      form.reset(); // Reset form on success only if not editing or successfully edited
       fetchExistingPlans(); 
     }
     setIsSubmitting(false);
@@ -106,7 +174,7 @@ export function CreatePlanForm() {
           <CardTitle className="text-lg font-semibold flex items-center">
             <PackagePlus className="mr-2 h-5 w-5 text-primary" /> Manage Membership Plans
           </CardTitle>
-           <Button variant="ghost" size="sm" onClick={fetchExistingPlans} disabled={isLoadingPlans || !currentGymDbId}>
+           <Button variant="ghost" size="icon" onClick={fetchExistingPlans} disabled={isLoadingPlans || !currentGymDbId} className="h-8 w-8">
                 <RefreshCw className={`h-4 w-4 ${isLoadingPlans ? 'animate-spin' : ''}`}/>
             </Button>
         </div>
@@ -115,7 +183,8 @@ export function CreatePlanForm() {
       <CardContent className="space-y-6">
         <div>
           <h3 className="text-md font-semibold mb-3 text-foreground flex items-center">
-            <PlusCircle className="mr-2 h-4 w-4 text-primary" /> Create New Plan
+            {editingPlan ? <Edit className="mr-2 h-4 w-4 text-primary" /> : <PlusCircle className="mr-2 h-4 w-4 text-primary" />}
+            {editingPlan ? `Editing Plan: ${editingPlan.name}` : 'Create New Plan'}
           </h3>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 p-4 border rounded-md bg-muted/20">
@@ -155,7 +224,9 @@ export function CreatePlanForm() {
                     <FormItem>
                       <FormLabel>Price (₹)</FormLabel>
                       <FormControl>
-                        <Input type="number" placeholder="e.g., 599" {...field} onChange={e => field.onChange(parseFloat(e.target.value))} />
+                        <Input type="number" step="0.01" placeholder="e.g., 599" {...field} 
+                               value={field.value ?? ''}
+                               onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -168,16 +239,27 @@ export function CreatePlanForm() {
                     <FormItem>
                       <FormLabel>Duration (Months)</FormLabel>
                       <FormControl>
-                        <Input type="number" placeholder="e.g., 1, 3, 12" {...field} onChange={e => field.onChange(parseInt(e.target.value,10))} />
+                        <Input type="number" placeholder="e.g., 1, 3, 12" {...field} 
+                               value={field.value ?? ''}
+                               onChange={e => field.onChange(e.target.value === '' ? undefined : parseInt(e.target.value,10))} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
               </div>
-              <Button type="submit" disabled={isSubmitting || isLoadingPlans || !currentGymDbId} className="w-full sm:w-auto">
-                {isSubmitting ? 'Saving Plan...' : <><PlusCircle className="mr-2 h-4 w-4" /> Add Plan</>}
-              </Button>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <Button type="submit" disabled={isSubmitting || isLoadingPlans || !currentGymDbId} className="w-full sm:w-auto">
+                  {isSubmitting ? (editingPlan ? 'Updating...' : 'Adding...') : (
+                    editingPlan ? <><Edit className="mr-2 h-4 w-4" /> Update Plan</> : <><PlusCircle className="mr-2 h-4 w-4" /> Add Plan</>
+                  )}
+                </Button>
+                {editingPlan && (
+                  <Button type="button" variant="outline" onClick={handleCancelEdit} className="w-full sm:w-auto">
+                    <XCircle className="mr-2 h-4 w-4" /> Cancel Edit
+                  </Button>
+                )}
+              </div>
             </form>
           </Form>
         </div>
@@ -190,9 +272,9 @@ export function CreatePlanForm() {
           </h3>
           {isLoadingPlans ? (
              <div className="space-y-2">
-                <Skeleton className="h-10 w-full" />
-                <Skeleton className="h-10 w-full" />
-                <Skeleton className="h-10 w-2/3" />
+                <Skeleton className="h-10 w-full rounded-md" />
+                <Skeleton className="h-10 w-full rounded-md" />
+                <Skeleton className="h-10 w-2/3 rounded-md" />
             </div>
           ) : fetchPlansError ? (
              <div className="text-destructive flex items-center p-3 border border-destructive/50 bg-destructive/10 rounded-md">
@@ -208,13 +290,17 @@ export function CreatePlanForm() {
               <ul className="space-y-1 p-3">
                 {existingPlans.map((plan) => (
                   <li key={plan.uuid} className="flex justify-between items-center p-2 rounded-md hover:bg-muted/30 text-sm">
-                    <div>
-                      <span className="font-medium text-foreground">{plan.name}</span>
-                      <span className="text-xs text-muted-foreground ml-2">(ID: {plan.planIdText || 'N/A'})</span>
+                    <div className="flex-1 min-w-0">
+                      <span className="font-medium text-foreground truncate block">{plan.name}</span>
+                      <span className="text-xs text-muted-foreground truncate block">ID: {plan.planIdText || 'N/A'} | ₹{plan.price.toFixed(2)} / {plan.durationMonths} {plan.durationMonths === 1 ? 'mo' : 'mos'}</span>
                     </div>
-                    <div className="text-right">
-                      <span className="text-foreground font-semibold">₹{plan.price.toFixed(2)}</span>
-                      <span className="text-muted-foreground text-xs"> / {plan.durationMonths} {plan.durationMonths === 1 ? 'month' : 'months'}</span>
+                    <div className="flex gap-1 ml-2">
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleEditClick(plan)} aria-label={`Edit ${plan.name}`}>
+                        <Edit className="h-4 w-4 text-blue-500" />
+                      </Button>
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleDeleteClick(plan)} aria-label={`Delete ${plan.name}`}>
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
                     </div>
                   </li>
                 ))}
@@ -223,6 +309,29 @@ export function CreatePlanForm() {
           )}
         </div>
       </CardContent>
+      {planToDelete && (
+        <AlertDialog open={isDeleteConfirmOpen} onOpenChange={setIsDeleteConfirmOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Deactivate Plan: {planToDelete.name}?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to mark this plan as inactive? It will no longer be available for new memberships.
+                This action does not affect existing members on this plan.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => setPlanToDelete(null)}>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={confirmDeletePlan}
+                disabled={isSubmitting}
+                className="bg-destructive hover:bg-destructive/90"
+              >
+                {isSubmitting ? 'Deactivating...' : 'Deactivate Plan'}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
     </Card>
   );
 }
