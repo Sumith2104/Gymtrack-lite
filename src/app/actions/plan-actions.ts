@@ -11,12 +11,16 @@ interface GetActiveMembershipPlansResponse {
   error?: string;
 }
 
-export async function getActiveMembershipPlans(): Promise<GetActiveMembershipPlansResponse> {
+export async function getActiveMembershipPlans(gymDatabaseId: string | null): Promise<GetActiveMembershipPlansResponse> {
+  if (!gymDatabaseId) {
+    return { error: 'Gym ID not provided. Cannot fetch plans.' };
+  }
   const supabase = createSupabaseServerActionClient();
   try {
     const { data: plansData, error } = await supabase
       .from('plans')
       .select('id, plan_id, plan_name, price, duration_months')
+      .eq('gym_id', gymDatabaseId) // Filter by gym_id
       .eq('is_active', true)
       .order('price', { ascending: true });
 
@@ -31,7 +35,7 @@ export async function getActiveMembershipPlans(): Promise<GetActiveMembershipPla
     const fetchedPlans: FetchedMembershipPlan[] = plansData.map(plan => ({
       uuid: plan.id, 
       planIdText: plan.plan_id, 
-      name: plan.plan_name, // plan_name is string
+      name: plan.plan_name,
       price: plan.price,
       durationMonths: plan.duration_months,
     }));
@@ -49,7 +53,11 @@ interface AddPlanResponse {
   fieldErrors?: Record<string, string[]>;
 }
 
-export async function addPlanAction(formData: AddPlanFormValues): Promise<AddPlanResponse> {
+export async function addPlanAction(formData: AddPlanFormValues, gymDatabaseId: string | null): Promise<AddPlanResponse> {
+  if (!gymDatabaseId) {
+    return { error: 'Gym ID not provided. Cannot create plan.' };
+  }
+  
   const supabase = createSupabaseServerActionClient();
   try {
     const validationResult = addPlanFormSchema.safeParse(formData);
@@ -60,26 +68,28 @@ export async function addPlanAction(formData: AddPlanFormValues): Promise<AddPla
     
     const { planIdText, name, price, durationMonths } = validationResult.data;
 
-    // Check if plan_id (textual one) already exists
+    // Check if plan_id (textual one) already exists for this gym
     const { data: existingPlan, error: fetchError } = await supabase
         .from('plans')
         .select('id')
         .eq('plan_id', planIdText)
+        .eq('gym_id', gymDatabaseId) // Scope check to current gym
         .maybeSingle();
 
     if (fetchError) {
         return { error: `DB error checking for existing plan ID: ${fetchError.message}` };
     }
     if (existingPlan) {
-        return { error: `Plan ID '${planIdText}' already exists. Please choose a unique Plan ID.` };
+        return { error: `Plan ID '${planIdText}' already exists for this gym. Please choose a unique Plan ID.` };
     }
 
     const newPlanForDb = {
+      gym_id: gymDatabaseId, // Associate plan with the gym
       plan_id: planIdText,
       plan_name: name,
       price: price,
       duration_months: durationMonths,
-      is_active: true, // New plans are active by default
+      is_active: true, 
     };
 
     const { data: insertedPlanData, error: insertError } = await supabase

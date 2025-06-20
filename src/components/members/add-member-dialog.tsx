@@ -49,25 +49,22 @@ export function AddMemberDialog({ isOpen, onOpenChange, onMemberSaved, memberToE
   const [isSubmittingState, setIsSubmittingState] = useState(false);
   const [availablePlans, setAvailablePlans] = useState<FetchedMembershipPlan[]>([]);
   const [isLoadingPlans, setIsLoadingPlans] = useState(true);
+  const [currentGymDbId, setCurrentGymDbId] = useState<string | null>(null);
 
-  const form = useForm<AddMemberFormValues>({
-    resolver: zodResolver(addMemberFormSchema),
-    defaultValues: {
-      name: '',
-      email: '',
-      phoneNumber: '', 
-      age: undefined, 
-      selectedPlanUuid: '', 
-    },
-  });
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const gymId = localStorage.getItem('gymDatabaseId');
+      setCurrentGymDbId(gymId);
+    }
+  }, []);
 
   useEffect(() => {
     async function fetchPlans() {
-      if (isOpen) {
+      if (isOpen && currentGymDbId) {
         setIsLoadingPlans(true);
-        const response = await getActiveMembershipPlans();
+        const response = await getActiveMembershipPlans(currentGymDbId);
         if (response.error || !response.data) {
-          toast({ variant: "destructive", title: 'Error Fetching Plans', description: response.error || "Could not load membership plans." });
+          toast({ variant: "destructive", title: 'Error Fetching Plans', description: response.error || "Could not load membership plans for this gym." });
           setAvailablePlans([]);
         } else {
           setAvailablePlans(response.data);
@@ -76,10 +73,14 @@ export function AddMemberDialog({ isOpen, onOpenChange, onMemberSaved, memberToE
           }
         }
         setIsLoadingPlans(false);
+      } else if (isOpen && !currentGymDbId) {
+        toast({ variant: "destructive", title: 'Configuration Error', description: "Gym ID not found. Cannot load plans." });
+        setAvailablePlans([]);
+        setIsLoadingPlans(false);
       }
     }
     fetchPlans();
-  }, [isOpen, toast, form, memberToEdit]);
+  }, [isOpen, currentGymDbId, toast, form, memberToEdit]);
 
 
   useEffect(() => {
@@ -109,10 +110,9 @@ export function AddMemberDialog({ isOpen, onOpenChange, onMemberSaved, memberToE
 
   async function onSubmit(data: AddMemberFormValues) {
     setIsSubmittingState(true);
-    const gymDatabaseId = localStorage.getItem('gymDatabaseId');
     const gymName = localStorage.getItem('gymName') || APP_NAME;
 
-    if (!gymDatabaseId) {
+    if (!currentGymDbId) {
         toast({ variant: "destructive", title: "Configuration Error", description: "Gym ID not found. Please log in again."});
         setIsSubmittingState(false);
         return;
@@ -123,21 +123,21 @@ export function AddMemberDialog({ isOpen, onOpenChange, onMemberSaved, memberToE
         return;
     }
      if (availablePlans.length === 0 && !isLoadingPlans) {
-        toast({ variant: "destructive", title: "No Plans Available", description: "Cannot add member without active membership plans." });
+        toast({ variant: "destructive", title: "No Plans Available", description: "Cannot add member without active membership plans for this gym." });
         setIsSubmittingState(false);
         return;
     }
 
     let response;
     if (isEditing && memberToEdit) {
-      response = await editMember(data, memberToEdit.id, gymDatabaseId);
+      response = await editMember(data, memberToEdit.id, currentGymDbId);
        if (response.data?.updatedMember) {
         onMemberSaved(response.data.updatedMember);
         toast({ title: 'Member Updated', description: `${response.data.updatedMember.name} has been successfully updated.` });
         onOpenChange(false);
       }
     } else {
-      response = await addMember(data, gymDatabaseId, gymName);
+      response = await addMember(data, currentGymDbId, gymName);
       if (response.data?.newMember) {
         onMemberSaved(response.data.newMember);
         toast({ title: 'Member Added!', description: `${response.data.newMember.name} registered. ${response.data.emailStatus}` });
@@ -184,7 +184,7 @@ export function AddMemberDialog({ isOpen, onOpenChange, onMemberSaved, memberToE
                 <FormItem className="space-y-3">
                   <FormLabel className="text-foreground">Membership Plan</FormLabel>
                   {isLoadingPlans ? (<div className="space-y-2"><Skeleton className="h-5 w-3/4" /><Skeleton className="h-5 w-1/2" /><Skeleton className="h-5 w-2/3" /></div>
-                  ) : availablePlans.length === 0 ? (<p className="text-sm text-destructive">No active membership plans found. Please add plans first.</p>
+                  ) : availablePlans.length === 0 ? (<p className="text-sm text-destructive">No active membership plans found for this gym. Please add plans first.</p>
                   ) : (
                     <FormControl>
                       <RadioGroup onValueChange={field.onChange} value={field.value} className="flex flex-col space-y-1">
@@ -201,7 +201,7 @@ export function AddMemberDialog({ isOpen, onOpenChange, onMemberSaved, memberToE
             )}/>
             <DialogFooter className="pt-6">
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)} className="border-border hover:bg-muted">Cancel</Button>
-              <Button type="submit" disabled={isSubmittingState || isLoadingPlans || (availablePlans.length === 0 && !isEditing)} className="bg-primary text-primary-foreground hover:bg-primary/90 w-full sm:w-auto">
+              <Button type="submit" disabled={isSubmittingState || isLoadingPlans || (availablePlans.length === 0 && !isEditing) || !currentGymDbId} className="bg-primary text-primary-foreground hover:bg-primary/90 w-full sm:w-auto">
                 {isEditing ? <Edit className="mr-2 h-4 w-4" /> : <UserPlus className="mr-2 h-4 w-4" />}
                 {isSubmittingState ? (isEditing ? 'Saving...' : 'Adding...') : (isEditing ? 'Save Changes' : 'Add Member')}
               </Button>

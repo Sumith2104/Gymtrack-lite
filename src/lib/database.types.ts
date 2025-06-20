@@ -46,7 +46,8 @@ export interface Database {
       plans: {
         Row: {
           id: string // uuid, default gen_random_uuid()
-          plan_id: string | null // text, unique. User-defined unique identifier for the plan
+          gym_id: string // uuid, FK to gyms.id
+          plan_id: string | null // text. User-defined unique identifier for the plan (unique per gym_id)
           plan_name: string // text. e.g., "Basic", "Premium"
           price: number // numeric, default 0
           duration_months: number | null // integer. e.g., 1, 3, 12
@@ -54,6 +55,7 @@ export interface Database {
         }
         Insert: {
           id?: string
+          gym_id: string
           plan_id?: string | null
           plan_name: string
           price?: number
@@ -62,13 +64,21 @@ export interface Database {
         }
         Update: {
           id?: string
+          gym_id?: string
           plan_id?: string | null
           plan_name?: string
           price?: number
           duration_months?: number | null
           is_active?: boolean
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "plans_gym_id_fkey"
+            columns: ["gym_id"]
+            referencedRelation: "gyms"
+            referencedColumns: ["id"]
+          }
+        ]
       }
       members: {
         Row: {

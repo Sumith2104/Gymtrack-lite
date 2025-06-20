@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { addPlanFormSchema, type AddPlanFormValues } from '@/lib/schemas/plan-schemas';
 import { addPlanAction, getActiveMembershipPlans } from '@/app/actions/plan-actions';
-import type { FetchedMembershipPlan } from '@/lib/lib/types'; // Adjusted path if types.ts is in src/lib
+import type { FetchedMembershipPlan } from '@/lib/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { List, PlusCircle, Tag, PackagePlus, AlertCircle, RefreshCw } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -24,6 +24,39 @@ export function CreatePlanForm() {
   const [isLoadingPlans, setIsLoadingPlans] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [fetchPlansError, setFetchPlansError] = useState<string | null>(null);
+  const [currentGymDbId, setCurrentGymDbId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const gymId = localStorage.getItem('gymDatabaseId');
+      setCurrentGymDbId(gymId);
+    }
+  }, []);
+
+  const fetchExistingPlans = useCallback(async () => {
+    if (!currentGymDbId) {
+      setFetchPlansError("Gym ID not available. Cannot load plans.");
+      setExistingPlans([]);
+      setIsLoadingPlans(false);
+      return;
+    }
+    setIsLoadingPlans(true);
+    setFetchPlansError(null);
+    const response = await getActiveMembershipPlans(currentGymDbId);
+    if (response.error || !response.data) {
+      setFetchPlansError(response.error || "Could not load existing plans.");
+      setExistingPlans([]);
+    } else {
+      setExistingPlans(response.data);
+    }
+    setIsLoadingPlans(false);
+  }, [currentGymDbId]);
+
+  useEffect(() => {
+    if (currentGymDbId) {
+      fetchExistingPlans();
+    }
+  }, [currentGymDbId, fetchExistingPlans]);
 
   const form = useForm<AddPlanFormValues>({
     resolver: zodResolver(addPlanFormSchema),
@@ -35,28 +68,17 @@ export function CreatePlanForm() {
     },
   });
 
-  const fetchExistingPlans = useCallback(async () => {
-    setIsLoadingPlans(true);
-    setFetchPlansError(null);
-    const response = await getActiveMembershipPlans();
-    if (response.error || !response.data) {
-      setFetchPlansError(response.error || "Could not load existing plans.");
-      setExistingPlans([]);
-    } else {
-      setExistingPlans(response.data);
-    }
-    setIsLoadingPlans(false);
-  }, []);
-
-  useEffect(() => {
-    fetchExistingPlans();
-  }, [fetchExistingPlans]);
-
   async function onSubmit(data: AddPlanFormValues) {
     setIsSubmitting(true);
     form.clearErrors();
+
+    if (!currentGymDbId) {
+      toast({ variant: "destructive", title: 'Error', description: 'Gym ID not found. Please log in again.' });
+      setIsSubmitting(false);
+      return;
+    }
     
-    const response = await addPlanAction(data);
+    const response = await addPlanAction(data, currentGymDbId);
 
     if (response.error) {
       if (response.fieldErrors) {
@@ -72,7 +94,7 @@ export function CreatePlanForm() {
     } else if (response.data) {
       toast({ title: 'Plan Created!', description: `Plan "${response.data.name}" added successfully.` });
       form.reset();
-      fetchExistingPlans(); // Refresh the list of plans
+      fetchExistingPlans(); 
     }
     setIsSubmitting(false);
   }
@@ -84,11 +106,11 @@ export function CreatePlanForm() {
           <CardTitle className="text-lg font-semibold flex items-center">
             <PackagePlus className="mr-2 h-5 w-5 text-primary" /> Manage Membership Plans
           </CardTitle>
-           <Button variant="ghost" size="sm" onClick={fetchExistingPlans} disabled={isLoadingPlans}>
+           <Button variant="ghost" size="sm" onClick={fetchExistingPlans} disabled={isLoadingPlans || !currentGymDbId}>
                 <RefreshCw className={`h-4 w-4 ${isLoadingPlans ? 'animate-spin' : ''}`}/>
             </Button>
         </div>
-        <CardDescription>Define new membership plans or view existing active ones.</CardDescription>
+        <CardDescription>Define new membership plans or view existing active ones for your gym.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         <div>
@@ -103,7 +125,7 @@ export function CreatePlanForm() {
                   name="planIdText"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Plan ID (Unique)</FormLabel>
+                      <FormLabel>Plan ID (Unique per Gym)</FormLabel>
                       <FormControl>
                         <Input placeholder="e.g., GOLD01, YEARLY24" {...field} />
                       </FormControl>
@@ -153,7 +175,7 @@ export function CreatePlanForm() {
                   )}
                 />
               </div>
-              <Button type="submit" disabled={isSubmitting || isLoadingPlans} className="w-full sm:w-auto">
+              <Button type="submit" disabled={isSubmitting || isLoadingPlans || !currentGymDbId} className="w-full sm:w-auto">
                 {isSubmitting ? 'Saving Plan...' : <><PlusCircle className="mr-2 h-4 w-4" /> Add Plan</>}
               </Button>
             </form>
@@ -178,7 +200,9 @@ export function CreatePlanForm() {
                 <p>{fetchPlansError}</p>
             </div>
           ) : existingPlans.length === 0 ? (
-            <p className="text-muted-foreground text-sm p-3 border rounded-md bg-muted/20">No active plans found. Create one above to get started.</p>
+            <p className="text-muted-foreground text-sm p-3 border rounded-md bg-muted/20">
+              {!currentGymDbId ? "Gym not identified." : "No active plans found for this gym. Create one above."}
+            </p>
           ) : (
             <ScrollArea className="h-[200px] w-full rounded-md border p-1">
               <ul className="space-y-1 p-3">
