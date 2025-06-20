@@ -12,6 +12,7 @@ import { fetchMembers as fetchMembersAction } from '@/app/actions/member-actions
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
+import { cn } from '@/lib/utils';
 
 export default function MessagesPage() {
   const [members, setMembers] = useState<Member[]>([]);
@@ -136,8 +137,12 @@ export default function MessagesPage() {
                     <Button
                       key={member.id}
                       variant="ghost"
-                      className={`w-full justify-start h-auto p-3 text-left hover:bg-accent/50 focus:bg-accent/80
-                                  ${selectedMember?.id === member.id ? 'bg-accent text-accent-foreground' : ''}`}
+                      className={cn(
+                        'w-full justify-start h-auto p-3 text-left rounded-md',
+                        selectedMember?.id === member.id
+                          ? 'bg-muted text-foreground' // Selected state
+                          : 'hover:bg-muted/50 focus:bg-muted/70' // Default hover/focus
+                      )}
                       onClick={() => setSelectedMember(member)}
                     >
                       <Avatar className="h-10 w-10 mr-3">
@@ -146,8 +151,14 @@ export default function MessagesPage() {
                         </AvatarFallback>
                       </Avatar>
                       <div className="flex-1 min-w-0">
-                        <div className="font-medium text-foreground truncate">{member.name}</div>
-                        <div className="text-xs text-muted-foreground truncate">{member.memberId || 'N/A'}</div>
+                        <div className={cn(
+                          "font-medium truncate",
+                           selectedMember?.id === member.id ? "text-foreground" : "text-foreground" 
+                        )}>{member.name}</div>
+                        <div className={cn(
+                          "text-xs truncate",
+                          selectedMember?.id === member.id ? "text-foreground/80" : "text-muted-foreground" 
+                        )}>{member.memberId || 'N/A'}</div>
                         {/* TODO: Add unread message indicator here using a small dot or count */}
                       </div>
                     </Button>
