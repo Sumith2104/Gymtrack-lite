@@ -205,7 +205,7 @@ export default function MessagesPage() {
                   </div>
                 ) : (
                   conversationMessages.map(msg => {
-                    const messageDate = parseISO(msg.created_at);
+                    const messageDate = parseISO(msg.createdAt);
                     const messageDateString = format(messageDate, 'yyyy-MM-dd');
                     let dateHeaderElement: JSX.Element | null = null;
 
@@ -221,10 +221,10 @@ export default function MessagesPage() {
                     return (
                       <React.Fragment key={msg.id}>
                         {dateHeaderElement}
-                        <div className={cn("flex", msg.sender_id === adminSenderId ? "justify-end" : "justify-start")}>
+                        <div className={cn("flex", msg.senderId === adminSenderId ? "justify-end" : "justify-start")}>
                           <div className={cn(
-                            "max-w-[70%] p-3 rounded-lg shadow",
-                            msg.sender_id === adminSenderId ? "bg-primary text-primary-foreground" : "bg-card text-card-foreground border"
+                            "max-w-[70%] p-3 rounded-2xl shadow", // Changed from rounded-lg
+                            msg.senderId === adminSenderId ? "bg-primary text-primary-foreground" : "bg-card text-card-foreground border"
                           )}>
                             <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
                           </div>
