@@ -201,8 +201,8 @@ export function RecentCheckinsCard({ newCheckinEntry, className }: RecentCheckin
                       {groupedCheckins[dateKey].map((checkin) => (
                         <div key={checkin.checkInRecordId} className="grid grid-cols-4 gap-x-4 items-center py-3 hover:bg-muted/20 transition-colors duration-150">
                           <div className="text-sm text-foreground truncate text-left col-span-2" title={checkin.memberName}>{checkin.memberName}</div>
-                          <div className="text-sm text-foreground truncate text-center" title={checkin.memberId}>{checkin.memberId}</div>
-                          <div className="text-sm text-muted-foreground text-center">{format(new Date(checkin.checkInTime), "d MMM, h:mm aa")}</div>
+                          <div className="text-sm text-foreground truncate text-center col-span-1" title={checkin.memberId}>{checkin.memberId}</div>
+                          <div className="text-sm text-muted-foreground text-center col-span-1">{format(new Date(checkin.checkInTime), "d MMM, h:mm aa")}</div>
                         </div>
                       ))}
                     </div>
