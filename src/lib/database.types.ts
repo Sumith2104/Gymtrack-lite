@@ -215,12 +215,12 @@ export interface Database {
           }
         ]
       }
-      messages: { // New messages table definition
+      messages: {
         Row: {
           id: string // uuid
           gym_id: string // uuid
-          sender_id: string // uuid
-          receiver_id: string // uuid
+          sender_id: string // TEXT (can be formatted_gym_id for admin or member's UUID for member)
+          receiver_id: string // TEXT (can be formatted_gym_id for admin or member's UUID for member)
           sender_type: string // text, 'admin' or 'member'
           receiver_type: string // text, 'admin' or 'member'
           content: string // text
@@ -230,8 +230,8 @@ export interface Database {
         Insert: {
           id?: string
           gym_id: string
-          sender_id: string
-          receiver_id: string
+          sender_id: string // TEXT
+          receiver_id: string // TEXT
           sender_type: string
           receiver_type: string
           content: string
@@ -241,8 +241,8 @@ export interface Database {
         Update: {
           id?: string
           gym_id?: string
-          sender_id?: string
-          receiver_id?: string
+          sender_id?: string // TEXT
+          receiver_id?: string // TEXT
           sender_type?: string
           receiver_type?: string
           content?: string
@@ -256,9 +256,6 @@ export interface Database {
             referencedRelation: "gyms"
             referencedColumns: ["id"]
           }
-          // Note: FKs to members(id) for sender_id/receiver_id or auth.users(id)
-          // are not explicitly defined here to keep it simple, but would be good for data integrity.
-          // You'd add them if sender_id/receiver_id directly reference member UUIDs or auth user UUIDs.
         ]
       }
       super_admins: {

@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -22,7 +21,7 @@ export default function MessagesPage() {
   const [isLoadingMembers, setIsLoadingMembers] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [gymDatabaseId, setGymDatabaseId] = useState<string | null>(null);
-  const [adminSenderId, setAdminSenderId] = useState<string | null>(null);
+  const [adminSenderId, setAdminSenderId] = useState<string | null>(null); // Will store formatted_gym_id
   const [searchTerm, setSearchTerm] = useState('');
   const [newMessageInput, setNewMessageInput] = useState('');
   const [isSending, setIsSending] = useState(false);
@@ -30,18 +29,17 @@ export default function MessagesPage() {
 
   useEffect(() => {
     const gymDbId = localStorage.getItem('gymDatabaseId');
-    const ownerAuthId = localStorage.getItem('gymOwnerAuthId');
+    const formattedGymId = localStorage.getItem('gymId'); // formatted_gym_id
     if (gymDbId) {
       setGymDatabaseId(gymDbId);
     } else {
-      setFetchError("Gym ID not found. Please log in again.");
+      setFetchError("Gym Database ID not found. Please log in again.");
       setIsLoadingMembers(false);
     }
-    if (ownerAuthId) {
-      setAdminSenderId(ownerAuthId);
+    if (formattedGymId) {
+      setAdminSenderId(formattedGymId);
     } else {
-      // This is a soft error for now, sendMessage will handle it more strictly
-      console.warn("Admin sender ID (gymOwnerAuthId) not found in localStorage.");
+      console.warn("Admin sender ID (formatted_gym_id) not found in localStorage.");
     }
   }, []);
 
@@ -79,15 +77,15 @@ export default function MessagesPage() {
       toast({ variant: "destructive", title: "Error", description: "Cannot send message. Ensure a member is selected, message is not empty, and gym ID is available." });
       return;
     }
-    if (!adminSenderId) {
-      toast({ variant: "destructive", title: "Error", description: "Admin user ID not found. Please log in again." });
+    if (!adminSenderId) { // This adminSenderId is now the formatted_gym_id
+      toast({ variant: "destructive", title: "Error", description: "Admin Gym ID (sender) not found. Please log in again." });
       return;
     }
     setIsSending(true);
 
     const response = await sendMessageAction(
       gymDatabaseId,
-      adminSenderId, 
+      adminSenderId, // This is now the formatted_gym_id
       selectedMember.id, // Receiver is the member's table UUID
       newMessageInput.trim() // Content
     );
@@ -241,7 +239,7 @@ export default function MessagesPage() {
                     {isSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                   </Button>
                 </div>
-                 {!adminSenderId && <p className="text-xs text-destructive mt-1">Admin sender ID missing. Cannot send.</p>}
+                 {!adminSenderId && <p className="text-xs text-destructive mt-1">Admin sender ID (Gym ID) missing. Cannot send.</p>}
               </CardFooter>
             </>
           ) : (

@@ -24,7 +24,7 @@ export async function fetchMessagesAction(
       .from('messages')
       .select('*')
       .eq('gym_id', gymDatabaseId)
-      .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`)
+      .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`) // This assumes sender_id and receiver_id can be either formatted_gym_id (TEXT) or member_uuid (TEXT)
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -41,27 +41,24 @@ export async function fetchMessagesAction(
  */
 export async function sendMessageAction(
   gymDatabaseId: string,
-  adminSenderId: string, // This is the gym owner's auth.users.id (or equivalent UUID)
-  memberReceiverId: string, // This is the member's table UUID (members.id)
+  adminSenderFormattedGymId: string, // This is the gym's formatted_gym_id (e.g., STEELFIT123)
+  memberReceiverUuid: string, // This is the member's table UUID (members.id)
   content: string
 ): Promise<{ newMessage?: Message; error?: string }> {
-  if (!gymDatabaseId || !adminSenderId || !memberReceiverId || !content.trim()) {
-    return { error: 'Gym ID, admin sender ID, member receiver ID, and message content are required.' };
+  if (!gymDatabaseId || !adminSenderFormattedGymId || !memberReceiverUuid || !content.trim()) {
+    return { error: 'Gym Database ID, Admin Sender Gym ID, Member Receiver UUID, and message content are required.' };
   }
   
   const supabase = createSupabaseServerActionClient();
-
-  // The adminSenderId is now passed directly, so no need to call supabase.auth.getUser() here.
-  // We trust the client (MessagesPage) to provide the correct adminSenderId obtained during its login/auth flow.
 
   try {
     const { data, error } = await supabase
       .from('messages')
       .insert({
         gym_id: gymDatabaseId,
-        sender_id: adminSenderId, 
+        sender_id: adminSenderFormattedGymId, // Use the formatted_gym_id as sender_id for admin
         sender_type: 'admin',
-        receiver_id: memberReceiverId, 
+        receiver_id: memberReceiverUuid, // Member's UUID
         receiver_type: 'member',
         content: content.trim(),
         created_at: new Date().toISOString(),
@@ -83,7 +80,7 @@ export async function sendMessageAction(
  */
 export async function markMessagesAsReadAction(
   gymDatabaseId: string,
-  receiverId: string,
+  receiverId: string, // Can be formatted_gym_id (admin) or member_uuid (member)
   messageIdsToUpdate: string[]
 ): Promise<{ success: boolean; error?: string }> {
   if (!gymDatabaseId || !receiverId || messageIdsToUpdate.length === 0) {
