@@ -41,30 +41,27 @@ export async function fetchMessagesAction(
  */
 export async function sendMessageAction(
   gymDatabaseId: string,
+  adminSenderId: string, // This is the gym owner's auth.users.id (or equivalent UUID)
   memberReceiverId: string, // This is the member's table UUID (members.id)
   content: string
 ): Promise<{ newMessage?: Message; error?: string }> {
-  if (!gymDatabaseId || !memberReceiverId || !content.trim()) {
-    return { error: 'Gym ID, member receiver ID, and message content are required.' };
+  if (!gymDatabaseId || !adminSenderId || !memberReceiverId || !content.trim()) {
+    return { error: 'Gym ID, admin sender ID, member receiver ID, and message content are required.' };
   }
   
   const supabase = createSupabaseServerActionClient();
 
-  // Get the authenticated admin's user ID
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-  if (authError || !user) {
-    return { error: 'Could not authenticate admin. Please log in again.' };
-  }
-  const adminSenderId = user.id; // This is the auth.users.id of the admin
+  // The adminSenderId is now passed directly, so no need to call supabase.auth.getUser() here.
+  // We trust the client (MessagesPage) to provide the correct adminSenderId obtained during its login/auth flow.
 
   try {
     const { data, error } = await supabase
       .from('messages')
       .insert({
         gym_id: gymDatabaseId,
-        sender_id: adminSenderId, // Admin's auth user ID
+        sender_id: adminSenderId, 
         sender_type: 'admin',
-        receiver_id: memberReceiverId, // Member's table UUID
+        receiver_id: memberReceiverId, 
         receiver_type: 'member',
         content: content.trim(),
         created_at: new Date().toISOString(),

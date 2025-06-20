@@ -52,6 +52,14 @@ export function LoginForm() {
       localStorage.setItem('gymOwnerEmail', targetGym.ownerEmail);
       localStorage.setItem('gymName', targetGym.name);
       localStorage.setItem('gymDatabaseId', targetGym.id);
+      if (targetGym.ownerUserId) {
+        localStorage.setItem('gymOwnerAuthId', targetGym.ownerUserId);
+      } else {
+        // It's possible ownerUserId might be null, handle this case if necessary
+        // For now, if it's null, gymOwnerAuthId won't be set, and message sending might fail gracefully later
+        console.warn("Owner User ID is null for this gym. Admin messaging might be affected.");
+        localStorage.removeItem('gymOwnerAuthId'); // Ensure it's cleared if null
+      }
 
       toast({
         title: `Login successful for ${targetGym.name}`,
