@@ -2,7 +2,7 @@
 'use server';
 
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/server';
-import type { Message } from '@/lib/types';
+import type { Message, MessageSenderType, MessageReceiverType } from '@/lib/types';
 import { format } from 'date-fns';
 
 /**
@@ -19,7 +19,7 @@ export async function fetchMessagesAction(
 
   const supabase = createSupabaseServiceRoleClient();
   try {
-    const { data, error } = await supabase
+    const { data: dbMessages, error } = await supabase
       .from('messages')
       .select('*')
       .eq('gym_id', gymDatabaseId)
@@ -31,7 +31,23 @@ export async function fetchMessagesAction(
     if (error) {
       return { error: error.message };
     }
-    return { data: data as Message[] };
+    if (!dbMessages) {
+        return { data: [] };
+    }
+
+    const messages: Message[] = dbMessages.map(dbMsg => ({
+        id: dbMsg.id,
+        gymId: dbMsg.gym_id,
+        senderId: dbMsg.sender_id,
+        receiverId: dbMsg.receiver_id,
+        senderType: dbMsg.sender_type as MessageSenderType,
+        receiverType: dbMsg.receiver_type as MessageReceiverType,
+        content: dbMsg.content,
+        createdAt: dbMsg.created_at, // Map created_at to createdAt
+        readAt: dbMsg.read_at,
+    }));
+
+    return { data: messages };
   } catch (e: any) {
     return { error: 'Failed to fetch messages due to an unexpected error.' };
   }
@@ -42,8 +58,8 @@ export async function fetchMessagesAction(
  */
 export async function sendMessageAction(
   gymDatabaseId: string,
-  adminSenderFormattedGymId: string, // This is the gym's formatted_gym_id (e.g., STEELFIT123)
-  memberReceiverUuid: string, // This is the member's table UUID (members.id)
+  adminSenderFormattedGymId: string, 
+  memberReceiverUuid: string, 
   content: string
 ): Promise<{ newMessage?: Message; error?: string }> {
   if (!gymDatabaseId || !adminSenderFormattedGymId || !memberReceiverUuid || !content.trim()) {
@@ -53,7 +69,7 @@ export async function sendMessageAction(
   const supabase = createSupabaseServiceRoleClient();
 
   try {
-    const { data, error } = await supabase
+    const { data: dbNewMessage, error } = await supabase // Renamed to dbNewMessage
       .from('messages')
       .insert({
         gym_id: gymDatabaseId,
@@ -67,10 +83,22 @@ export async function sendMessageAction(
       .select()
       .single();
 
-    if (error || !data) {
+    if (error || !dbNewMessage) {
       return { error: error?.message || 'Failed to send message.' };
     }
-    return { newMessage: data as Message };
+
+    const newMessage: Message = {
+        id: dbNewMessage.id,
+        gymId: dbNewMessage.gym_id,
+        senderId: dbNewMessage.sender_id,
+        receiverId: dbNewMessage.receiver_id,
+        senderType: dbNewMessage.sender_type as MessageSenderType,
+        receiverType: dbNewMessage.receiver_type as MessageReceiverType,
+        content: dbNewMessage.content,
+        createdAt: dbNewMessage.created_at, // Map created_at to createdAt
+        readAt: dbNewMessage.read_at,
+    };
+    return { newMessage };
   } catch (e: any) {
     return { error: 'Failed to send message due to an unexpected error.' };
   }
@@ -105,3 +133,4 @@ export async function markMessagesAsReadAction(
     return { success: false, error: 'Failed to mark messages as read.' };
   }
 }
+
