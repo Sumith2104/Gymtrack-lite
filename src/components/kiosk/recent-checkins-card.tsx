@@ -194,8 +194,8 @@ export function RecentCheckinsCard({ newCheckinEntry, className }: RecentCheckin
                   <div className="overflow-x-auto pb-4">
                     <div className="grid grid-cols-4 gap-x-4 py-2 text-xs font-medium text-muted-foreground border-b border-border/50">
                       <div className="text-left col-span-2">Member Name</div>
-                      <div className="text-center"><Fingerprint className="inline-block mr-1 h-3 w-3"/>Member ID</div>
-                      <div className="text-center"><Clock className="inline-block mr-1 h-3 w-3"/>Checked In</div>
+                      <div className="flex items-center justify-center col-span-1 gap-1"><Fingerprint className="h-3 w-3"/>Member ID</div>
+                      <div className="flex items-center justify-center col-span-1 gap-1"><Clock className="h-3 w-3"/>Checked In</div>
                     </div>
                     <div className="divide-y divide-border/30">
                       {groupedCheckins[dateKey].map((checkin) => (
@@ -217,3 +217,4 @@ export function RecentCheckinsCard({ newCheckinEntry, className }: RecentCheckin
     </Card>
   );
 }
+
