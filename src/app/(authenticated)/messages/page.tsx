@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -15,7 +15,13 @@ import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, isToday, isYesterday } from 'date-fns';
+
+const formatDateGroupHeader = (date: Date): string => {
+  if (isToday(date)) return "Today";
+  if (isYesterday(date)) return "Yesterday";
+  return format(date, "MMMM d, yyyy");
+};
 
 export default function MessagesPage() {
   const [members, setMembers] = useState<Member[]>([]);
@@ -23,7 +29,7 @@ export default function MessagesPage() {
   const [isLoadingMembers, setIsLoadingMembers] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [gymDatabaseId, setGymDatabaseId] = useState<string | null>(null);
-  const [adminSenderId, setAdminSenderId] = useState<string | null>(null); // Stores formatted_gym_id
+  const [adminSenderId, setAdminSenderId] = useState<string | null>(null); 
   const [searchTerm, setSearchTerm] = useState('');
   const [newMessageInput, setNewMessageInput] = useState('');
   const [isSending, setIsSending] = useState(false);
@@ -44,7 +50,7 @@ export default function MessagesPage() {
 
   useEffect(() => {
     const gymDbId = localStorage.getItem('gymDatabaseId');
-    const formattedGymId = localStorage.getItem('gymId');
+    const formattedGymId = localStorage.getItem('gymId'); 
     if (gymDbId) setGymDatabaseId(gymDbId);
     else {
       setFetchError("Gym Database ID not found. Please log in again.");
@@ -89,7 +95,7 @@ export default function MessagesPage() {
     if (selectedMember && gymDatabaseId && adminSenderId) {
       fetchConversation(gymDatabaseId, adminSenderId, selectedMember);
     } else {
-      setConversationMessages([]); // Clear messages if no member selected or IDs missing
+      setConversationMessages([]); 
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedMember, gymDatabaseId, adminSenderId]);
@@ -114,13 +120,15 @@ export default function MessagesPage() {
     } else {
       toast({ title: "Message Sent!", description: `Your message to ${selectedMember.name} has been sent.` });
       setNewMessageInput('');
-      // Re-fetch conversation to show the new message
+      
       fetchConversation(gymDatabaseId, adminSenderId, selectedMember);
     }
     setIsSending(false);
   };
 
   const getInitials = (name: string) => name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2);
+
+  let lastProcessedDateString: string | null = null;
 
   return (
     <div className="flex flex-col gap-6 h-[calc(100vh-var(--header-height,10rem))]">
@@ -196,22 +204,34 @@ export default function MessagesPage() {
                     <p className="text-sm">Start the conversation with {selectedMember.name}!</p>
                   </div>
                 ) : (
-                  conversationMessages.map(msg => (
-                    <div key={msg.id} className={cn("flex", msg.sender_id === adminSenderId ? "justify-end" : "justify-start")}>
-                      <div className={cn(
-                        "max-w-[70%] p-3 rounded-lg shadow",
-                        msg.sender_id === adminSenderId ? "bg-primary text-primary-foreground" : "bg-card text-card-foreground border"
-                      )}>
-                        <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
-                        <p className={cn(
-                          "text-xs mt-1",
-                           msg.sender_id === adminSenderId ? "text-primary-foreground/70 text-right" : "text-muted-foreground text-left"
-                        )}>
-                          {format(parseISO(msg.created_at), "MMM d, HH:mm")}
-                        </p>
-                      </div>
-                    </div>
-                  ))
+                  conversationMessages.map(msg => {
+                    const messageDate = parseISO(msg.created_at);
+                    const messageDateString = format(messageDate, 'yyyy-MM-dd');
+                    let dateHeaderElement: JSX.Element | null = null;
+
+                    if (lastProcessedDateString !== messageDateString) {
+                      dateHeaderElement = (
+                        <div key={`date-header-${messageDateString}`} className="text-center text-xs text-muted-foreground my-3 py-1 px-3 bg-muted/80 rounded-full mx-auto w-fit shadow-sm">
+                          {formatDateGroupHeader(messageDate)}
+                        </div>
+                      );
+                      lastProcessedDateString = messageDateString;
+                    }
+                    
+                    return (
+                      <React.Fragment key={msg.id}>
+                        {dateHeaderElement}
+                        <div className={cn("flex", msg.sender_id === adminSenderId ? "justify-end" : "justify-start")}>
+                          <div className={cn(
+                            "max-w-[70%] p-3 rounded-lg shadow",
+                            msg.sender_id === adminSenderId ? "bg-primary text-primary-foreground" : "bg-card text-card-foreground border"
+                          )}>
+                            <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                          </div>
+                        </div>
+                      </React.Fragment>
+                    );
+                  })
                 )}
                 <div ref={messagesEndRef} />
               </CardContent>
@@ -242,3 +262,4 @@ export default function MessagesPage() {
     </div>
   );
 }
+
