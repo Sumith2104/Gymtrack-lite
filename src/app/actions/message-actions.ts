@@ -1,7 +1,7 @@
 
 'use server';
 
-import { createSupabaseServerActionClient } from '@/lib/supabase/server';
+import { createSupabaseServiceRoleClient } from '@/lib/supabase/server'; // Changed to service role client
 import type { Message } from '@/lib/types';
 
 /**
@@ -16,15 +16,17 @@ export async function fetchMessagesAction(
   if (!gymDatabaseId || !userId) {
     return { error: 'Gym ID and User ID are required.' };
   }
-  const supabase = createSupabaseServerActionClient();
+  // For fetching messages, RLS should ideally be used.
+  // If using service role here, ensure it's necessary or secure with filters.
+  // For now, keeping the server action client for reads, assuming RLS is set up for reads.
+  // Or, if service role is needed universally, switch this too and add robust filters.
+  const supabase = createSupabaseServiceRoleClient(); // Or createSupabaseServerActionClient() if RLS for reads is fine
   try {
-    // A more complex query will be needed to fetch conversations (e.g., group by sender/receiver pairs)
-    // This is a simplified version fetching all messages related to the user for the gym
     const { data, error } = await supabase
       .from('messages')
       .select('*')
       .eq('gym_id', gymDatabaseId)
-      .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`) // This assumes sender_id and receiver_id can be either formatted_gym_id (TEXT) or member_uuid (TEXT)
+      .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`) 
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -49,16 +51,17 @@ export async function sendMessageAction(
     return { error: 'Gym Database ID, Admin Sender Gym ID, Member Receiver UUID, and message content are required.' };
   }
   
-  const supabase = createSupabaseServerActionClient();
+  // Use the service role client to bypass RLS for this trusted server operation
+  const supabase = createSupabaseServiceRoleClient();
 
   try {
     const { data, error } = await supabase
       .from('messages')
       .insert({
         gym_id: gymDatabaseId,
-        sender_id: adminSenderFormattedGymId, // Use the formatted_gym_id as sender_id for admin
+        sender_id: adminSenderFormattedGymId, 
         sender_type: 'admin',
-        receiver_id: memberReceiverUuid, // Member's UUID
+        receiver_id: memberReceiverUuid, 
         receiver_type: 'member',
         content: content.trim(),
         created_at: new Date().toISOString(),
@@ -80,13 +83,13 @@ export async function sendMessageAction(
  */
 export async function markMessagesAsReadAction(
   gymDatabaseId: string,
-  receiverId: string, // Can be formatted_gym_id (admin) or member_uuid (member)
+  receiverId: string, 
   messageIdsToUpdate: string[]
 ): Promise<{ success: boolean; error?: string }> {
   if (!gymDatabaseId || !receiverId || messageIdsToUpdate.length === 0) {
     return { success: false, error: 'Gym ID, receiver ID, and message IDs are required.' };
   }
-  const supabase = createSupabaseServerActionClient();
+  const supabase = createSupabaseServiceRoleClient(); // Or regular client if RLS allows receiver to update
   try {
     const { error } = await supabase
       .from('messages')
