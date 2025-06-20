@@ -10,7 +10,7 @@ import type { Message } from '@/lib/types';
  */
 export async function fetchMessagesAction(
   gymDatabaseId: string,
-  userId: string, // Could be gym owner's auth.uid() or member's table UUID
+  userId: string, 
   userType: 'admin' | 'member'
 ): Promise<{ data?: Message[]; error?: string }> {
   if (!gymDatabaseId || !userId) {
@@ -30,37 +30,44 @@ export async function fetchMessagesAction(
     if (error) {
       return { error: error.message };
     }
-    return { data: data as Message[] }; // Cast needed as Supabase types might not be fully inferred here
+    return { data: data as Message[] };
   } catch (e: any) {
     return { error: 'Failed to fetch messages due to an unexpected error.' };
   }
 }
 
 /**
- * Sends a message from a sender to a receiver within a specific gym.
+ * Sends a message from an admin (gym owner) to a specific member.
  */
 export async function sendMessageAction(
   gymDatabaseId: string,
-  senderId: string,
-  senderType: 'admin' | 'member',
-  receiverId: string,
-  receiverType: 'admin' | 'member',
+  memberReceiverId: string, // This is the member's table UUID (members.id)
   content: string
 ): Promise<{ newMessage?: Message; error?: string }> {
-  if (!gymDatabaseId || !senderId || !receiverId || !content.trim()) {
-    return { error: 'Gym ID, sender ID, receiver ID, and message content are required.' };
+  if (!gymDatabaseId || !memberReceiverId || !content.trim()) {
+    return { error: 'Gym ID, member receiver ID, and message content are required.' };
   }
+  
   const supabase = createSupabaseServerActionClient();
+
+  // Get the authenticated admin's user ID
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) {
+    return { error: 'Could not authenticate admin. Please log in again.' };
+  }
+  const adminSenderId = user.id; // This is the auth.users.id of the admin
+
   try {
     const { data, error } = await supabase
       .from('messages')
       .insert({
         gym_id: gymDatabaseId,
-        sender_id: senderId,
-        sender_type: senderType,
-        receiver_id: receiverId,
-        receiver_type: receiverType,
+        sender_id: adminSenderId, // Admin's auth user ID
+        sender_type: 'admin',
+        receiver_id: memberReceiverId, // Member's table UUID
+        receiver_type: 'member',
         content: content.trim(),
+        created_at: new Date().toISOString(),
       })
       .select()
       .single();
@@ -93,7 +100,7 @@ export async function markMessagesAsReadAction(
       .eq('gym_id', gymDatabaseId)
       .eq('receiver_id', receiverId)
       .in('id', messageIdsToUpdate)
-      .is('read_at', null); // Only update if not already read
+      .is('read_at', null); 
 
     if (error) {
       return { success: false, error: error.message };

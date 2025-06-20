@@ -9,10 +9,12 @@ import { Button } from '@/components/ui/button';
 import { MessageSquare, Users, Send, AlertCircle, Search, Loader2, X } from 'lucide-react';
 import type { Member } from '@/lib/types';
 import { fetchMembers as fetchMembersAction } from '@/app/actions/member-actions';
+import { sendMessageAction } from '@/app/actions/message-actions';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
+import { useToast } from '@/hooks/use-toast';
 
 export default function MessagesPage() {
   const [members, setMembers] = useState<Member[]>([]);
@@ -21,8 +23,9 @@ export default function MessagesPage() {
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [gymDatabaseId, setGymDatabaseId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  // const [messages, setMessages] = useState([]); // For future use
-  // const [newMessageInput, setNewMessageInput] = useState(''); // For future use
+  const [newMessageInput, setNewMessageInput] = useState('');
+  const [isSending, setIsSending] = useState(false);
+  const { toast } = useToast();
 
   useEffect(() => {
     const id = localStorage.getItem('gymDatabaseId');
@@ -44,13 +47,11 @@ export default function MessagesPage() {
             setFetchError(response.error || "Failed to load members.");
             setMembers([]);
           } else {
-            // TODO: Later, fetch unread message status and sort by it
-            // For now, sort by name alphabetically as a default
             const sortedMembers = response.data.sort((a, b) => a.name.localeCompare(b.name));
             setMembers(sortedMembers);
           }
         })
-        .catch(() => { // Simplified catch
+        .catch(() => {
           setFetchError("An unexpected error occurred while fetching members.");
           setMembers([]);
         })
@@ -65,19 +66,35 @@ export default function MessagesPage() {
     (member.memberId && member.memberId.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
-  // const handleSendMessage = () => {
-  //   if (!selectedMember || !newMessageInput.trim()) return;
-  //   // console.log(`Sending message to ${selectedMember.name}: ${newMessageInput}`);
-  //   // TODO: Implement actual message sending logic using sendMessageAction
-  //   // setNewMessageInput('');
-  // };
+  const handleSendMessage = async () => {
+    if (!selectedMember || !newMessageInput.trim() || !gymDatabaseId) {
+      toast({ variant: "destructive", title: "Error", description: "Cannot send message. Ensure a member is selected, message is not empty, and gym ID is available." });
+      return;
+    }
+    setIsSending(true);
+
+    const response = await sendMessageAction(
+      gymDatabaseId, // Admin's gym context
+      selectedMember.id, // Receiver is the member's table UUID
+      newMessageInput.trim() // Content
+    );
+
+    if (response.error || !response.newMessage) {
+      toast({ variant: "destructive", title: "Message Failed", description: response.error || "Could not send message." });
+    } else {
+      toast({ title: "Message Sent!", description: `Your message to ${selectedMember.name} has been sent.` });
+      setNewMessageInput('');
+      // Note: This does not yet update the displayed conversation.
+    }
+    setIsSending(false);
+  };
 
   const getInitials = (name: string) => {
     return name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2);
   };
 
   return (
-    <div className="flex flex-col gap-6 h-[calc(100vh-var(--header-height,10rem))]"> {/* Adjust header-height if needed */}
+    <div className="flex flex-col gap-6 h-[calc(100vh-var(--header-height,10rem))]">
       <div className="mb-2">
         <h1 className="text-3xl md:text-4xl font-bold text-foreground tracking-tight flex items-center">
           <MessageSquare className="mr-3 h-8 w-8" /> Messages
@@ -89,7 +106,6 @@ export default function MessagesPage() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 flex-1 min-h-0">
-        {/* Member List Column */}
         <Card className="md:col-span-1 shadow-lg flex flex-col max-h-full">
           <CardHeader className="pb-3 shrink-0">
             <CardTitle className="text-xl flex items-center">
@@ -138,10 +154,10 @@ export default function MessagesPage() {
                       key={member.id}
                       variant="ghost"
                       className={cn(
-                        'group w-full justify-start h-auto p-3 text-left rounded-md', // Added 'group'
+                        'group w-full justify-start h-auto p-3 text-left rounded-md',
                         selectedMember?.id === member.id
-                          ? 'bg-muted text-foreground' // Selected state
-                          : 'hover:bg-muted/60 focus:bg-muted/70' // Adjusted hover, focus remains
+                          ? 'bg-muted text-foreground'
+                          : 'hover:bg-muted/60 focus:bg-muted/70'
                       )}
                       onClick={() => setSelectedMember(member)}
                     >
@@ -157,9 +173,8 @@ export default function MessagesPage() {
                         )}>{member.name}</div>
                         <div className={cn(
                           "text-xs truncate",
-                          selectedMember?.id === member.id ? "text-foreground/80" : "text-muted-foreground group-hover:text-foreground/80" // Added group-hover effect
+                          selectedMember?.id === member.id ? "text-foreground/80" : "text-muted-foreground group-hover:text-foreground/80"
                         )}>{member.memberId || 'N/A'}</div>
-                        {/* TODO: Add unread message indicator here using a small dot or count */}
                       </div>
                     </Button>
                   ))
@@ -169,7 +184,6 @@ export default function MessagesPage() {
           </CardContent>
         </Card>
 
-        {/* Conversation Area Column */}
         <Card className="md:col-span-2 shadow-lg flex flex-col max-h-full">
           {selectedMember ? (
             <>
@@ -193,25 +207,25 @@ export default function MessagesPage() {
                 </div>
               </CardHeader>
               <CardContent className="flex-1 p-4 space-y-4 overflow-y-auto min-h-0">
-                {/* Message history will go here */}
                 <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
                   <MessageSquare className="h-16 w-16 mb-4 text-primary/30" />
                   <p className="text-lg">Conversation with {selectedMember.name}</p>
                   <p className="text-sm">Messaging UI is under development.</p>
-                  <p className="text-xs mt-2">(Actual message display and sending will be implemented next.)</p>
+                  <p className="text-xs mt-2">(Actual message display will be implemented next.)</p>
                 </div>
               </CardContent>
               <CardFooter className="p-4 border-t shrink-0">
                 <div className="flex w-full items-center space-x-2">
                   <Input
-                    // value={newMessageInput}
-                    // onChange={(e) => setNewMessageInput(e.target.value)}
+                    value={newMessageInput}
+                    onChange={(e) => setNewMessageInput(e.target.value)}
                     placeholder="Type your message..."
                     className="flex-1"
-                    disabled // Disabled until message sending is implemented
+                    disabled={isSending}
+                    onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey && !isSending) { e.preventDefault(); handleSendMessage();}}}
                   />
-                  <Button /*onClick={handleSendMessage}*/ disabled> {/* Disabled */}
-                    <Send className="h-4 w-4" />
+                  <Button onClick={handleSendMessage} disabled={isSending || !newMessageInput.trim()}>
+                    {isSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                   </Button>
                 </div>
               </CardFooter>
@@ -237,4 +251,3 @@ export default function MessagesPage() {
     </div>
   );
 }
-
