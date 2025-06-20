@@ -219,8 +219,8 @@ export interface Database {
         Row: {
           id: string // uuid
           gym_id: string // uuid
-          sender_id: string // TEXT (can be formatted_gym_id for admin or member's UUID for member)
-          receiver_id: string // TEXT (can be formatted_gym_id for admin or member's UUID for member)
+          sender_id: string // TEXT (stores formatted_gym_id if admin, or human-readable members.member_id if member)
+          receiver_id: string // TEXT (stores human-readable members.member_id if member, or formatted_gym_id if admin)
           sender_type: string // text, 'admin' or 'member'
           receiver_type: string // text, 'admin' or 'member'
           content: string // text
@@ -297,3 +297,5 @@ export interface Database {
     }
   }
 }
+
+    
