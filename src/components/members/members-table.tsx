@@ -18,7 +18,7 @@ import {
   getSortedRowModel,
   useReactTable,
 } from '@tanstack/react-table';
-import { MoreHorizontal, Trash2, Edit3, Mail, FileText, PlusCircle, UserX, UserCheck, MailWarning, UserCog, Search as SearchIcon, Users, AlertCircle, RefreshCw } from 'lucide-react';
+import { MoreHorizontal, Trash2, Edit3, Mail, FileText, PlusCircle, UserX, UserCheck, UserCog, Search as SearchIcon, Users, AlertCircle, RefreshCw, BadgeCent, CalendarClock } from 'lucide-react'; // Updated icons
 import { format, differenceInDays, parseISO, isValid } from 'date-fns';
 
 import { Button } from '@/components/ui/button';
@@ -49,7 +49,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import type { Member, MembershipStatus, AttendanceSummary } from '@/lib/types';
+import type { Member, MembershipStatus, AttendanceSummary, EffectiveMembershipStatus } from '@/lib/types';
 import { AddMemberDialog } from './add-member-dialog';
 import { AttendanceOverviewDialog } from './attendance-overview-dialog';
 import { BulkEmailDialog } from './bulk-email-dialog';
@@ -65,22 +65,32 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 
 
-const getEffectiveMembershipStatus = (member: Member): MembershipStatus => {
+const getEffectiveDisplayStatus = (member: Member): EffectiveMembershipStatus => {
+  // If DB status is 'expired', it's definitively 'expired'.
+  if (member.membershipStatus === 'expired') {
+    return 'expired';
+  }
+
+  // If DB status is 'active', then check expiryDate.
   if (member.membershipStatus === 'active' && member.expiryDate) {
     const expiry = parseISO(member.expiryDate);
     if (isValid(expiry)) {
       const daysUntilExpiry = differenceInDays(expiry, new Date());
-      if (daysUntilExpiry <= 14 && daysUntilExpiry >= 0) {
+      if (daysUntilExpiry < 0) {
+        return 'expired'; // Date-based expiry
+      }
+      if (daysUntilExpiry <= 14) { // daysUntilExpiry >= 0 is implicit
         return 'expiring soon';
       }
-      if (daysUntilExpiry < 0) return 'expired';
+      return 'active'; // Still active and not expiring soon
     }
   }
-  return member.membershipStatus;
+  // Fallback: if dbStatus is something unexpected or expiryDate is invalid for an 'active' member,
+  // treat as 'expired' to be safe, or 'active' if status is active and date is problematic
+  return member.membershipStatus === 'active' ? 'active' : 'expired';
 };
 
 
@@ -113,7 +123,8 @@ export function MembersTable() {
       setFetchMembersError(response.error || "Failed to load members.");
       setData([]);
     } else {
-      setData(response.data.map(m => ({ ...m, effectiveStatus: getEffectiveMembershipStatus(m) })));
+      // Effective status for display will be calculated on the fly by getEffectiveDisplayStatus
+      setData(response.data);
     }
     setIsLoadingMembers(false);
     setRowSelection({}); 
@@ -148,7 +159,7 @@ export function MembersTable() {
     phoneNumber: false,
   });
   const [rowSelection, setRowSelection] = React.useState({});
-  const [statusFilter, setStatusFilter] = React.useState<MembershipStatus | 'all'>('all');
+  const [statusFilter, setStatusFilter] = React.useState<EffectiveMembershipStatus | 'all'>('all');
 
 
   const handleMemberSaved = (savedMember: Member) => {
@@ -156,9 +167,9 @@ export function MembersTable() {
         if (savedMember.gymId === currentGymDatabaseId) {
           const memberExists = data.some(m => m.id === savedMember.id);
           if (memberExists) {
-            setData(prevData => prevData.map(m => m.id === savedMember.id ? {...savedMember, effectiveStatus: getEffectiveMembershipStatus(savedMember) } : m));
+            setData(prevData => prevData.map(m => m.id === savedMember.id ? savedMember : m));
           } else {
-            setData(prevData => [{...savedMember, effectiveStatus: getEffectiveMembershipStatus(savedMember)}, ...prevData]);
+            setData(prevData => [savedMember, ...prevData]);
           }
         }
     }
@@ -187,16 +198,12 @@ export function MembersTable() {
     }
   };
 
-  const handleManualStatusUpdate = async (member: Member, newStatus: MembershipStatus) => {
-     if (newStatus === 'expiring soon') {
-        toast({ title: "Invalid Action", description: "'Expiring Soon' is an automatically derived status.", variant: "destructive" });
-        return;
-    }
+  const handleManualStatusUpdate = async (member: Member, newDbStatus: MembershipStatus) => {
     if (!currentGymDatabaseId) return;
 
-    const response = await updateMemberStatusAction(member.id, newStatus);
+    const response = await updateMemberStatusAction(member.id, newDbStatus);
     if (response.updatedMember) {
-        toast({ title: "Status Updated", description: `${member.name}'s status changed to ${newStatus}.` });
+        toast({ title: "Status Updated", description: `${member.name}'s DB status changed to ${newDbStatus}.` });
         loadMembers(currentGymDatabaseId); 
     } else {
         toast({ variant: "destructive", title: "Error Updating Status", description: response.error });
@@ -233,19 +240,15 @@ export function MembersTable() {
     setIsBulkDeleteConfirmOpen(false);
   };
 
-  const handleBulkStatusUpdate = async (newStatus: MembershipStatus) => {
-    if (newStatus === 'expiring soon') {
-        toast({ title: "Invalid Action", description: "'Expiring Soon' is an automatically derived status for bulk actions.", variant: "destructive" });
-        return;
-    }
+  const handleBulkStatusUpdate = async (newDbStatus: MembershipStatus) => {
     const selectedRows = table.getFilteredSelectedRowModel().rows;
      if (selectedRows.length === 0 || !currentGymDatabaseId) {
       return;
     }
     const memberIdsToUpdate = selectedRows.map(row => row.original.id);
-    const response = await bulkUpdateMemberStatusAction(memberIdsToUpdate, newStatus);
+    const response = await bulkUpdateMemberStatusAction(memberIdsToUpdate, newDbStatus);
 
-    toast({ title: "Bulk Status Update Processed", description: `${response.successCount} member(s) status updated to ${newStatus}. ${response.errorCount > 0 ? `${response.errorCount} failed. Error: ${response.error}`: (response.error ? `Error: ${response.error}` : '')}` });
+    toast({ title: "Bulk Status Update Processed", description: `${response.successCount} member(s) DB status updated to ${newDbStatus}. ${response.errorCount > 0 ? `${response.errorCount} failed. Error: ${response.error}`: (response.error ? `Error: ${response.error}` : '')}` });
     
     if (response.successCount > 0) {
         loadMembers(currentGymDatabaseId);
@@ -261,11 +264,12 @@ export function MembersTable() {
     setBulkEmailRecipients(selectedRows.map(row => row.original));
     setIsBulkEmailDialogOpen(true);
   };
+  
+  const filterableDisplayStatuses: (EffectiveMembershipStatus | 'all')[] = ['all', 'active', 'expiring soon', 'expired'];
+  const settableDbStatuses: MembershipStatus[] = ['active', 'expired'];
 
-  const filterableStatusesForDropdown: (MembershipStatus | 'all')[] = ['all', 'active', 'expiring soon', 'expired', 'inactive', 'pending'];
 
-
-  const columns: ColumnDef<Member & { effectiveStatus?: MembershipStatus }>[] = [
+  const columns: ColumnDef<Member>[] = [
     {
       id: 'select',
       header: ({ table }) => (
@@ -326,19 +330,18 @@ export function MembersTable() {
       cell: ({ row }) => <div className="capitalize">{row.original.membershipType || 'N/A'}</div>,
     },
     {
-      accessorKey: 'effectiveStatus', 
+      id: 'effectiveDisplayStatus', // New ID for the derived status column
       header: 'Status',
+      accessorFn: (row) => getEffectiveDisplayStatus(row), // Use accessorFn to get derived status
       cell: ({ row }) => {
-        const status = row.original.effectiveStatus; 
+        const status = getEffectiveDisplayStatus(row.original);
         let badgeClass = '';
         if (status === 'active') badgeClass = 'bg-green-500/20 text-green-700 border-green-500/30 hover:bg-green-500/30 dark:bg-green-500/10 dark:text-green-400 dark:border-green-500/20 dark:hover:bg-green-500/20';
-        else if (status === 'inactive') badgeClass = 'bg-slate-500/20 text-slate-700 border-slate-500/30 hover:bg-slate-500/30 dark:bg-slate-500/10 dark:text-slate-400 dark:border-slate-500/20 dark:hover:bg-slate-500/20';
         else if (status === 'expired') badgeClass = 'bg-red-500/20 text-red-700 border-red-500/30 hover:bg-red-500/30 dark:bg-red-500/10 dark:text-red-400 dark:border-red-500/20 dark:hover:bg-red-500/20'; 
-        else if (status === 'pending') badgeClass = 'bg-yellow-500/20 text-yellow-700 border-yellow-500/30 hover:bg-yellow-500/30 dark:bg-yellow-500/10 dark:text-yellow-400 dark:border-yellow-500/20 dark:hover:bg-yellow-500/20';
         else if (status === 'expiring soon') badgeClass = 'bg-orange-500/20 text-orange-700 border-orange-500/30 hover:bg-orange-500/30 dark:bg-orange-500/10 dark:text-orange-400 dark:border-orange-500/20 dark:hover:bg-orange-500/20';
         return <Badge variant="outline" className={`capitalize ${badgeClass}`}>{status}</Badge>;
       },
-      filterFn: (row, id, value) => value === 'all' || value.includes(row.original.effectiveStatus),
+      filterFn: (row, id, value) => value === 'all' || value.includes(getEffectiveDisplayStatus(row.original)),
     },
     {
       id: 'actions', 
@@ -367,16 +370,14 @@ export function MembersTable() {
                 <DropdownMenuSub>
                   <DropdownMenuSubTrigger>
                       <UserCog className="mr-2 h-4 w-4" />
-                      <span>Change Status</span>
+                      <span>Change DB Status</span>
                   </DropdownMenuSubTrigger>
                   <DropdownMenuPortal>
                       <DropdownMenuSubContent>
-                          {(['active', 'inactive', 'pending', 'expired'] as MembershipStatus[]).map(s => (
-                              <DropdownMenuItem key={s} onClick={() => handleManualStatusUpdate(member, s)} disabled={s === member.membershipStatus || s === 'expiring soon'}>
+                          {settableDbStatuses.map(s => (
+                              <DropdownMenuItem key={s} onClick={() => handleManualStatusUpdate(member, s)} disabled={s === member.membershipStatus}>
                               {s === 'active' && <UserCheck className="mr-2 h-4 w-4 text-green-500" />}
-                              {s === 'inactive' && <UserX className="mr-2 h-4 w-4 text-slate-500" />}
-                              {s === 'pending' && <UserCog className="mr-2 h-4 w-4 text-yellow-500" />}
-                              {s === 'expired' && <MailWarning className="mr-2 h-4 w-4 text-red-500" />}
+                              {s === 'expired' && <UserX className="mr-2 h-4 w-4 text-red-500" />}
                               Set to {s.charAt(0).toUpperCase() + s.slice(1)}
                               </DropdownMenuItem>
                           ))}
@@ -450,7 +451,7 @@ export function MembersTable() {
   });
   
   React.useEffect(() => {
-    table.getColumn('effectiveStatus')?.setFilterValue(statusFilter === 'all' ? undefined : statusFilter);
+    table.getColumn('effectiveDisplayStatus')?.setFilterValue(statusFilter === 'all' ? undefined : statusFilter);
   }, [statusFilter, table]);
 
   const globalFilter = (table.getColumn('name')?.getFilterValue() as string) ?? '';
@@ -528,8 +529,8 @@ export function MembersTable() {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuLabel>Filter by Status</DropdownMenuLabel>
-              <DropdownMenuRadioGroup value={statusFilter} onValueChange={(value) => setStatusFilter(value as MembershipStatus | 'all')}>
-                {filterableStatusesForDropdown.map(s => (
+              <DropdownMenuRadioGroup value={statusFilter} onValueChange={(value) => setStatusFilter(value as EffectiveMembershipStatus | 'all')}>
+                {filterableDisplayStatuses.map(s => (
                   <DropdownMenuRadioItem key={s} value={s} className="capitalize">
                     {s === 'all' ? 'All Statuses' : s}
                   </DropdownMenuRadioItem>
@@ -595,16 +596,14 @@ export function MembersTable() {
                     <DropdownMenuSub>
                       <DropdownMenuSubTrigger>
                           <UserCog className="mr-2 h-4 w-4" />
-                          <span>Set Status To</span>
+                          <span>Set DB Status To</span>
                       </DropdownMenuSubTrigger>
                       <DropdownMenuPortal>
                           <DropdownMenuSubContent>
-                          {(['active', 'inactive', 'expired', 'pending'] as MembershipStatus[]).map(status => (
+                          {settableDbStatuses.map(status => ( // Use settableDbStatuses
                               <DropdownMenuItem key={status} onClick={() => handleBulkStatusUpdate(status)} className="capitalize">
                               {status === 'active' && <UserCheck className="mr-2 h-4 w-4 text-green-500" />}
-                              {status === 'inactive' && <UserX className="mr-2 h-4 w-4 text-slate-500" />}
-                              {status === 'pending' && <UserCog className="mr-2 h-4 w-4 text-yellow-500" />}
-                              {status === 'expired' && <MailWarning className="mr-2 h-4 w-4 text-red-500" />}
+                              {status === 'expired' && <UserX className="mr-2 h-4 w-4 text-red-500" />}
                               {status}
                               </DropdownMenuItem>
                           ))}
@@ -719,3 +718,4 @@ export function MembersTable() {
     </div>
   );
 }
+

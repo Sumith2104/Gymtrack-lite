@@ -2,11 +2,27 @@
 'use server';
 
 import { createSupabaseServerActionClient } from '@/lib/supabase/server';
-import type { Member, FormattedCheckIn, CheckIn, MembershipType, MembershipStatus } from '@/lib/types';
+import type { Member, FormattedCheckIn, CheckIn, MembershipType, MembershipStatus, EffectiveMembershipStatus } from '@/lib/types';
 import { sendEmail } from '@/lib/email-service';
 import { formatDateIST, parseValidISO } from '@/lib/date-utils'; 
+import { differenceInDays, isValid, parseISO, addHours } from 'date-fns';
 
-import { addHours } from 'date-fns';
+
+function getEffectiveStatusForCheckin(member: Member): EffectiveMembershipStatus {
+  if (member.membershipStatus === 'expired') {
+    return 'expired';
+  }
+  if (member.membershipStatus === 'active' && member.expiryDate) {
+    const expiry = parseISO(member.expiryDate);
+    if (isValid(expiry)) {
+      const daysUntilExpiry = differenceInDays(expiry, new Date());
+      if (daysUntilExpiry < 0) return 'expired';
+      if (daysUntilExpiry <= 14) return 'expiring soon';
+      return 'active';
+    }
+  }
+  return member.membershipStatus === 'active' ? 'active' : 'expired'; // Fallback
+}
 
 function mapDbMemberToAppMember(dbMember: any): Member { 
   const planDetails = dbMember.plans; 
@@ -17,7 +33,7 @@ function mapDbMemberToAppMember(dbMember: any): Member {
     memberId: dbMember.member_id,
     name: dbMember.name,
     email: dbMember.email,
-    membershipStatus: dbMember.membership_status as MembershipStatus,
+    membershipStatus: dbMember.membership_status as MembershipStatus, // 'active' or 'expired' from DB
     createdAt: dbMember.created_at,
     age: dbMember.age,
     phoneNumber: dbMember.phone_number,
@@ -43,7 +59,6 @@ export async function findMemberForCheckInAction(identifier: string, gymDatabase
       .single();
 
     if (error) {
-      
       if (error.code === 'PGRST116') return { error: "Member not found at this gym."} 
       return { error: error.message };
     }
@@ -52,10 +67,16 @@ export async function findMemberForCheckInAction(identifier: string, gymDatabase
     }
     
     const member = mapDbMemberToAppMember(dbMember);
+    const effectiveStatus = getEffectiveStatusForCheckin(member);
+
+    if (effectiveStatus === 'expired') {
+      return { error: `Membership for ${member.name} is expired. Please see reception.` };
+    }
+    // 'active' and 'expiring soon' are allowed to proceed to check-in recording
+    
     return { member };
 
   } catch (e: any) {
-    
     return { error: 'An unexpected error occurred while finding the member.' };
   }
 }
@@ -102,13 +123,11 @@ export async function recordCheckInAction(memberTableUuid: string, gymDatabaseId
       .single();
 
     if (error || !newCheckInData) {
-      
       return { success: false, error: error?.message || "Failed to insert check-in record." };
     }
     return { success: true, checkInTime, checkInRecordId: newCheckInData.id };
 
   } catch (e: any) {
-    
     return { success: false, error: 'An unexpected error occurred while recording the check-in.' };
   }
 }
@@ -155,7 +174,6 @@ export async function sendCheckInEmailAction(
     });
 
   } catch (error: any) {
-    
     return { success: false, message: `Failed to process check-in email: ${error.message}` };
   }
 }
@@ -174,7 +192,6 @@ export async function fetchTodaysCheckInsForKioskAction(gymDatabaseId: string, g
       .order('check_in_time', { ascending: false });
 
     if (error) {
-      
       return { checkIns: [], error: error.message };
     }
     if (!dbCheckIns) {
@@ -195,7 +212,7 @@ export async function fetchTodaysCheckInsForKioskAction(gymDatabaseId: string, g
     return { checkIns: formattedCheckIns };
 
   } catch (e: any) {
-    
     return { checkIns: [], error: 'Failed to fetch check-ins.' };
   }
 }
+

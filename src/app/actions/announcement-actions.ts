@@ -2,10 +2,10 @@
 'use server';
 
 import { createSupabaseServerActionClient } from '@/lib/supabase/server';
-import type { Announcement, Member, MembershipStatus } from '@/lib/types';
+import type { Announcement, Member, MembershipStatus, EffectiveMembershipStatus } from '@/lib/types';
 import { sendEmail } from '@/lib/email-service';
 import { formatDateIST, parseValidISO } from '@/lib/date-utils';
-import { differenceInDays, isValid } from 'date-fns';
+import { differenceInDays, isValid, parseISO } from 'date-fns';
 import * as z from 'zod';
 
 const announcementActionSchema = z.object({
@@ -14,20 +14,22 @@ const announcementActionSchema = z.object({
 });
 
 // Helper function to determine effective status for email filtering
-function getEffectiveMembershipStatusForEmail(member: Pick<Member, 'membershipStatus' | 'expiryDate'>): MembershipStatus {
+function getEffectiveMembershipStatusForEmail(member: Pick<Member, 'membershipStatus' | 'expiryDate'>): EffectiveMembershipStatus {
+  // Member.membershipStatus is DB status: 'active' or 'expired'
+  if (member.membershipStatus === 'expired') {
+    return 'expired';
+  }
   if (member.membershipStatus === 'active' && member.expiryDate) {
     const expiry = parseValidISO(member.expiryDate);
     if (expiry && isValid(expiry)) {
       const daysUntilExpiry = differenceInDays(expiry, new Date());
-      if (daysUntilExpiry <= 14 && daysUntilExpiry >= 0) return 'expiring soon';
       if (daysUntilExpiry < 0) return 'expired';
+      if (daysUntilExpiry <= 14) return 'expiring soon'; // Includes day of expiry up to 14 days out
+      return 'active';
     }
   }
-  const validStatuses: MembershipStatus[] = ['active', 'inactive', 'expired', 'pending', 'expiring soon'];
-  if (validStatuses.includes(member.membershipStatus as MembershipStatus)) {
-    return member.membershipStatus as MembershipStatus;
-  }
-  return 'inactive';
+  // Fallback: if status is 'active' but date is weird, consider active. Otherwise, expired.
+  return member.membershipStatus === 'active' ? 'active' : 'expired';
 }
 
 interface AddAnnouncementResponse {
@@ -111,7 +113,7 @@ export async function addAnnouncementAction(
 
     const { data: membersToEmail, error: memberFetchError } = await supabase
       .from('members')
-      .select('name, email, membership_status, expiry_date')
+      .select('name, email, membership_status, expiry_date') // membership_status here is DB status
       .eq('gym_id', gymUuid); 
 
     if (memberFetchError) {
@@ -119,10 +121,11 @@ export async function addAnnouncementAction(
     } else if (membersToEmail && membersToEmail.length > 0) {
       for (const member of membersToEmail) {
         const effectiveStatus = getEffectiveMembershipStatusForEmail({
-          membershipStatus: member.membership_status as MembershipStatus,
+          membershipStatus: member.membership_status as MembershipStatus, // Cast to DB status type
           expiryDate: member.expiry_date,
         });
 
+        // Send email if effective status is 'active' or 'expiring soon'
         if (member.email && (effectiveStatus === 'active' || effectiveStatus === 'expiring soon')) {
           attempted++;
           const emailSubject = `New Announcement from ${gymNameForEmail}: ${newAnnouncement.title}`;
@@ -222,3 +225,4 @@ export async function deleteAnnouncementsAction(announcementIds: string[]): Prom
     
 
     
+

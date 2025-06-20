@@ -1,5 +1,5 @@
 
-export type MembershipStatus = 'active' | 'inactive' | 'expired' | 'pending' | 'expiring soon';
+export type MembershipStatus = 'active' | 'expired'; // Defines what's stored in the DB
 
 // This can be used for suggested plan names, but actual plan names will be strings.
 export type MembershipType = 'Basic' | 'Premium' | 'Annual' | 'Monthly' | '6-Month' | 'Class Pass' | 'Other';
@@ -20,7 +20,7 @@ export interface Member {
   memberId: string; // User-defined member identifier (e.g., MBR001) (members.member_id)
   name: string; // members.name
   email: string; // members.email (marked as required in schema, making optional here needs care)
-  membershipStatus: MembershipStatus; // members.membership_status
+  membershipStatus: MembershipStatus; // Stored DB status: 'active' or 'expired'
   createdAt: string; // timestamptz (members.created_at)
   age: number | null; // members.age
   phoneNumber: string | null; // members.phone_number
@@ -116,3 +116,6 @@ export interface MemberWithPlanDetails extends Omit<Member, 'membershipType' | '
     duration_months: number | null;
   } | null;
 }
+
+// UI Display Status type, derived from MembershipStatus and expiryDate
+export type EffectiveMembershipStatus = 'active' | 'expiring soon' | 'expired';

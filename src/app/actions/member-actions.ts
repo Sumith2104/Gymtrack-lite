@@ -2,7 +2,7 @@
 'use server';
 
 import { addMonths } from 'date-fns';
-import type { Member, MembershipStatus } from '@/lib/types';
+import type { Member, MembershipStatus, EffectiveMembershipStatus } from '@/lib/types';
 import { APP_NAME } from '@/lib/constants';
 import { addMemberFormSchema, type AddMemberFormValues } from '@/lib/schemas/member-schemas';
 import { createSupabaseServerActionClient } from '@/lib/supabase/server';
@@ -27,13 +27,13 @@ function mapDbMemberToAppMember(dbMember: any): Member {
     memberId: dbMember.member_id,
     name: dbMember.name,
     email: dbMember.email,
-    membershipStatus: dbMember.membership_status as MembershipStatus,
+    membershipStatus: dbMember.membership_status as MembershipStatus, // DB stores 'active' or 'expired'
     createdAt: dbMember.created_at,
     age: dbMember.age,
     phoneNumber: dbMember.phone_number,
     joinDate: dbMember.join_date,
     expiryDate: dbMember.expiry_date,
-    membershipType: planDetails?.plan_name || 'N/A', // Derive from plan_name
+    membershipType: planDetails?.plan_name || 'N/A', 
     planPrice: planDetails?.price ?? 0,
   };
 }
@@ -86,10 +86,9 @@ export async function addMember(
       email,
       phone_number: phoneNumber,
       age,
-      membership_status: 'active' as MembershipStatus,
+      membership_status: 'active' as MembershipStatus, // New members are active
       join_date: joinDate.toISOString(),
       expiry_date: expiryDate.toISOString(),
-      // membership_type: planDetails.plan_name, // Removed: Derived from plan
       created_at: new Date().toISOString(),
     };
 
@@ -177,7 +176,7 @@ export async function editMember(
 
     const { data: existingMember, error: fetchError } = await supabase
       .from('members')
-      .select('join_date, member_id') 
+      .select('join_date, member_id, membership_status') // Keep existing status unless explicitly changed by another action
       .eq('id', memberOriginalDbId)
       .eq('gym_id', gymDatabaseId) 
       .single();
@@ -212,8 +211,11 @@ export async function editMember(
       phone_number: phoneNumber,
       age,
       plan_id: selectedPlanUuid,
-      // membership_type: planDetails.plan_name, // Removed: Derived from plan
       expiry_date: expiryDate.toISOString(),
+      // membership_status is NOT updated here. It's updated by updateMemberStatusAction.
+      // If plan change implies reactivation, status should be 'active'.
+      // We assume if a plan is being edited/changed, the member should be 'active' with the new expiry.
+      membership_status: 'active' as MembershipStatus,
     };
 
     const { data: updatedMemberData, error: updateError } = await supabase
@@ -285,25 +287,40 @@ export async function deleteMemberAction(memberDbId: string): Promise<{ success:
   }
 }
 
+// newStatus here refers to the DB status: 'active' or 'expired'
 export async function updateMemberStatusAction(memberDbId: string, newStatus: MembershipStatus): Promise<{ updatedMember?: Member; error?: string }> {
   if (!memberDbId || !newStatus) return { error: "Member ID and new status are required." };
+  if (newStatus !== 'active' && newStatus !== 'expired') {
+    return { error: "Invalid status. Can only set to 'active' or 'expired'." };
+  }
+
   const supabase = createSupabaseServerActionClient();
   try {
+    const updateData: { membership_status: MembershipStatus; expiry_date?: string } = { membership_status: newStatus };
+    
+    // If setting to 'active' and member was 'expired', we might need to update expiry_date based on their current plan
+    // For simplicity now, we only update status. A full reactivation might involve re-assigning a plan.
+    // If setting to 'expired', ensure expiry_date is in the past or null.
+    if (newStatus === 'expired') {
+        // To ensure consistency, we can set expiry_date to a past date if it's not already.
+        // However, this might conflict with plan details. For now, just update status.
+        // A better approach for "Mark as Expired" might be to adjust expiry_date through editMember if needed.
+    }
+
+
     const { data: updatedDbMember, error } = await supabase
       .from('members')
-      .update({ membership_status: newStatus })
+      .update(updateData)
       .eq('id', memberDbId)
       .select('*, plans (plan_name, price, duration_months)') 
       .single();
 
     if (error || !updatedDbMember) {
-      
       return { error: error?.message || "Failed to update member status or member not found." };
     }
     const updatedMemberAppFormat = mapDbMemberToAppMember(updatedDbMember);
     return { updatedMember: updatedMemberAppFormat };
   } catch (e: any) {
-    
     return { error: 'Failed to update status due to an unexpected error.' };
   }
 }
@@ -336,12 +353,13 @@ export async function deleteMembersAction(memberDbIds: string[]): Promise<{ succ
   return { successCount: SCount, errorCount: ECount, error: lastError };
 }
 
+// newStatus here refers to the DB status: 'active' or 'expired'
 export async function bulkUpdateMemberStatusAction(memberDbIds: string[], newStatus: MembershipStatus): Promise<{ successCount: number; errorCount: number; error?: string }> {
   if (!memberDbIds || memberDbIds.length === 0) {
     return { successCount: 0, errorCount: 0, error: "No member IDs provided for status update." };
   }
-  if (!newStatus) {
-    return { successCount: 0, errorCount: memberDbIds.length, error: "New status is required." };
+  if (newStatus !== 'active' && newStatus !== 'expired') {
+    return { successCount: 0, errorCount: memberDbIds.length, error: "Invalid status. Can only set to 'active' or 'expired'." };
   }
   const supabase = createSupabaseServerActionClient();
   try {
@@ -352,7 +370,6 @@ export async function bulkUpdateMemberStatusAction(memberDbIds: string[], newSta
       .select('id'); 
 
     if (error) {
-      
       return { successCount: 0, errorCount: memberDbIds.length, error: error.message };
     }
     
@@ -363,7 +380,6 @@ export async function bulkUpdateMemberStatusAction(memberDbIds: string[], newSta
 
   } catch (e: any)
 {
-    
     return { successCount: 0, errorCount: memberDbIds.length, error: 'An unexpected error occurred during bulk status update.' };
   }
 }
@@ -396,7 +412,6 @@ export async function sendBulkCustomEmailAction(
       .in('id', memberDbIds);
 
     if (fetchError) {
-      
       return { attempted, successful, noEmailAddress, failed, error: `Failed to fetch member details: ${fetchError.message}` };
     }
 
@@ -439,8 +454,8 @@ export async function sendBulkCustomEmailAction(
     return { attempted, successful, noEmailAddress, failed };
 
   } catch (e: any) {
-    
     return { attempted, successful, noEmailAddress, failed, error: 'An unexpected error occurred while sending emails.' };
   }
 }
     
+
