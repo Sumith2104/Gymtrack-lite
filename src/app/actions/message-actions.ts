@@ -43,7 +43,7 @@ export async function fetchMessagesAction(
         senderType: dbMsg.sender_type as MessageSenderType,
         receiverType: dbMsg.receiver_type as MessageReceiverType,
         content: dbMsg.content,
-        createdAt: dbMsg.created_at, // Map created_at to createdAt
+        createdAt: dbMsg.created_at, 
         readAt: dbMsg.read_at,
     }));
 
@@ -69,13 +69,13 @@ export async function sendMessageAction(
   const supabase = createSupabaseServiceRoleClient();
 
   try {
-    const { data: dbNewMessage, error } = await supabase // Renamed to dbNewMessage
+    const { data: dbNewMessage, error } = await supabase
       .from('messages')
       .insert({
         gym_id: gymDatabaseId,
         sender_id: adminSenderFormattedGymId,
         sender_type: 'admin',
-        receiver_id: memberReceiverUuid,
+        receiver_id: memberReceiverUuid, // This uses the specific member's UUID
         receiver_type: 'member',
         content: content.trim(),
         created_at: new Date().toISOString(),
@@ -95,7 +95,7 @@ export async function sendMessageAction(
         senderType: dbNewMessage.sender_type as MessageSenderType,
         receiverType: dbNewMessage.receiver_type as MessageReceiverType,
         content: dbNewMessage.content,
-        createdAt: dbNewMessage.created_at, // Map created_at to createdAt
+        createdAt: dbNewMessage.created_at, 
         readAt: dbNewMessage.read_at,
     };
     return { newMessage };
@@ -133,4 +133,3 @@ export async function markMessagesAsReadAction(
     return { success: false, error: 'Failed to mark messages as read.' };
   }
 }
-
