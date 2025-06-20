@@ -1,14 +1,14 @@
 
 export type MembershipStatus = 'active' | 'inactive' | 'expired' | 'pending' | 'expiring soon';
 
-// This remains the user-facing name of a plan category, e.g., "Basic"
+// This can be used for suggested plan names, but actual plan names will be strings.
 export type MembershipType = 'Basic' | 'Premium' | 'Annual' | 'Monthly' | '6-Month' | 'Class Pass' | 'Other';
 
 // Interface for plans fetched from the database
 export interface FetchedMembershipPlan {
   uuid: string; // This is plans.id (uuid) - the primary key
   planIdText: string | null; // This is plans.plan_id (text, e.g., BAS0599) - user-defined identifier
-  name: MembershipType; // This is plans.plan_name (e.g., "Basic")
+  name: string; // This is plans.plan_name (e.g., "Basic") - Changed from MembershipType to string
   price: number;
   durationMonths: number | null;
 }
@@ -26,7 +26,7 @@ export interface Member {
   phoneNumber: string | null; // members.phone_number
   joinDate: string | null; // timestamptz - should default to today on add (members.join_date)
   expiryDate: string | null; // timestamptz - calculated based on plan (members.expiry_date)
-  membershipType?: MembershipType | null; // User-facing plan name, e.g., "Basic" (derived from plans.plan_name via planId)
+  membershipType?: string | null; // User-facing plan name, e.g., "Basic" (derived from plans.plan_name via planId) - Changed from MembershipType | null
   planPrice?: number | null; // Price of the current plan (derived from plans.price via planId)
 }
 
@@ -111,9 +111,8 @@ export interface AttendanceSummary {
 // Used for mapping Supabase member row with plan details
 export interface MemberWithPlanDetails extends Omit<Member, 'membershipType' | 'planPrice'> {
   plans: {
-    plan_name: MembershipType;
+    plan_name: string; // Changed from MembershipType
     price: number;
     duration_months: number | null;
   } | null;
 }
-

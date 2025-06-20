@@ -2,7 +2,7 @@
 'use server';
 
 import { addMonths } from 'date-fns';
-import type { Member, MembershipStatus, MembershipType } from '@/lib/types';
+import type { Member, MembershipStatus } from '@/lib/types';
 import { APP_NAME } from '@/lib/constants';
 import { addMemberFormSchema, type AddMemberFormValues } from '@/lib/schemas/member-schemas';
 import { createSupabaseServerActionClient } from '@/lib/supabase/server';
@@ -33,8 +33,8 @@ function mapDbMemberToAppMember(dbMember: any): Member {
     phoneNumber: dbMember.phone_number,
     joinDate: dbMember.join_date,
     expiryDate: dbMember.expiry_date,
-    membershipType: planDetails?.plan_name as MembershipType || dbMember.membership_type as MembershipType || 'Other',
-    planPrice: planDetails?.price ?? dbMember.plan_price ?? 0,
+    membershipType: planDetails?.plan_name || 'N/A', // Derive from plan_name
+    planPrice: planDetails?.price ?? 0,
   };
 }
 
@@ -89,7 +89,7 @@ export async function addMember(
       membership_status: 'active' as MembershipStatus,
       join_date: joinDate.toISOString(),
       expiry_date: expiryDate.toISOString(),
-      membership_type: planDetails.plan_name as MembershipType, 
+      // membership_type: planDetails.plan_name, // Removed: Derived from plan
       created_at: new Date().toISOString(),
     };
 
@@ -118,8 +118,8 @@ export async function addMember(
           <li><strong style="color: #FFD700; font-weight: bold;">Member ID:</strong> ${newMemberAppFormat.memberId}</li>
           <li><strong style="color: #FFD700; font-weight: bold;">Name:</strong> ${newMemberAppFormat.name}</li>
           <li><strong style="color: #FFD700; font-weight: bold;">Join Date:</strong> ${newMemberAppFormat.joinDate ? formatDateIST(newMemberAppFormat.joinDate, 'PP') : 'N/A'}</li>
-          <li><strong style="color: #FFD700; font-weight: bold;">Membership Type:</strong> ${newMemberAppFormat.membershipType}</li>
-          <li><strong style="color: #FFD700; font-weight: bold;">Plan Price:</strong> ₹${newMemberAppFormat.planPrice?.toFixed(2)}</li>
+          <li><strong style="color: #FFD700; font-weight: bold;">Membership Type:</strong> ${newMemberAppFormat.membershipType || 'N/A'}</li>
+          <li><strong style="color: #FFD700; font-weight: bold;">Plan Price:</strong> ₹${newMemberAppFormat.planPrice?.toFixed(2) || '0.00'}</li>
           <li><strong style="color: #FFD700; font-weight: bold;">Membership Expires:</strong> ${newMemberAppFormat.expiryDate ? formatDateIST(newMemberAppFormat.expiryDate, 'PP') : 'N/A'}</li>
         </ul>
         <p>You can use the QR code below for quick check-ins:</p>
@@ -212,7 +212,7 @@ export async function editMember(
       phone_number: phoneNumber,
       age,
       plan_id: selectedPlanUuid,
-      membership_type: planDetails.plan_name as MembershipType,
+      // membership_type: planDetails.plan_name, // Removed: Derived from plan
       expiry_date: expiryDate.toISOString(),
     };
 

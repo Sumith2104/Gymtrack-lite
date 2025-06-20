@@ -5,10 +5,11 @@ import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { OccupancyCard } from '@/components/dashboard/occupancy-card';
 import { CheckinTrendsChart } from '@/components/dashboard/checkin-trends-chart';
-import { DollarSign, Users, TrendingUp, Landmark, AlertCircle, Trophy, PackageOpen } from 'lucide-react';
+import { DollarSign, Users, TrendingUp, Landmark, AlertCircle, Trophy, PackageOpen, Settings } from 'lucide-react';
 import { getGymEarningsData, type EarningsData } from '@/app/actions/profile-actions';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
+import { CreatePlanForm } from '@/components/profile/create-plan-form'; // Import the new component
 
 
 export default function ProfilePage() {
@@ -119,7 +120,7 @@ export default function ProfilePage() {
           {gymName ? `${gymName} - Owner Profile` : 'Owner Profile'}
         </h1>
         <p className="text-muted-foreground mt-1">
-          Manage your gym details, view earnings, and get an activity overview.
+          Manage your gym details, plans, view earnings, and get an activity overview.
         </p>
         <div className="mt-3 h-1 w-24 bg-primary rounded-full"></div>
       </div>
@@ -128,8 +129,9 @@ export default function ProfilePage() {
       <Card className="shadow-lg">
         <CardHeader>
           <div className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-lg font-semibold">Gym Information</CardTitle>
-            <Landmark className="h-5 w-5 text-primary" />
+            <CardTitle className="text-lg font-semibold flex items-center">
+                <Landmark className="mr-2 h-5 w-5 text-primary" />Gym Information
+            </CardTitle>
           </div>
           <CardDescription>Basic details of your registered gym.</CardDescription>
         </CardHeader>
@@ -149,13 +151,16 @@ export default function ProfilePage() {
         </CardContent>
       </Card>
 
+      {/* Manage Plans Section */}
+      <CreatePlanForm />
 
       
       <Card className="shadow-lg">
         <CardHeader>
           <div className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-lg font-semibold">Earnings Overview</CardTitle>
-            <DollarSign className="h-5 w-5 text-primary" />
+            <CardTitle className="text-lg font-semibold flex items-center">
+                <DollarSign className="mr-2 h-5 w-5 text-primary" />Earnings Overview
+            </CardTitle>
           </div>
           <CardDescription>Summary of your gym's current financial standing based on active memberships.</CardDescription>
         </CardHeader>
@@ -175,4 +180,3 @@ export default function ProfilePage() {
     </div>
   );
 }
-
