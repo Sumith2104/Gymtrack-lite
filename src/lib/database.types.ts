@@ -1,4 +1,3 @@
-
 // src/lib/database.types.ts
 // This file should align with your 00_initial_schema.sql
 
