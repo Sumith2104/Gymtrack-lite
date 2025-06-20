@@ -18,6 +18,10 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  devIndicators: {
+    buildActivity: false,
+    autoPrerender: false, // Disables the prerender indicator (lightning bolt)
+  },
 };
 
 export default nextConfig;
