@@ -50,7 +50,7 @@ export default function MessagesPage() {
 
   useEffect(() => {
     const gymDbId = localStorage.getItem('gymDatabaseId');
-    const formattedGymId = localStorage.getItem('gymId');
+    const formattedGymId = localStorage.getItem('gymId'); // This is the formatted_gym_id
     if (gymDbId) setGymDatabaseId(gymDbId);
     else {
       setFetchError("Gym Database ID not found. Please log in again.");
@@ -80,7 +80,7 @@ export default function MessagesPage() {
 
   const fetchConversation = async (currentGymDbId: string, currentAdminId: string, currentMemberIdentifier: string) => {
     setIsLoadingConversation(true);
-    setConversationMessages([]);
+    setConversationMessages([]); // Clear previous messages when fetching new conversation
     const response = await fetchMessagesAction(currentGymDbId, currentAdminId, currentMemberIdentifier);
     if (response.error || !response.data) {
       toast({ variant: "destructive", title: "Error", description: response.error || "Could not load conversation." });
@@ -92,10 +92,10 @@ export default function MessagesPage() {
   };
 
   useEffect(() => {
-    if (selectedMember && gymDatabaseId && adminSenderFormattedGymId && selectedMember.memberId) {
+    if (selectedMember && selectedMember.memberId && gymDatabaseId && adminSenderFormattedGymId) {
       fetchConversation(gymDatabaseId, adminSenderFormattedGymId, selectedMember.memberId);
     } else {
-      setConversationMessages([]);
+      setConversationMessages([]); // Clear messages if no member selected or IDs missing
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedMember, gymDatabaseId, adminSenderFormattedGymId]);
@@ -119,9 +119,9 @@ export default function MessagesPage() {
       toast({ variant: "destructive", title: "Message Failed", description: response.error || "Could not send message." });
     } else {
       setNewMessageInput('');
-      if (selectedMember && selectedMember.memberId && gymDatabaseId && adminSenderFormattedGymId) {
-        fetchConversation(gymDatabaseId, adminSenderFormattedGymId, selectedMember.memberId);
-      }
+      // Optimistically update the conversationMessages state with the new message
+      setConversationMessages(prevMessages => [...prevMessages, response.newMessage!]);
+      // No longer calling fetchConversation here to avoid full refresh and loading spinner for the list
     }
     setIsSending(false);
   };
@@ -205,7 +205,7 @@ export default function MessagesPage() {
                   </div>
                 ) : (
                   conversationMessages.map(msg => {
-                    const messageDate = parseISO(msg.createdAt);
+                    const messageDate = parseISO(msg.createdAt); // msg.createdAt should be a valid ISO string
                     const messageDateString = format(messageDate, 'yyyy-MM-dd');
                     let dateHeaderElement: JSX.Element | null = null;
 
