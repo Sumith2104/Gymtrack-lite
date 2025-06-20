@@ -29,7 +29,7 @@ export default function MessagesPage() {
   const [isLoadingMembers, setIsLoadingMembers] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [gymDatabaseId, setGymDatabaseId] = useState<string | null>(null);
-  const [adminSenderId, setAdminSenderId] = useState<string | null>(null); 
+  const [adminSenderFormattedGymId, setAdminSenderFormattedGymId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [newMessageInput, setNewMessageInput] = useState('');
   const [isSending, setIsSending] = useState(false);
@@ -50,13 +50,13 @@ export default function MessagesPage() {
 
   useEffect(() => {
     const gymDbId = localStorage.getItem('gymDatabaseId');
-    const formattedGymId = localStorage.getItem('gymId'); 
+    const formattedGymId = localStorage.getItem('gymId');
     if (gymDbId) setGymDatabaseId(gymDbId);
     else {
       setFetchError("Gym Database ID not found. Please log in again.");
       setIsLoadingMembers(false);
     }
-    if (formattedGymId) setAdminSenderId(formattedGymId);
+    if (formattedGymId) setAdminSenderFormattedGymId(formattedGymId);
     else console.warn("Admin sender ID (formatted_gym_id) not found in localStorage.");
   }, []);
 
@@ -78,10 +78,10 @@ export default function MessagesPage() {
     }
   }, [gymDatabaseId]);
 
-  const fetchConversation = async (currentGymDbId: string, currentAdminId: string, currentMember: Member) => {
+  const fetchConversation = async (currentGymDbId: string, currentAdminId: string, currentMemberIdentifier: string) => {
     setIsLoadingConversation(true);
     setConversationMessages([]);
-    const response = await fetchMessagesAction(currentGymDbId, currentAdminId, currentMember.id);
+    const response = await fetchMessagesAction(currentGymDbId, currentAdminId, currentMemberIdentifier);
     if (response.error || !response.data) {
       toast({ variant: "destructive", title: "Error", description: response.error || "Could not load conversation." });
       setConversationMessages([]);
@@ -92,13 +92,13 @@ export default function MessagesPage() {
   };
 
   useEffect(() => {
-    if (selectedMember && gymDatabaseId && adminSenderId) {
-      fetchConversation(gymDatabaseId, adminSenderId, selectedMember);
+    if (selectedMember && gymDatabaseId && adminSenderFormattedGymId && selectedMember.memberId) {
+      fetchConversation(gymDatabaseId, adminSenderFormattedGymId, selectedMember.memberId);
     } else {
-      setConversationMessages([]); 
+      setConversationMessages([]);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedMember, gymDatabaseId, adminSenderId]);
+  }, [selectedMember, gymDatabaseId, adminSenderFormattedGymId]);
 
 
   const filteredMembers = members.filter(member =>
@@ -107,22 +107,21 @@ export default function MessagesPage() {
   );
 
   const handleSendMessage = async () => {
-    if (!selectedMember || !newMessageInput.trim() || !gymDatabaseId || !adminSenderId) {
-      toast({ variant: "destructive", title: "Error", description: "Cannot send message. Ensure member selected, message not empty, and IDs available." });
+    if (!selectedMember || !selectedMember.memberId || !newMessageInput.trim() || !gymDatabaseId || !adminSenderFormattedGymId) {
+      toast({ variant: "destructive", title: "Error", description: "Cannot send message. Ensure member selected (with Member ID), message not empty, and IDs available." });
       return;
     }
     setIsSending(true);
 
-    const response = await sendMessageAction(gymDatabaseId, adminSenderId, selectedMember.id, newMessageInput.trim());
+    const response = await sendMessageAction(gymDatabaseId, adminSenderFormattedGymId, selectedMember.memberId, newMessageInput.trim());
 
     if (response.error || !response.newMessage) {
       toast({ variant: "destructive", title: "Message Failed", description: response.error || "Could not send message." });
     } else {
-      // toast({ title: "Message Sent!", description: `Your message to ${selectedMember.name} has been sent.` }); // Removed success toast
       setNewMessageInput('');
-      
-      // Refresh conversation to show the new message
-      fetchConversation(gymDatabaseId, adminSenderId, selectedMember);
+      if (selectedMember && selectedMember.memberId && gymDatabaseId && adminSenderFormattedGymId) {
+        fetchConversation(gymDatabaseId, adminSenderFormattedGymId, selectedMember.memberId);
+      }
     }
     setIsSending(false);
   };
@@ -222,10 +221,10 @@ export default function MessagesPage() {
                     return (
                       <React.Fragment key={msg.id}>
                         {dateHeaderElement}
-                        <div className={cn("flex", msg.senderId === adminSenderId ? "justify-end" : "justify-start")}>
+                        <div className={cn("flex", msg.senderId === adminSenderFormattedGymId ? "justify-end" : "justify-start")}>
                           <div className={cn(
                             "max-w-[70%] p-3 rounded-2xl shadow", 
-                            msg.senderId === adminSenderId ? "bg-primary text-primary-foreground" : "bg-card text-card-foreground border"
+                            msg.senderId === adminSenderFormattedGymId ? "bg-primary text-primary-foreground" : "bg-card text-card-foreground border"
                           )}>
                             <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
                           </div>
@@ -239,14 +238,15 @@ export default function MessagesPage() {
               <CardFooter className="p-4 border-t shrink-0">
                 <div className="flex w-full items-center space-x-2">
                   <Input value={newMessageInput} onChange={(e) => setNewMessageInput(e.target.value)} placeholder="Type your message..." className="flex-1"
-                    disabled={isSending || !adminSenderId || isLoadingConversation}
-                    onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey && !isSending && adminSenderId && !isLoadingConversation) { e.preventDefault(); handleSendMessage();}}}
+                    disabled={isSending || !adminSenderFormattedGymId || isLoadingConversation || !selectedMember?.memberId}
+                    onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey && !isSending && adminSenderFormattedGymId && !isLoadingConversation && selectedMember?.memberId) { e.preventDefault(); handleSendMessage();}}}
                   />
-                  <Button onClick={handleSendMessage} disabled={isSending || !newMessageInput.trim() || !adminSenderId || isLoadingConversation}>
+                  <Button onClick={handleSendMessage} disabled={isSending || !newMessageInput.trim() || !adminSenderFormattedGymId || isLoadingConversation || !selectedMember?.memberId}>
                     {isSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                   </Button>
                 </div>
-                {!adminSenderId && <p className="text-xs text-destructive mt-1">Admin sender ID (Gym ID) missing. Cannot send.</p>}
+                {!adminSenderFormattedGymId && <p className="text-xs text-destructive mt-1">Admin sender ID (Gym ID) missing. Cannot send.</p>}
+                {!selectedMember?.memberId && selectedMember && <p className="text-xs text-destructive mt-1">Selected member is missing a Member ID. Cannot send.</p>}
               </CardFooter>
             </>
           ) : (

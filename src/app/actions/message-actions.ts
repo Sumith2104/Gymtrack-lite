@@ -7,14 +7,15 @@ import { format } from 'date-fns';
 
 /**
  * Fetches the conversation history between an admin (gym) and a specific member.
+ * Uses the member's human-readable memberId.
  */
 export async function fetchMessagesAction(
   gymDatabaseId: string,
   adminFormattedGymId: string,
-  memberUuid: string
+  memberIdentifier: string // This is members.member_id (human-readable ID)
 ): Promise<{ data?: Message[]; error?: string }> {
-  if (!gymDatabaseId || !adminFormattedGymId || !memberUuid) {
-    return { error: 'Gym ID, Admin ID, and Member ID are required to fetch conversation.' };
+  if (!gymDatabaseId || !adminFormattedGymId || !memberIdentifier) {
+    return { error: 'Gym DB ID, Admin Formatted ID, and Member Identifier are required to fetch conversation.' };
   }
 
   const supabase = createSupabaseServiceRoleClient();
@@ -23,8 +24,8 @@ export async function fetchMessagesAction(
       .from('messages')
       .select('*')
       .eq('gym_id', gymDatabaseId)
-      .or(
-        `and(sender_id.eq.${adminFormattedGymId},sender_type.eq.admin,receiver_id.eq.${memberUuid},receiver_type.eq.member),and(sender_id.eq.${memberUuid},sender_type.eq.member,receiver_id.eq.${adminFormattedGymId},receiver_type.eq.admin)`
+      .or( // Messages where admin sent to member OR member sent to admin
+        `and(sender_id.eq.${adminFormattedGymId},sender_type.eq.admin,receiver_id.eq.${memberIdentifier},receiver_type.eq.member),and(sender_id.eq.${memberIdentifier},sender_type.eq.member,receiver_id.eq.${adminFormattedGymId},receiver_type.eq.admin)`
       )
       .order('created_at', { ascending: true });
 
@@ -43,7 +44,7 @@ export async function fetchMessagesAction(
         senderType: dbMsg.sender_type as MessageSenderType,
         receiverType: dbMsg.receiver_type as MessageReceiverType,
         content: dbMsg.content,
-        createdAt: dbMsg.created_at, 
+        createdAt: dbMsg.created_at,
         readAt: dbMsg.read_at,
     }));
 
@@ -55,15 +56,16 @@ export async function fetchMessagesAction(
 
 /**
  * Sends a message from an admin (gym owner) to a specific member.
+ * Uses the member's human-readable memberId as receiver_id.
  */
 export async function sendMessageAction(
   gymDatabaseId: string,
   adminSenderFormattedGymId: string, 
-  memberReceiverUuid: string, 
+  memberReceiverIdentifier: string, // This is members.member_id (human-readable ID)
   content: string
 ): Promise<{ newMessage?: Message; error?: string }> {
-  if (!gymDatabaseId || !adminSenderFormattedGymId || !memberReceiverUuid || !content.trim()) {
-    return { error: 'Gym Database ID, Admin Sender Gym ID, Member Receiver UUID, and message content are required.' };
+  if (!gymDatabaseId || !adminSenderFormattedGymId || !memberReceiverIdentifier || !content.trim()) {
+    return { error: 'Gym DB ID, Admin Sender Formatted ID, Member Receiver Identifier, and message content are required.' };
   }
 
   const supabase = createSupabaseServiceRoleClient();
@@ -73,9 +75,9 @@ export async function sendMessageAction(
       .from('messages')
       .insert({
         gym_id: gymDatabaseId,
-        sender_id: adminSenderFormattedGymId,
+        sender_id: adminSenderFormattedGymId, // Admin is the sender
         sender_type: 'admin',
-        receiver_id: memberReceiverUuid, // This uses the specific member's UUID
+        receiver_id: memberReceiverIdentifier, // Member's human-readable ID is the receiver
         receiver_type: 'member',
         content: content.trim(),
         created_at: new Date().toISOString(),
@@ -95,7 +97,7 @@ export async function sendMessageAction(
         senderType: dbNewMessage.sender_type as MessageSenderType,
         receiverType: dbNewMessage.receiver_type as MessageReceiverType,
         content: dbNewMessage.content,
-        createdAt: dbNewMessage.created_at, 
+        createdAt: dbNewMessage.created_at,
         readAt: dbNewMessage.read_at,
     };
     return { newMessage };
@@ -106,14 +108,15 @@ export async function sendMessageAction(
 
 /**
  * Marks messages as read for a specific receiver up to a certain message ID or timestamp.
+ * Receiver ID can be member's human-readable ID or admin's formatted_gym_id.
  */
 export async function markMessagesAsReadAction(
   gymDatabaseId: string,
-  receiverId: string,
+  receiverIdentifier: string, // Can be member_id or formatted_gym_id
   messageIdsToUpdate: string[]
 ): Promise<{ success: boolean; error?: string }> {
-  if (!gymDatabaseId || !receiverId || messageIdsToUpdate.length === 0) {
-    return { success: false, error: 'Gym ID, receiver ID, and message IDs are required.' };
+  if (!gymDatabaseId || !receiverIdentifier || messageIdsToUpdate.length === 0) {
+    return { success: false, error: 'Gym ID, receiver identifier, and message IDs are required.' };
   }
   const supabase = createSupabaseServiceRoleClient();
   try {
@@ -121,7 +124,7 @@ export async function markMessagesAsReadAction(
       .from('messages')
       .update({ read_at: new Date().toISOString() })
       .eq('gym_id', gymDatabaseId)
-      .eq('receiver_id', receiverId)
+      .eq('receiver_id', receiverIdentifier)
       .in('id', messageIdsToUpdate)
       .is('read_at', null);
 
@@ -133,3 +136,4 @@ export async function markMessagesAsReadAction(
     return { success: false, error: 'Failed to mark messages as read.' };
   }
 }
+
