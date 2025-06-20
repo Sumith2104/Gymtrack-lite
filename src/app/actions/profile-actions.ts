@@ -28,7 +28,25 @@ export async function getGymEarningsData(gymDatabaseId: string): Promise<{ data?
   const supabase = createSupabaseServerActionClient();
 
   try {
+    // Fetch all active plan definitions for the gym
+    const { data: activePlanDefinitions, error: planDefinitionsError } = await supabase
+      .from('plans')
+      .select('price')
+      .eq('gym_id', gymDatabaseId)
+      .eq('is_active', true);
+
+    if (planDefinitionsError) {
+      return { error: `DB error fetching plan definitions: ${planDefinitionsError.message}` };
+    }
+
+    let totalValueOfActivePlanDefinitions = 0;
+    if (activePlanDefinitions) {
+      activePlanDefinitions.forEach(plan => {
+        totalValueOfActivePlanDefinitions += plan.price || 0;
+      });
+    }
     
+    // Fetch active members and their plan details for other metrics
     const { data: membersData, error: membersError } = await supabase
       .from('members')
       .select(`
@@ -43,15 +61,13 @@ export async function getGymEarningsData(gymDatabaseId: string): Promise<{ data?
       .eq('membership_status', 'active'); 
 
     if (membersError) {
-      
       return { error: `DB error fetching active members: ${membersError.message}` };
     }
-
     
     if (!membersData || membersData.length === 0) {
       return {
         data: {
-          totalValueOfActivePlans: 0,
+          totalValueOfActivePlans: Math.round(totalValueOfActivePlanDefinitions),
           currentMonthlyRevenue: 0,
           averageRevenuePerActiveMember: 0,
           topPerformingPlanName: null,
@@ -60,22 +76,20 @@ export async function getGymEarningsData(gymDatabaseId: string): Promise<{ data?
       };
     }
 
-    let totalValueOfActivePlans = 0;
-    let currentMonthlyRevenueSum = 0; // Will also sum full plan prices for active members
+    let currentMonthlyRevenueFromMembers = 0; 
     const activeMemberCount = membersData.length;
     const planCounts: Record<string, number> = {};
 
     membersData.forEach((member: RawMemberPlanData) => {
       if (member.plans && member.plans.price > 0) {
-        totalValueOfActivePlans += member.plans.price;
-        currentMonthlyRevenueSum += member.plans.price; // Now reflects sum of full plan prices for active members
+        currentMonthlyRevenueFromMembers += member.plans.price; 
 
         const planName = member.plans.plan_name || 'Unknown Plan';
         planCounts[planName] = (planCounts[planName] || 0) + 1;
       }
     });
 
-    const averageRevenuePerActiveMember = activeMemberCount > 0 ? totalValueOfActivePlans / activeMemberCount : 0;
+    const averageRevenuePerActiveMember = activeMemberCount > 0 ? currentMonthlyRevenueFromMembers / activeMemberCount : 0;
 
     let topPerformingPlanName: string | null = null;
     if (Object.keys(planCounts).length > 0) {
@@ -90,8 +104,8 @@ export async function getGymEarningsData(gymDatabaseId: string): Promise<{ data?
     
     return {
       data: {
-        totalValueOfActivePlans: Math.round(totalValueOfActivePlans),
-        currentMonthlyRevenue: Math.round(currentMonthlyRevenueSum), // Now uses the sum of full plan prices
+        totalValueOfActivePlans: Math.round(totalValueOfActivePlanDefinitions),
+        currentMonthlyRevenue: Math.round(currentMonthlyRevenueFromMembers),
         averageRevenuePerActiveMember: parseFloat(averageRevenuePerActiveMember.toFixed(2)),
         topPerformingPlanName: topPerformingPlanName,
         activeMemberCount,
@@ -99,7 +113,6 @@ export async function getGymEarningsData(gymDatabaseId: string): Promise<{ data?
     };
 
   } catch (e: any) {
-    
     return { error: `Calculation error: ${e.message}` };
   }
 }
