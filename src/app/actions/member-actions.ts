@@ -41,7 +41,8 @@ function mapDbMemberToAppMember(dbMember: any): Member {
 
 export async function addMember(
   formData: AddMemberFormValues,
-  gymDatabaseId: string,
+  gymDatabaseId: string, // This is the UUID of the gym
+  formattedGymId: string, // This is the text-based ID like STEELFIT, UOFI7OIB
   gymName: string
 ): Promise<AddMemberServerResponse> {
   const supabase = createSupabaseServerActionClient();
@@ -86,7 +87,7 @@ export async function addMember(
       email,
       phone_number: phoneNumber,
       age,
-      membership_status: 'active' as MembershipStatus, // New members are active
+      membership_status: 'active' as MembershipStatus, 
       join_date: joinDate.toISOString(),
       expiry_date: expiryDate.toISOString(),
       created_at: new Date().toISOString(),
@@ -137,14 +138,17 @@ export async function addMember(
       emailStatus = emailResult.message;
     }
 
+    // Create announcement for the new member
     const announcementTitle = `Welcome New Member: ${newMemberAppFormat.name}!`;
     const announcementContent = `Let's all give a warm welcome to ${newMemberAppFormat.name} (ID: ${newMemberAppFormat.memberId}), who joined us on ${newMemberAppFormat.joinDate ? formatDateIST(newMemberAppFormat.joinDate, 'PPP') : 'a recent date'} with a ${newMemberAppFormat.membershipType || 'new'} membership! We're excited to have them in the ${gymName} community.`;
     
-    const announcementResult = await addAnnouncementAction(gymDatabaseId, announcementTitle, announcementContent);
+    // Call addAnnouncementAction using the formattedGymId
+    const announcementResult = await addAnnouncementAction(formattedGymId, announcementTitle, announcementContent);
     if (announcementResult.error) {
-      // Do not return error here, member addition was successful
+      // Log error or handle silently, as member addition was the primary goal.
+      console.warn(`Failed to create welcome announcement for ${newMemberAppFormat.name}: ${announcementResult.error}`);
     } else if (announcementResult.newAnnouncement?.id) {
-       // Welcome announcement created
+       // Welcome announcement created and 'reloadAnnouncements' event dispatched by addAnnouncementAction
     }
 
     return { data: { newMember: newMemberAppFormat, emailStatus } };
@@ -176,7 +180,7 @@ export async function editMember(
 
     const { data: existingMember, error: fetchError } = await supabase
       .from('members')
-      .select('join_date, member_id, membership_status') // Keep existing status unless explicitly changed by another action
+      .select('join_date, member_id, membership_status') 
       .eq('id', memberOriginalDbId)
       .eq('gym_id', gymDatabaseId) 
       .single();
@@ -212,9 +216,6 @@ export async function editMember(
       age,
       plan_id: selectedPlanUuid,
       expiry_date: expiryDate.toISOString(),
-      // membership_status is NOT updated here. It's updated by updateMemberStatusAction.
-      // If plan change implies reactivation, status should be 'active'.
-      // We assume if a plan is being edited/changed, the member should be 'active' with the new expiry.
       membership_status: 'active' as MembershipStatus,
     };
 
@@ -273,7 +274,7 @@ export async function deleteMemberAction(memberDbId: string): Promise<{ success:
   try {
     const { error: checkinError } = await supabase.from('check_ins').delete().eq('member_table_id', memberDbId);
      if (checkinError) {
-      // Could not delete related check-ins, but proceeding with member deletion
+      
     }
     const { error } = await supabase.from('members').delete().eq('id', memberDbId);
     if (error) {
@@ -287,7 +288,7 @@ export async function deleteMemberAction(memberDbId: string): Promise<{ success:
   }
 }
 
-// newStatus here refers to the DB status: 'active' or 'expired'
+
 export async function updateMemberStatusAction(memberDbId: string, newStatus: MembershipStatus): Promise<{ updatedMember?: Member; error?: string }> {
   if (!memberDbId || !newStatus) return { error: "Member ID and new status are required." };
   if (newStatus !== 'active' && newStatus !== 'expired') {
@@ -298,16 +299,6 @@ export async function updateMemberStatusAction(memberDbId: string, newStatus: Me
   try {
     const updateData: { membership_status: MembershipStatus; expiry_date?: string } = { membership_status: newStatus };
     
-    // If setting to 'active' and member was 'expired', we might need to update expiry_date based on their current plan
-    // For simplicity now, we only update status. A full reactivation might involve re-assigning a plan.
-    // If setting to 'expired', ensure expiry_date is in the past or null.
-    if (newStatus === 'expired') {
-        // To ensure consistency, we can set expiry_date to a past date if it's not already.
-        // However, this might conflict with plan details. For now, just update status.
-        // A better approach for "Mark as Expired" might be to adjust expiry_date through editMember if needed.
-    }
-
-
     const { data: updatedDbMember, error } = await supabase
       .from('members')
       .update(updateData)
@@ -337,7 +328,7 @@ export async function deleteMembersAction(memberDbIds: string[]): Promise<{ succ
   for (const memberId of memberDbIds) {
     const { error: checkinError } = await supabase.from('check_ins').delete().eq('member_table_id', memberId);
     if (checkinError) {
-      // Could not delete check-ins for member, Proceeding with member deletion.
+      
     }
 
     const { error: memberDeleteError } = await supabase.from('members').delete().eq('id', memberId);
@@ -353,7 +344,7 @@ export async function deleteMembersAction(memberDbIds: string[]): Promise<{ succ
   return { successCount: SCount, errorCount: ECount, error: lastError };
 }
 
-// newStatus here refers to the DB status: 'active' or 'expired'
+
 export async function bulkUpdateMemberStatusAction(memberDbIds: string[], newStatus: MembershipStatus): Promise<{ successCount: number; errorCount: number; error?: string }> {
   if (!memberDbIds || memberDbIds.length === 0) {
     return { successCount: 0, errorCount: 0, error: "No member IDs provided for status update." };
@@ -459,3 +450,4 @@ export async function sendBulkCustomEmailAction(
 }
     
 
+    

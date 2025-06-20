@@ -34,7 +34,7 @@ import { addMemberFormSchema, type AddMemberFormValues } from '@/lib/schemas/mem
 import { Skeleton } from '@/components/ui/skeleton';
 
 
-const memberStatuses: MembershipStatus[] = ['active', 'inactive', 'expired', 'pending'];
+const memberStatuses: MembershipStatus[] = ['active', 'expired'];
 
 interface AddMemberDialogProps {
   isOpen: boolean;
@@ -50,11 +50,15 @@ export function AddMemberDialog({ isOpen, onOpenChange, onMemberSaved, memberToE
   const [availablePlans, setAvailablePlans] = useState<FetchedMembershipPlan[]>([]);
   const [isLoadingPlans, setIsLoadingPlans] = useState(true);
   const [currentGymDbId, setCurrentGymDbId] = useState<string | null>(null);
+  const [currentFormattedGymId, setCurrentFormattedGymId] = useState<string | null>(null);
+
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const gymId = localStorage.getItem('gymDatabaseId');
-      setCurrentGymDbId(gymId);
+      const gymDbUUID = localStorage.getItem('gymDatabaseId');
+      const formattedGymId = localStorage.getItem('gymId');
+      setCurrentGymDbId(gymDbUUID);
+      setCurrentFormattedGymId(formattedGymId);
     }
   }, []);
 
@@ -125,8 +129,8 @@ export function AddMemberDialog({ isOpen, onOpenChange, onMemberSaved, memberToE
     setIsSubmittingState(true);
     const gymName = localStorage.getItem('gymName') || APP_NAME;
 
-    if (!currentGymDbId) {
-        toast({ variant: "destructive", title: "Configuration Error", description: "Gym ID not found. Please log in again."});
+    if (!currentGymDbId || !currentFormattedGymId) {
+        toast({ variant: "destructive", title: "Configuration Error", description: "Gym ID (UUID or Formatted) not found. Please log in again."});
         setIsSubmittingState(false);
         return;
     }
@@ -150,11 +154,11 @@ export function AddMemberDialog({ isOpen, onOpenChange, onMemberSaved, memberToE
         onOpenChange(false);
       }
     } else {
-      response = await addMember(data, currentGymDbId, gymName);
+      response = await addMember(data, currentGymDbId, currentFormattedGymId, gymName);
       if (response.data?.newMember) {
         onMemberSaved(response.data.newMember);
         toast({ title: 'Member Added!', description: `${response.data.newMember.name} registered. ${response.data.emailStatus}` });
-        window.dispatchEvent(new Event('reloadAnnouncements')); 
+        // The addAnnouncementAction within addMember will dispatch 'reloadAnnouncements'
         onOpenChange(false);
       }
     }
@@ -178,22 +182,22 @@ export function AddMemberDialog({ isOpen, onOpenChange, onMemberSaved, memberToE
           </DialogDescription>
         </DialogHeader>
         <Form {...formMethods}>
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-            <FormField control={control} name="name" render={({ field }) => (
+          <form onSubmit={formMethods.handleSubmit(onSubmit)} className="space-y-4">
+            <FormField control={formMethods.control} name="name" render={({ field }) => (
                 <FormItem><FormLabel className="text-foreground">Full Name</FormLabel><FormControl><Input className="bg-input text-foreground placeholder:text-muted-foreground border-border" placeholder="Enter member's full name" {...field} /></FormControl><FormMessage /></FormItem>
             )}/>
-            <FormField control={control} name="email" render={({ field }) => (
+            <FormField control={formMethods.control} name="email" render={({ field }) => (
                 <FormItem><FormLabel className="text-foreground">Email</FormLabel><FormControl><Input className="bg-input text-foreground placeholder:text-muted-foreground border-border" type="email" placeholder="Enter member's email" {...field} /></FormControl><FormMessage /></FormItem>
             )}/>
              <div className="grid grid-cols-2 gap-4">
-                <FormField control={control} name="age" render={({ field }) => (
+                <FormField control={formMethods.control} name="age" render={({ field }) => (
                     <FormItem><FormLabel className="text-foreground">Age</FormLabel><FormControl><Input className="bg-input text-foreground placeholder:text-muted-foreground border-border" type="number" placeholder="e.g., 25" {...field} value={field.value ?? ''} onChange={e => field.onChange(e.target.value === '' ? undefined : parseInt(e.target.value, 10))}/></FormControl><FormMessage /></FormItem>
                 )}/>
-                <FormField control={control} name="phoneNumber" render={({ field }) => (
+                <FormField control={formMethods.control} name="phoneNumber" render={({ field }) => (
                     <FormItem><FormLabel className="text-foreground">Phone</FormLabel><FormControl><Input className="bg-input text-foreground placeholder:text-muted-foreground border-border" type="tel" placeholder="Enter phone number" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
                 )}/>
             </div>
-            <FormField control={control} name="selectedPlanUuid" render={({ field }) => (
+            <FormField control={formMethods.control} name="selectedPlanUuid" render={({ field }) => (
                 <FormItem className="space-y-3">
                   <FormLabel className="text-foreground">Membership Plan</FormLabel>
                   {isLoadingPlans ? (<div className="space-y-2"><Skeleton className="h-5 w-3/4" /><Skeleton className="h-5 w-1/2" /><Skeleton className="h-5 w-2/3" /></div>
@@ -225,3 +229,5 @@ export function AddMemberDialog({ isOpen, onOpenChange, onMemberSaved, memberToE
     </Dialog>
   );
 }
+
+    
