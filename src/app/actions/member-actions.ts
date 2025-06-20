@@ -78,14 +78,34 @@ export async function addMember(
     const joinDate = new Date();
     const expiryDate = addMonths(joinDate, planDetails.duration_months);
 
-    const memberIdSuffix = Date.now().toString().slice(-4) + Math.random().toString(36).substring(2, 4).toUpperCase();
-    const memberId = `${gymName.substring(0, 3).toUpperCase()}${name.substring(0,1).toUpperCase()}${memberIdSuffix}`.replace(/[^A-Z0-9]/g, '').substring(0, 10);
+    // New Member ID Generation Logic
+    const currentYearDigits = new Date().getFullYear().toString().slice(-2);
+    
+    const gymNameForId = gymName || "GYM"; // Fallback for gymName
+    const gymInitials = gymNameForId.split(' ')
+                                  .filter(word => word.length > 0)
+                                  .map(word => word[0])
+                                  .join('')
+                                  .toUpperCase();
+    const finalGymInitials = gymInitials.length > 0 ? gymInitials : "XX";
+
+    const memberNameForId = name || "USER"; // Fallback for name
+    const memberNamePrefix = memberNameForId.substring(0, 4).toUpperCase();
+    
+    const phoneNumberForId = phoneNumber || "0000"; // Fallback for phoneNumber
+    const phoneSuffix = phoneNumberForId.replace(/\D/g, '').slice(-4);
+    
+    const planNameForId = planDetails?.plan_name || "PLAN"; // Fallback for plan_name
+    const planInitial = planNameForId.substring(0, 1).toUpperCase();
+
+    const memberId = `${currentYearDigits}${finalGymInitials}${memberNamePrefix}${phoneSuffix}${planInitial}`;
+    // End New Member ID Generation Logic
 
 
     const newMemberForDb = {
       gym_id: gymDatabaseId,
       plan_id: selectedPlanUuid,
-      member_id: memberId,
+      member_id: memberId, // Use the new memberId
       name,
       email,
       phone_number: phoneNumber,
@@ -445,3 +465,4 @@ export async function sendBulkCustomEmailAction(
     return { attempted, successful, noEmailAddress, failed, error: 'An unexpected error occurred while sending emails.' };
   }
 }
+
