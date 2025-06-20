@@ -60,10 +60,10 @@ export default function ProfilePage() {
     if (isLoadingEarnings) {
       return (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-          <Skeleton className="h-24 rounded-lg" />
-          <Skeleton className="h-24 rounded-lg" />
-          <Skeleton className="h-24 rounded-lg" />
-          <Skeleton className="h-24 rounded-lg" />
+          <Skeleton className="h-32 rounded-lg" />
+          <Skeleton className="h-32 rounded-lg" />
+          <Skeleton className="h-32 rounded-lg" />
+          <Skeleton className="h-32 rounded-lg" />
         </div>
       );
     }
@@ -90,22 +90,22 @@ export default function ProfilePage() {
     
     return (
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-        <div className="p-4 bg-muted/30 rounded-lg">
-          <h3 className="text-sm font-medium text-muted-foreground">Total Value of Active Plans</h3>
-          <p className="text-2xl font-bold text-primary">₹{earningsData.totalValueOfActivePlans.toLocaleString()}</p>
+        <div className="p-4 bg-muted/30 rounded-lg flex flex-col">
+          <h3 className="text-sm font-medium text-muted-foreground h-10">Total Value of Active Plans</h3>
+          <p className="text-2xl font-bold text-primary mt-2">₹{earningsData.totalValueOfActivePlans.toLocaleString()}</p>
         </div>
-        <div className="p-4 bg-muted/30 rounded-lg">
-          <h3 className="text-sm font-medium text-muted-foreground">Current Monthly Revenue (Est.)</h3>
-          <p className="text-2xl font-bold text-primary">₹{earningsData.currentMonthlyRevenue.toLocaleString()}</p>
+        <div className="p-4 bg-muted/30 rounded-lg flex flex-col">
+          <h3 className="text-sm font-medium text-muted-foreground h-10">Current Monthly Revenue (Est.)</h3>
+          <p className="text-2xl font-bold text-primary mt-2">₹{earningsData.currentMonthlyRevenue.toLocaleString()}</p>
         </div>
-        <div className="p-4 bg-muted/30 rounded-lg">
-          <h3 className="text-sm font-medium text-muted-foreground">Avg. Monthly Revenue/Active Member</h3>
-          <p className="text-2xl font-bold text-primary">₹{earningsData.averageRevenuePerActiveMember.toLocaleString()}</p>
+        <div className="p-4 bg-muted/30 rounded-lg flex flex-col">
+          <h3 className="text-sm font-medium text-muted-foreground h-10">Avg. Monthly Revenue/Active Member</h3>
+          <p className="text-2xl font-bold text-primary mt-2">₹{earningsData.averageRevenuePerActiveMember.toLocaleString()}</p>
         </div>
-        <div className="p-4 bg-muted/30 rounded-lg">
-          <h3 className="text-sm font-medium text-muted-foreground">Top Plan (by Active Members)</h3>
-          <p className="text-lg font-semibold text-foreground">{earningsData.topPerformingPlanName || 'N/A'}</p>
-           <p className="text-xs text-muted-foreground">Based on {earningsData.activeMemberCount} active member(s)</p>
+        <div className="p-4 bg-muted/30 rounded-lg flex flex-col">
+          <h3 className="text-sm font-medium text-muted-foreground h-10">Top Plan (by Active Members)</h3>
+          <p className="text-lg font-semibold text-foreground mt-2">{earningsData.topPerformingPlanName || 'N/A'}</p>
+           <p className="text-xs text-muted-foreground mt-1">Based on {earningsData.activeMemberCount} active member(s)</p>
         </div>
       </div>
     );
@@ -175,3 +175,4 @@ export default function ProfilePage() {
     </div>
   );
 }
+
