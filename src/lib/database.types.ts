@@ -1,3 +1,4 @@
+
 // src/lib/database.types.ts
 // This file should align with your 00_initial_schema.sql
 
@@ -54,7 +55,7 @@ export interface Database {
         }
         Insert: {
           id?: string
-          gym_id: string
+          gym_id: string // <<< gym_id is required on insert
           plan_id?: string | null
           plan_name: string
           price?: number
@@ -63,7 +64,7 @@ export interface Database {
         }
         Update: {
           id?: string
-          gym_id?: string
+          gym_id?: string // <<< gym_id can be part of an update
           plan_id?: string | null
           plan_name?: string
           price?: number
