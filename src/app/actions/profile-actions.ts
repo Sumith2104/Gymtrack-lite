@@ -61,28 +61,20 @@ export async function getGymEarningsData(gymDatabaseId: string): Promise<{ data?
     }
 
     let totalValueOfActivePlans = 0;
-    let currentMonthlyRevenueSum = 0;
+    let currentMonthlyRevenueSum = 0; // Will also sum full plan prices for active members
     const activeMemberCount = membersData.length;
     const planCounts: Record<string, number> = {};
 
     membersData.forEach((member: RawMemberPlanData) => {
       if (member.plans && member.plans.price > 0) {
         totalValueOfActivePlans += member.plans.price;
-
-        
-        if (member.plans.duration_months && member.plans.duration_months > 0) {
-          currentMonthlyRevenueSum += member.plans.price / member.plans.duration_months;
-        } else if (member.plans.duration_months === 1) { 
-           currentMonthlyRevenueSum += member.plans.price;
-        }
-        
+        currentMonthlyRevenueSum += member.plans.price; // Now reflects sum of full plan prices for active members
 
         const planName = member.plans.plan_name || 'Unknown Plan';
         planCounts[planName] = (planCounts[planName] || 0) + 1;
       }
     });
 
-    // Updated calculation as per user request: Total Value of Active Plans / Active Member Count
     const averageRevenuePerActiveMember = activeMemberCount > 0 ? totalValueOfActivePlans / activeMemberCount : 0;
 
     let topPerformingPlanName: string | null = null;
@@ -99,7 +91,7 @@ export async function getGymEarningsData(gymDatabaseId: string): Promise<{ data?
     return {
       data: {
         totalValueOfActivePlans: Math.round(totalValueOfActivePlans),
-        currentMonthlyRevenue: Math.round(currentMonthlyRevenueSum),
+        currentMonthlyRevenue: Math.round(currentMonthlyRevenueSum), // Now uses the sum of full plan prices
         averageRevenuePerActiveMember: parseFloat(averageRevenuePerActiveMember.toFixed(2)),
         topPerformingPlanName: topPerformingPlanName,
         activeMemberCount,
