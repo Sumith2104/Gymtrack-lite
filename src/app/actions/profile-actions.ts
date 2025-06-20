@@ -82,7 +82,8 @@ export async function getGymEarningsData(gymDatabaseId: string): Promise<{ data?
       }
     });
 
-    const averageRevenuePerActiveMember = activeMemberCount > 0 ? currentMonthlyRevenueSum / activeMemberCount : 0;
+    // Updated calculation as per user request: Total Value of Active Plans / Active Member Count
+    const averageRevenuePerActiveMember = activeMemberCount > 0 ? totalValueOfActivePlans / activeMemberCount : 0;
 
     let topPerformingPlanName: string | null = null;
     if (Object.keys(planCounts).length > 0) {
@@ -110,3 +111,4 @@ export async function getGymEarningsData(gymDatabaseId: string): Promise<{ data?
     return { error: `Calculation error: ${e.message}` };
   }
 }
+
