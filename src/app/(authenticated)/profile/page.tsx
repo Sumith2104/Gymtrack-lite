@@ -95,7 +95,7 @@ export default function ProfilePage() {
           <p className="text-2xl font-bold text-primary mt-2">₹{earningsData.totalValueOfActivePlans.toLocaleString()}</p>
         </div>
         <div className="p-4 bg-muted/30 rounded-lg flex flex-col">
-          <h3 className="text-sm font-medium text-muted-foreground h-10">Current Monthly Revenue (Est.)</h3>
+          <h3 className="text-sm font-medium text-muted-foreground h-10">Current Monthly Revenue</h3>
           <p className="text-2xl font-bold text-primary mt-2">₹{earningsData.currentMonthlyRevenue.toLocaleString()}</p>
         </div>
         <div className="p-4 bg-muted/30 rounded-lg flex flex-col">
