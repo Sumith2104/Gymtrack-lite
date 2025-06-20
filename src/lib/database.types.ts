@@ -88,7 +88,8 @@ export interface Database {
           member_id: string // text. User-defined member ID, unique per gym
           name: string // text
           email: string | null // text
-          membership_status: string // text, default 'pending'.
+          membership_status: string // text, 'active' or 'expired'
+          membership_type: string // text, stores the plan name at time of creation/update
           age: number | null // integer
           phone_number: string | null // text
           join_date: string | null // timestamp with time zone
@@ -102,7 +103,8 @@ export interface Database {
           member_id: string
           name: string
           email?: string | null
-          membership_status?: string
+          membership_status: string // 'active' or 'expired'
+          membership_type: string // text, stores the plan name
           age?: number | null
           phone_number?: string | null
           join_date?: string | null
@@ -117,6 +119,7 @@ export interface Database {
           name?: string
           email?: string | null
           membership_status?: string
+          membership_type?: string // text, stores the plan name
           age?: number | null
           phone_number?: string | null
           join_date?: string | null

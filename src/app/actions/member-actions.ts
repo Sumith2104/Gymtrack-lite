@@ -20,6 +20,11 @@ interface AddMemberServerResponse {
 
 function mapDbMemberToAppMember(dbMember: any): Member {
   const planDetails = dbMember.plans;
+  // If membership_type is directly on dbMember (from the members table), use it.
+  // Otherwise, fall back to planDetails.plan_name.
+  // This handles cases where the DB might store it and cases where it's only derived.
+  const typeFromDbMember = dbMember.membership_type as string | undefined;
+
   return {
     id: dbMember.id,
     gymId: dbMember.gym_id,
@@ -33,7 +38,7 @@ function mapDbMemberToAppMember(dbMember: any): Member {
     phoneNumber: dbMember.phone_number,
     joinDate: dbMember.join_date,
     expiryDate: dbMember.expiry_date,
-    membershipType: planDetails?.plan_name || 'N/A', 
+    membershipType: typeFromDbMember || planDetails?.plan_name || 'N/A', 
     planPrice: planDetails?.price ?? 0,
   };
 }
@@ -41,8 +46,8 @@ function mapDbMemberToAppMember(dbMember: any): Member {
 
 export async function addMember(
   formData: AddMemberFormValues,
-  gymDatabaseId: string, // This is the UUID of the gym
-  formattedGymId: string, // This is the text-based ID like STEELFIT, UOFI7OIB
+  gymDatabaseId: string, 
+  formattedGymId: string, 
   gymName: string
 ): Promise<AddMemberServerResponse> {
   const supabase = createSupabaseServerActionClient();
@@ -62,11 +67,12 @@ export async function addMember(
       .from('plans')
       .select('plan_name, price, duration_months')
       .eq('id', selectedPlanUuid)
+      .eq('gym_id', gymDatabaseId) // Ensure plan belongs to the gym
       .eq('is_active', true)
       .single();
 
     if (planError || !planDetails) {
-      return { error: `Invalid or inactive membership plan. Details: ${planError?.message || 'Plan not found.'}` };
+      return { error: `Invalid or inactive membership plan. Details: ${planError?.message || 'Plan not found for this gym.'}` };
     }
     if (planDetails.duration_months === null || planDetails.duration_months === undefined) {
         return { error: `Selected plan '${planDetails.plan_name}' has an invalid duration.`};
@@ -88,6 +94,7 @@ export async function addMember(
       phone_number: phoneNumber,
       age,
       membership_status: 'active' as MembershipStatus, 
+      membership_type: planDetails.plan_name, // Add membership_type from plan_name
       join_date: joinDate.toISOString(),
       expiry_date: expiryDate.toISOString(),
       created_at: new Date().toISOString(),
@@ -138,17 +145,17 @@ export async function addMember(
       emailStatus = emailResult.message;
     }
 
-    // Create announcement for the new member
+    
     const announcementTitle = `Welcome New Member: ${newMemberAppFormat.name}!`;
     const announcementContent = `Let's all give a warm welcome to ${newMemberAppFormat.name} (ID: ${newMemberAppFormat.memberId}), who joined us on ${newMemberAppFormat.joinDate ? formatDateIST(newMemberAppFormat.joinDate, 'PPP') : 'a recent date'} with a ${newMemberAppFormat.membershipType || 'new'} membership! We're excited to have them in the ${gymName} community.`;
     
-    // Call addAnnouncementAction using the formattedGymId
+    
     const announcementResult = await addAnnouncementAction(formattedGymId, announcementTitle, announcementContent);
     if (announcementResult.error) {
-      // Log error or handle silently, as member addition was the primary goal.
+      
       console.warn(`Failed to create welcome announcement for ${newMemberAppFormat.name}: ${announcementResult.error}`);
     } else if (announcementResult.newAnnouncement?.id) {
-       // Welcome announcement created and 'reloadAnnouncements' event dispatched by addAnnouncementAction
+       
     }
 
     return { data: { newMember: newMemberAppFormat, emailStatus } };
@@ -193,11 +200,12 @@ export async function editMember(
       .from('plans')
       .select('plan_name, price, duration_months')
       .eq('id', selectedPlanUuid)
+      .eq('gym_id', gymDatabaseId) // Ensure plan belongs to the gym
       .eq('is_active', true)
       .single();
 
     if (planError || !planDetails) {
-      return { error: `Invalid or inactive new membership plan. Details: ${planError?.message || 'Plan not found.'}` };
+      return { error: `Invalid or inactive new membership plan. Details: ${planError?.message || 'Plan not found for this gym.'}` };
     }
     if (planDetails.duration_months === null || planDetails.duration_months === undefined) {
         return { error: `Selected new plan '${planDetails.plan_name}' has an invalid duration.`};
@@ -217,6 +225,7 @@ export async function editMember(
       plan_id: selectedPlanUuid,
       expiry_date: expiryDate.toISOString(),
       membership_status: 'active' as MembershipStatus,
+      membership_type: planDetails.plan_name, // Update membership_type if plan changes
     };
 
     const { data: updatedMemberData, error: updateError } = await supabase
