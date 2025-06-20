@@ -58,6 +58,17 @@ export function AddMemberDialog({ isOpen, onOpenChange, onMemberSaved, memberToE
     }
   }, []);
 
+  const { control, handleSubmit, setValue, reset, formState } = useForm<AddMemberFormValues>({
+    resolver: zodResolver(addMemberFormSchema),
+    defaultValues: {
+      name: '',
+      email: '',
+      phoneNumber: '',
+      age: undefined,
+      selectedPlanUuid: '',
+    },
+  });
+
   useEffect(() => {
     async function fetchPlans() {
       if (isOpen && currentGymDbId) {
@@ -69,7 +80,7 @@ export function AddMemberDialog({ isOpen, onOpenChange, onMemberSaved, memberToE
         } else {
           setAvailablePlans(response.data);
           if (!memberToEdit && response.data.length > 0) {
-            form.setValue('selectedPlanUuid', response.data[0].uuid);
+            setValue('selectedPlanUuid', response.data[0].uuid);
           }
         }
         setIsLoadingPlans(false);
@@ -80,14 +91,14 @@ export function AddMemberDialog({ isOpen, onOpenChange, onMemberSaved, memberToE
       }
     }
     fetchPlans();
-  }, [isOpen, currentGymDbId, toast, form, memberToEdit]);
+  }, [isOpen, currentGymDbId, toast, setValue, memberToEdit]);
 
 
   useEffect(() => {
     if (isOpen && availablePlans.length > 0) {
       if (memberToEdit) {
         setIsEditing(true);
-        form.reset({
+        reset({
           name: memberToEdit.name,
           email: memberToEdit.email || '',
           phoneNumber: memberToEdit.phoneNumber || '',
@@ -96,7 +107,7 @@ export function AddMemberDialog({ isOpen, onOpenChange, onMemberSaved, memberToE
         });
       } else {
         setIsEditing(false);
-        form.reset({
+        reset({
           name: '', email: '',
           phoneNumber: '', age: undefined,
           selectedPlanUuid: availablePlans.length > 0 ? availablePlans[0].uuid : '',
@@ -104,9 +115,9 @@ export function AddMemberDialog({ isOpen, onOpenChange, onMemberSaved, memberToE
       }
     } else if (isOpen && !isLoadingPlans && availablePlans.length === 0) {
         setIsEditing(false);
-        form.reset({ name: '', email: '', phoneNumber: '', age: undefined, selectedPlanUuid: '' });
+        reset({ name: '', email: '', phoneNumber: '', age: undefined, selectedPlanUuid: '' });
     }
-  }, [memberToEdit, isOpen, form, availablePlans, isLoadingPlans]);
+  }, [memberToEdit, isOpen, reset, availablePlans, isLoadingPlans]);
 
   async function onSubmit(data: AddMemberFormValues) {
     setIsSubmittingState(true);
@@ -164,23 +175,23 @@ export function AddMemberDialog({ isOpen, onOpenChange, onMemberSaved, memberToE
             {isEditing ? "Update the member's information." : "Fill in the details to register a new gym member."}
           </DialogDescription>
         </DialogHeader>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <FormField control={form.control} name="name" render={({ field }) => (
+        <Form {...{ control, handleSubmit, setValue, reset, formState }}>
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+            <FormField control={control} name="name" render={({ field }) => (
                 <FormItem><FormLabel className="text-foreground">Full Name</FormLabel><FormControl><Input className="bg-input text-foreground placeholder:text-muted-foreground border-border" placeholder="Enter member's full name" {...field} /></FormControl><FormMessage /></FormItem>
             )}/>
-            <FormField control={form.control} name="email" render={({ field }) => (
+            <FormField control={control} name="email" render={({ field }) => (
                 <FormItem><FormLabel className="text-foreground">Email</FormLabel><FormControl><Input className="bg-input text-foreground placeholder:text-muted-foreground border-border" type="email" placeholder="Enter member's email" {...field} /></FormControl><FormMessage /></FormItem>
             )}/>
              <div className="grid grid-cols-2 gap-4">
-                <FormField control={form.control} name="age" render={({ field }) => (
+                <FormField control={control} name="age" render={({ field }) => (
                     <FormItem><FormLabel className="text-foreground">Age</FormLabel><FormControl><Input className="bg-input text-foreground placeholder:text-muted-foreground border-border" type="number" placeholder="e.g., 25" {...field} value={field.value ?? ''} onChange={e => field.onChange(e.target.value === '' ? undefined : parseInt(e.target.value, 10))}/></FormControl><FormMessage /></FormItem>
                 )}/>
-                <FormField control={form.control} name="phoneNumber" render={({ field }) => (
+                <FormField control={control} name="phoneNumber" render={({ field }) => (
                     <FormItem><FormLabel className="text-foreground">Phone</FormLabel><FormControl><Input className="bg-input text-foreground placeholder:text-muted-foreground border-border" type="tel" placeholder="Enter phone number" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
                 )}/>
             </div>
-            <FormField control={form.control} name="selectedPlanUuid" render={({ field }) => (
+            <FormField control={control} name="selectedPlanUuid" render={({ field }) => (
                 <FormItem className="space-y-3">
                   <FormLabel className="text-foreground">Membership Plan</FormLabel>
                   {isLoadingPlans ? (<div className="space-y-2"><Skeleton className="h-5 w-3/4" /><Skeleton className="h-5 w-1/2" /><Skeleton className="h-5 w-2/3" /></div>
