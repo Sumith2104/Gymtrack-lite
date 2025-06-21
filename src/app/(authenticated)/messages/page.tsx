@@ -110,53 +110,54 @@ export default function MessagesPage() {
   }, [toast]);
 
   useEffect(() => {
+    if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
+    }
+
     if (selectedMember && selectedMember.memberId && gymDatabaseId && adminSenderFormattedGymId && supabaseToken) {
       fetchConversation(gymDatabaseId, adminSenderFormattedGymId, selectedMember.memberId);
 
-      if (channelRef.current) {
-        supabase.removeChannel(channelRef.current);
-      }
-
-      const channel = supabase.channel(`messages-${gymDatabaseId}-${selectedMember.id}`)
-        .on<Message>(
-          'postgres_changes',
-          {
-            event: 'INSERT',
-            schema: 'public',
-            table: 'messages',
-            filter: `gym_id=eq.${gymDatabaseId}`
+      const channel = supabase.channel(`messages-${gymDatabaseId}-${selectedMember.id}`, {
+        config: {
+          realtime: {
+            access_token: supabaseToken,
           },
-          (payload) => {
-            const newMessage = payload.new;
-            const isAdminSender = newMessage.senderId === adminSenderFormattedGymId;
-            const isAdminReceiver = newMessage.receiverId === adminSenderFormattedGymId;
-            const isMemberSender = newMessage.senderId === selectedMember.memberId;
-            const isMemberReceiver = newMessage.receiverId === selectedMember.memberId;
+        },
+      })
+      .on<Message>(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages',
+          filter: `gym_id=eq.${gymDatabaseId}`
+        },
+        (payload) => {
+          const newMessage = payload.new;
+          const isAdminSender = newMessage.senderId === adminSenderFormattedGymId;
+          const isAdminReceiver = newMessage.receiverId === adminSenderFormattedGymId;
+          const isMemberSender = newMessage.senderId === selectedMember.memberId;
+          const isMemberReceiver = newMessage.receiverId === selectedMember.memberId;
 
-            if ((isAdminSender && isMemberReceiver) || (isMemberSender && isAdminReceiver)) {
-              setConversationMessages(prevMessages => {
-                if (prevMessages.some(m => m.id === newMessage.id)) {
-                  return prevMessages;
-                }
-                return [...prevMessages, newMessage];
-              });
-            }
+          if ((isAdminSender && isMemberReceiver) || (isMemberSender && isAdminReceiver)) {
+            setConversationMessages(prevMessages => {
+              if (prevMessages.some(m => m.id === newMessage.id)) {
+                return prevMessages;
+              }
+              return [...prevMessages, newMessage];
+            });
           }
-        )
-        .subscribe((status, err) => {
-          if (status === 'CHANNEL_ERROR') {
-            console.error('Channel error:', err);
-            toast({ variant: 'destructive', title: 'Real-time Error', description: 'Could not connect to live message updates.' });
-          }
-        });
+        }
+      )
+      .subscribe((status, err) => {
+        if (status === 'CHANNEL_ERROR') {
+          console.error('Channel error:', err);
+          toast({ variant: 'destructive', title: 'Real-time Error', description: 'Could not connect to live message updates.' });
+        }
+      });
 
       channelRef.current = channel;
-    } else {
-      setConversationMessages([]);
-      if (channelRef.current) {
-        supabase.removeChannel(channelRef.current);
-        channelRef.current = null;
-      }
     }
 
     return () => {
@@ -186,6 +187,9 @@ export default function MessagesPage() {
       toast({ variant: "destructive", title: "Message Failed", description: response.error || "Could not send message." });
     } else {
       setNewMessageInput('');
+      // No need for optimistic update here, as real-time subscription will catch it.
+      // But for instant feedback for the sender, we can keep it.
+      // The duplicate check in the subscription handler prevents it from appearing twice.
       setConversationMessages(prevMessages => [...prevMessages, response.newMessage!]);
     }
     setIsSending(false);
