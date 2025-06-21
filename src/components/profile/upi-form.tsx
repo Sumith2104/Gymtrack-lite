@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { Wallet, Save } from 'lucide-react';
+import { Wallet, Save, Edit } from 'lucide-react';
 import { getGymUpiId, updateGymUpiId } from '@/app/actions/profile-actions';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -26,6 +26,8 @@ export function UpiForm() {
   const { toast } = useToast();
   const [gymDatabaseId, setGymDatabaseId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isEditing, setIsEditing] = useState(false);
+  const [currentUpiId, setCurrentUpiId] = useState<string>('');
 
   const form = useForm<UpiFormValues>({
     resolver: zodResolver(upiFormSchema),
@@ -41,8 +43,10 @@ export function UpiForm() {
     if (gymDatabaseId) {
       setIsLoading(true);
       getGymUpiId(gymDatabaseId).then((response) => {
+        const upiValue = response.upiId || '';
         if (response.upiId !== null) {
-          form.setValue('upiId', response.upiId || '');
+          form.setValue('upiId', upiValue);
+          setCurrentUpiId(upiValue);
         } else {
           toast({ variant: 'destructive', title: 'Error Fetching UPI', description: response.error });
         }
@@ -63,10 +67,70 @@ export function UpiForm() {
 
     if (response.success) {
       toast({ title: 'Success', description: 'UPI ID updated successfully.' });
+      setCurrentUpiId(data.upiId.trim());
+      setIsEditing(false);
     } else {
       toast({ variant: 'destructive', title: 'Error updating UPI ID', description: response.error });
     }
   }
+
+  const handleCancelEdit = () => {
+    form.reset({ upiId: currentUpiId });
+    setIsEditing(false);
+  };
+
+  const renderContent = () => {
+    if (isLoading) {
+      return (
+        <div className="space-y-2">
+          <Skeleton className="h-6 w-1/4" />
+          <Skeleton className="h-10 w-full" />
+        </div>
+      );
+    }
+
+    if (isEditing) {
+      return (
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <FormField
+              control={form.control}
+              name="upiId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>UPI ID</FormLabel>
+                  <FormControl>
+                    <Input placeholder="your-upi-id@bank" {...field} autoFocus />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <div className="flex items-center gap-2">
+                <Button type="submit" disabled={form.formState.isSubmitting}>
+                    <Save className="mr-2 h-4 w-4" /> {form.formState.isSubmitting ? 'Saving...' : 'Save'}
+                </Button>
+                <Button type="button" variant="outline" onClick={handleCancelEdit}>
+                    Cancel
+                </Button>
+            </div>
+          </form>
+        </Form>
+      );
+    }
+
+    return (
+        <div className="flex items-center justify-between gap-4 p-2 rounded-md bg-muted/30">
+            <p className="text-sm text-foreground font-mono truncate" title={currentUpiId}>
+            {currentUpiId || 'No UPI ID has been set.'}
+            </p>
+            <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}>
+                <Edit className="mr-2 h-4 w-4" />
+                Edit
+            </Button>
+      </div>
+    );
+  };
 
   return (
     <Card className="shadow-lg">
@@ -77,34 +141,7 @@ export function UpiForm() {
         <CardDescription>Add or update your UPI ID to receive payments from members.</CardDescription>
       </CardHeader>
       <CardContent>
-        {isLoading ? (
-          <div className="space-y-2">
-            <Skeleton className="h-6 w-1/4" />
-            <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-10 w-32 mt-2" />
-          </div>
-        ) : (
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-              <FormField
-                control={form.control}
-                name="upiId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>UPI ID</FormLabel>
-                    <FormControl>
-                      <Input placeholder="your-upi-id@bank" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <Button type="submit" disabled={form.formState.isSubmitting}>
-                <Save className="mr-2 h-4 w-4" /> {form.formState.isSubmitting ? 'Saving...' : 'Save UPI ID'}
-              </Button>
-            </form>
-          </Form>
-        )}
+        {renderContent()}
       </CardContent>
     </Card>
   );
