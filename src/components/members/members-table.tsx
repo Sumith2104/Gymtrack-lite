@@ -488,127 +488,134 @@ export function MembersTable() {
         />
       )}
 
-      <div className="flex items-center justify-between gap-2 flex-wrap mb-4">
-        <div className="flex items-center gap-2">
-            <Users className="h-6 w-6 text-primary" />
-            <h2 className="text-xl font-semibold text-foreground">All Members ({table.getFilteredRowModel().rows.length})</h2>
-        </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <div className="relative">
-            <SearchIcon className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="Filter by name..."
-              value={globalFilter} 
-              onChange={(event) => handleGlobalFilterChange(event.target.value)} 
-              className="max-w-xs pl-9 h-10" 
-            />
+      {/* Main Controls Header */}
+      <div className="flex flex-col gap-4">
+        {/* Top row: Title and primary filters */}
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+          <div className="flex items-center gap-2">
+              <Users className="h-6 w-6 text-primary" />
+              <h2 className="text-xl font-semibold text-foreground">All Members ({table.getFilteredRowModel().rows.length})</h2>
           </div>
-           <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="h-10">
-                {statusFilter === 'all' ? 'All Statuses' : <span className="capitalize">{statusFilter}</span>}
-                <ChevronDownIcon className="ml-2 h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuLabel>Filter by Status</DropdownMenuLabel>
-              <DropdownMenuRadioGroup value={statusFilter} onValueChange={(value) => setStatusFilter(value as EffectiveMembershipStatus | 'all')}>
-                {filterableDisplayStatuses.map(s => (
-                  <DropdownMenuRadioItem key={s} value={s} className="capitalize">
-                    {s === 'all' ? 'All Statuses' : s}
-                  </DropdownMenuRadioItem>
-                ))}
-              </DropdownMenuRadioGroup>
-            </DropdownMenuContent>
-          </DropdownMenu>
-          <Button onClick={openAddDialog} className="h-10 bg-primary hover:bg-primary/90 text-primary-foreground">
-             <PlusCircle className="mr-2 h-4 w-4" /> Add Member
-          </Button>
-        </div>
-      </div>
-      
-       <div className="flex items-center justify-between gap-2 mb-4">
-          <div>
-            {currentGymDatabaseId && !isLoadingMembers && (
-                 <Button variant="ghost" size="sm" onClick={() => {if(currentGymDatabaseId) loadMembers(currentGymDatabaseId);}}>
-                    <RefreshCw className="mr-2 h-4 w-4" /> Refresh List
-                </Button>
-            )}
-          </div>
-          <AlertDialog>
-            <div className="flex items-center gap-2">
-              <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm">
-                      Columns <ChevronDownIcon className="ml-2 h-4 w-4" />
-                  </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                  {table.getAllColumns().filter((column) => column.getCanHide())
-                      .map((column) => (
-                      <DropdownMenuCheckboxItem
-                          key={column.id}
-                          className="capitalize"
-                          checked={column.getIsVisible()}
-                          onCheckedChange={(value) => column.toggleVisibility(!!value)}
-                      >
-                          {column.id.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
-                      </DropdownMenuCheckboxItem>
-                      ))}
-                  </DropdownMenuContent>
-              </DropdownMenu>
-              
-              <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" disabled={selectedRowCount === 0}>
-                      Actions for Selected ({selectedRowCount}) <ChevronDownIcon className="ml-2 h-4 w-4" />
-                  </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                  <DropdownMenuLabel>Bulk Actions</DropdownMenuLabel>
-                  <DropdownMenuItem 
-                      onClick={() => {
-                          const selectedMember = table.getFilteredSelectedRowModel().rows[0]?.original;
-                          if (selectedMember) openEditDialog(selectedMember);
-                      }}
-                      disabled={selectedRowCount !== 1}
-                  >
-                      <Edit3 className="mr-2 h-4 w-4" /> Edit Member
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={handleOpenBulkEmailDialog} disabled={selectedRowCount === 0}>
-                      <Mail className="mr-2 h-4 w-4" /> Send Custom Email
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => handleBulkStatusUpdate('active')} disabled={selectedRowCount === 0}>
-                      <UserCheck className="mr-2 h-4 w-4 text-green-500" />
-                      Set selected to Active
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <AlertDialogTrigger asChild>
-                        <DropdownMenuItem 
-                          onSelect={(e) => { e.preventDefault(); if (selectedRowCount > 0) setIsBulkDeleteConfirmOpen(true); }}
-                          className="text-destructive focus:text-destructive"
-                          disabled={selectedRowCount === 0}
-                      >
-                          <Trash2 className="mr-2 h-4 w-4" /> Delete Selected ({selectedRowCount})
-                      </DropdownMenuItem>
-                  </AlertDialogTrigger>
-                  </DropdownMenuContent>
-              </DropdownMenu>
+          <div className="flex flex-col sm:flex-row items-center gap-2 w-full md:w-auto">
+            <div className="relative w-full sm:w-auto sm:flex-grow">
+              <SearchIcon className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Filter by name..."
+                value={globalFilter} 
+                onChange={(event) => handleGlobalFilterChange(event.target.value)} 
+                className="w-full pl-9 h-10"
+              />
             </div>
-            <AlertDialogContent>
-                <AlertDialogHeader>
-                <AlertDialogTitle>Confirm Bulk Deletion</AlertDialogTitle>
-                <AlertDialogDescription>
-                    This action cannot be undone. This will permanently delete {selectedRowCount} selected member(s).
-                </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                <AlertDialogCancel onClick={() => setIsBulkDeleteConfirmOpen(false)}>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={handleBulkDelete} className="bg-destructive hover:bg-destructive/90">Delete Selected</AlertDialogAction>
-                </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" className="h-10 w-full justify-between sm:w-auto">
+                    {statusFilter === 'all' ? 'All Statuses' : <span className="capitalize">{statusFilter}</span>}
+                    <ChevronDownIcon className="ml-2 h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuLabel>Filter by Status</DropdownMenuLabel>
+                  <DropdownMenuRadioGroup value={statusFilter} onValueChange={(value) => setStatusFilter(value as EffectiveMembershipStatus | 'all')}>
+                    {filterableDisplayStatuses.map(s => (
+                      <DropdownMenuRadioItem key={s} value={s} className="capitalize">
+                        {s === 'all' ? 'All Statuses' : s}
+                      </DropdownMenuRadioItem>
+                    ))}
+                  </DropdownMenuRadioGroup>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <Button onClick={openAddDialog} className="h-10 bg-primary hover:bg-primary/90 text-primary-foreground">
+                 <PlusCircle className="mr-2 h-4 w-4" /> Add Member
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        {/* Second row: Secondary actions */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <div>
+              {currentGymDatabaseId && !isLoadingMembers && (
+                   <Button variant="ghost" size="sm" onClick={() => {if(currentGymDatabaseId) loadMembers(currentGymDatabaseId);}}>
+                      <RefreshCw className="mr-2 h-4 w-4" /> Refresh List
+                  </Button>
+              )}
+            </div>
+            <AlertDialog>
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm" className="w-full sm:w-auto">
+                        Columns <ChevronDownIcon className="ml-2 h-4 w-4" />
+                    </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                    {table.getAllColumns().filter((column) => column.getCanHide())
+                        .map((column) => (
+                        <DropdownMenuCheckboxItem
+                            key={column.id}
+                            className="capitalize"
+                            checked={column.getIsVisible()}
+                            onCheckedChange={(value) => column.toggleVisibility(!!value)}
+                        >
+                            {column.id.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
+                        </DropdownMenuCheckboxItem>
+                        ))}
+                    </DropdownMenuContent>
+                </DropdownMenu>
+                
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm" disabled={selectedRowCount === 0} className="w-full sm:w-auto">
+                        Actions ({selectedRowCount}) <ChevronDownIcon className="ml-2 h-4 w-4" />
+                    </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                    <DropdownMenuLabel>Bulk Actions</DropdownMenuLabel>
+                    <DropdownMenuItem 
+                        onClick={() => {
+                            const selectedMember = table.getFilteredSelectedRowModel().rows[0]?.original;
+                            if (selectedMember) openEditDialog(selectedMember);
+                        }}
+                        disabled={selectedRowCount !== 1}
+                    >
+                        <Edit3 className="mr-2 h-4 w-4" /> Edit Member
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleOpenBulkEmailDialog} disabled={selectedRowCount === 0}>
+                        <Mail className="mr-2 h-4 w-4" /> Send Custom Email
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => handleBulkStatusUpdate('active')} disabled={selectedRowCount === 0}>
+                        <UserCheck className="mr-2 h-4 w-4 text-green-500" />
+                        Set selected to Active
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <AlertDialogTrigger asChild>
+                          <DropdownMenuItem 
+                            onSelect={(e) => { e.preventDefault(); if (selectedRowCount > 0) setIsBulkDeleteConfirmOpen(true); }}
+                            className="text-destructive focus:text-destructive"
+                            disabled={selectedRowCount === 0}
+                        >
+                            <Trash2 className="mr-2 h-4 w-4" /> Delete Selected ({selectedRowCount})
+                        </DropdownMenuItem>
+                    </AlertDialogTrigger>
+                    </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+              <AlertDialogContent>
+                  <AlertDialogHeader>
+                  <AlertDialogTitle>Confirm Bulk Deletion</AlertDialogTitle>
+                  <AlertDialogDescription>
+                      This action cannot be undone. This will permanently delete {selectedRowCount} selected member(s).
+                  </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                  <AlertDialogCancel onClick={() => setIsBulkDeleteConfirmOpen(false)}>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleBulkDelete} className="bg-destructive hover:bg-destructive/90">Delete Selected</AlertDialogAction>
+                  </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+        </div>
       </div>
 
       <div className="rounded-md border overflow-x-auto"> 
