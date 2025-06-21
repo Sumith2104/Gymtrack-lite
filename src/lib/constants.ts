@@ -1,5 +1,5 @@
 
-import type { NavItem } from '@/components/layout/app-header';
+import type { NavItem } from '@/lib/types';
 import { LayoutDashboard, Users, BarChart3, ScanLine, Megaphone, Settings, Dumbbell, LogOut, MessageSquare } from 'lucide-react';
 
 export const APP_NAME = "GymTrack Lite";
@@ -24,6 +24,11 @@ export const NAV_LINKS_HEADER: NavItem[] = [
     label: 'Members',
   },
   {
+    href: '/messages',
+    icon: MessageSquare,
+    label: 'Messages',
+  },
+  {
     href: '/new-announcement',
     icon: Megaphone,
     label: 'New Announce',
@@ -33,23 +38,19 @@ export const NAV_LINKS_HEADER: NavItem[] = [
     icon: BarChart3,
     label: 'Analytics',
   },
-];
-
-export const USER_NAV_LINKS = [
   {
     href: '/profile', 
     icon: Settings,
     label: 'Profile',
   },
   {
-    href: '/messages',
-    icon: MessageSquare,
-    label: 'Messages',
-  },
-   {
     href: '/login',
     icon: LogOut,
     label: 'Logout',
     action: 'logout'
   }
+];
+
+export const USER_NAV_LINKS: NavItem[] = [
+  // Items have been moved to NAV_LINKS_HEADER
 ];

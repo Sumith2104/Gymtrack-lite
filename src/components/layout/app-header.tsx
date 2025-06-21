@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import type { LucideIcon } from 'lucide-react';
+import type { NavItem } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { APP_NAME, APP_LOGO as AppLogoIcon, NAV_LINKS_HEADER, USER_NAV_LINKS } from '@/lib/constants';
 import { cn } from '@/lib/utils';
@@ -23,17 +23,9 @@ import {
   SheetTrigger,
   SheetClose,
 } from '@/components/ui/sheet';
-import { UserCircle, Menu as MenuIcon } from 'lucide-react'; // LogOut and Settings will come from USER_NAV_LINKS
+import { UserCircle, Menu as MenuIcon } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
-
-export interface NavItem {
-  href: string;
-  icon: LucideIcon;
-  label: string;
-  external?: boolean;
-  action?: 'logout';
-}
 
 export function AppHeader() {
   const pathname = usePathname();
@@ -65,6 +57,74 @@ export function AppHeader() {
     router.push('/login');
   };
 
+  const renderNavItem = (item: NavItem, isMobile = false) => {
+    const commonClasses = isMobile
+      ? "flex items-center gap-3 rounded-md px-3 py-2.5 text-base font-medium transition-colors"
+      : "flex items-center gap-1 transition-colors hover:text-primary";
+
+    const activeClasses = isMobile
+      ? "bg-primary/10 text-primary"
+      : "text-primary font-semibold";
+    
+    const inactiveClasses = isMobile
+      ? "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+      : "text-foreground/70";
+
+    const externalClasses = "text-foreground/70";
+    
+    if (item.action === 'logout') {
+      return (
+        <button
+          key={item.label}
+          onClick={handleLogout}
+          className={cn(commonClasses, inactiveClasses)}
+        >
+          <item.icon className={isMobile ? "h-5 w-5" : "h-4 w-4"} />
+          {item.label}
+        </button>
+      );
+    }
+
+    let isActive;
+    if (item.external) {
+      isActive = false;
+    } else if (item.href === '/dashboard') {
+      isActive = pathname === item.href;
+    } else {
+      isActive = pathname === item.href || pathname.startsWith(item.href + '/');
+    }
+
+    const linkContent = (
+      <>
+        <item.icon className={isMobile ? "h-5 w-5" : "h-4 w-4"} />
+        {item.label}
+      </>
+    );
+
+    const linkProps = {
+      href: item.href,
+      target: item.external ? '_blank' : undefined,
+      rel: item.external ? 'noopener noreferrer' : undefined,
+      className: cn(commonClasses, item.external ? externalClasses : (isActive ? activeClasses : inactiveClasses)),
+    };
+
+    if (isMobile) {
+      return (
+        <SheetClose asChild key={item.href}>
+          <Link {...linkProps} onClick={() => setIsSheetOpen(false)}>
+            {linkContent}
+          </Link>
+        </SheetClose>
+      );
+    }
+
+    return (
+      <Link key={item.href} {...linkProps}>
+        {linkContent}
+      </Link>
+    );
+  };
+
   return (
     <header className="sticky top-0 z-40 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center justify-between">
@@ -78,36 +138,7 @@ export function AppHeader() {
 
         {/* Desktop Navigation - Centered */}
         <nav className="hidden md:flex items-center space-x-6 text-sm font-medium">
-          {NAV_LINKS_HEADER.map((item) => {
-            let isActive;
-            if (item.external) {
-              isActive = false;
-            } else if (item.href === '/dashboard') {
-              isActive = pathname === item.href;
-            } else {
-              isActive = pathname === item.href || pathname.startsWith(item.href + '/');
-            }
-
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                target={item.external ? '_blank' : undefined}
-                rel={item.external ? 'noopener noreferrer' : undefined}
-                className={cn(
-                  "flex items-center gap-1 transition-colors hover:text-primary",
-                  item.external 
-                    ? "text-foreground/70" 
-                    : isActive 
-                      ? "text-primary font-semibold" 
-                      : "text-foreground/70"
-                )}
-              >
-                <item.icon className="h-4 w-4" />
-                {item.label}
-              </Link>
-            );
-          })}
+          {NAV_LINKS_HEADER.map((item) => renderNavItem(item, false))}
         </nav>
 
         {/* Right side items: Mobile Menu Trigger (mobile only) and User Dropdown (always visible) */}
@@ -131,28 +162,7 @@ export function AppHeader() {
                     </Link>
                   </SheetHeader>
                   <nav className="flex-1 flex flex-col space-y-1 p-4">
-                    {NAV_LINKS_HEADER.map((item) => {
-                      const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href + '/'));
-                      return (
-                        <SheetClose asChild key={item.href}>
-                          <Link
-                            href={item.href}
-                            target={item.external ? '_blank' : undefined}
-                            rel={item.external ? 'noopener noreferrer' : undefined}
-                            className={cn(
-                              "flex items-center gap-3 rounded-md px-3 py-2.5 text-base font-medium transition-colors",
-                              isActive
-                                ? "bg-primary/10 text-primary"
-                                : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-                            )}
-                            onClick={() => setIsSheetOpen(false)}
-                          >
-                            <item.icon className="h-5 w-5" />
-                            {item.label}
-                          </Link>
-                        </SheetClose>
-                      );
-                    })}
+                    {NAV_LINKS_HEADER.map((item) => renderNavItem(item, true))}
                   </nav>
                 </div>
               </SheetContent>

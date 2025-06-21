@@ -1,4 +1,6 @@
 
+import type { LucideIcon } from 'lucide-react';
+
 export type MembershipStatus = 'active' | 'expired'; // Defines what's stored in the DB
 
 // This can be used for suggested plan names, but actual plan names will be strings.
@@ -134,4 +136,12 @@ export interface Message {
   content: string;
   createdAt: string; // timestamptz
   readAt?: string | null; // timestamptz
+}
+
+export interface NavItem {
+  href: string;
+  icon: LucideIcon;
+  label: string;
+  external?: boolean;
+  action?: 'logout';
 }
