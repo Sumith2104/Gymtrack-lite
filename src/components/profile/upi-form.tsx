@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -43,13 +42,12 @@ export function UpiForm() {
     if (gymDatabaseId) {
       setIsLoading(true);
       getGymUpiId(gymDatabaseId).then((response) => {
-        const upiValue = response.upiId || '';
-        if (response.upiId !== null) {
-          form.setValue('upiId', upiValue);
-          setCurrentUpiId(upiValue);
-        } else {
+        if (response.error) {
           toast({ variant: 'destructive', title: 'Error Fetching UPI', description: response.error });
         }
+        const upiValue = response.upiId || '';
+        form.setValue('upiId', upiValue);
+        setCurrentUpiId(upiValue);
         setIsLoading(false);
       });
     } else {
@@ -66,7 +64,11 @@ export function UpiForm() {
     const response = await updateGymUpiId(gymDatabaseId, data.upiId.trim() || null);
 
     if (response.success) {
-      toast({ title: 'Success', description: 'UPI ID updated successfully.' });
+      if (data.upiId.trim()) {
+        toast({ title: 'Success', description: 'UPI ID updated successfully.' });
+      } else {
+        toast({ title: 'Success', description: 'No UPI integrated.' });
+      }
       setCurrentUpiId(data.upiId.trim());
       setIsEditing(false);
     } else {
