@@ -49,6 +49,7 @@ export interface Gym {
   formattedGymId: string;
   createdAt: string; // timestamptz
   status: string;
+  payment_id?: string | null;
 }
 
 export interface Plan { // This is the DB schema type, used internally by Supabase client

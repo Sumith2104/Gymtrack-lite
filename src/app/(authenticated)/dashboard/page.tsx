@@ -6,17 +6,29 @@ import { OccupancyCard } from '@/components/dashboard/occupancy-card';
 import { CheckinTrendsChart } from '@/components/dashboard/checkin-trends-chart';
 import { AnnouncementsSection } from '@/components/dashboard/announcements-section';
 import { Separator } from '@/components/ui/separator';
+import { useToast } from '@/hooks/use-toast';
 
 
 export default function DashboardPage() {
   const [gymName, setGymName] = useState<string | null>(null);
+  const { toast } = useToast();
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const storedGymName = localStorage.getItem('gymName');
       setGymName(storedGymName);
+
+      const showUpiToast = localStorage.getItem('showUpiToast');
+      if (showUpiToast === 'true') {
+        toast({
+          title: "Setup Payments",
+          description: "No UPI ID is integrated. Please set it up in your profile to receive payments.",
+          duration: 9000,
+        });
+        localStorage.removeItem('showUpiToast'); // Remove after showing
+      }
     }
-  }, []);
+  }, [toast]);
 
   return (
     <div className="flex flex-col gap-8">

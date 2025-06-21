@@ -22,7 +22,8 @@ export async function verifyGymOwnerCredentials(
         owner_user_id,
         formatted_gym_id,
         created_at,
-        status
+        status,
+        payment_id
       `
       )
       .eq('owner_email', email)
@@ -48,6 +49,7 @@ export async function verifyGymOwnerCredentials(
         formattedGymId: data.formatted_gym_id,
         createdAt: data.created_at,
         status: data.status,
+        payment_id: data.payment_id,
       };
     }
     

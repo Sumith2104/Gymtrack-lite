@@ -61,6 +61,10 @@ export function LoginForm() {
         localStorage.removeItem('gymOwnerAuthId'); // Ensure it's cleared if null
       }
 
+      if (!targetGym.payment_id) {
+        localStorage.setItem('showUpiToast', 'true');
+      }
+
       toast({
         title: `Login successful for ${targetGym.name}`,
         description: "Redirecting to dashboard",
