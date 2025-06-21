@@ -16,6 +16,9 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { format, parseISO, isToday, isYesterday } from 'date-fns';
+import { createSupabaseBrowserClient } from '@/lib/supabase/client';
+import type { RealtimeChannel } from '@supabase/supabase-js';
+
 
 const formatDateGroupHeader = (date: Date): string => {
   if (isToday(date)) return "Today";
@@ -30,6 +33,7 @@ export default function MessagesPage() {
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [gymDatabaseId, setGymDatabaseId] = useState<string | null>(null);
   const [adminSenderFormattedGymId, setAdminSenderFormattedGymId] = useState<string | null>(null);
+  const [supabaseToken, setSupabaseToken] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [newMessageInput, setNewMessageInput] = useState('');
   const [isSending, setIsSending] = useState(false);
@@ -38,6 +42,8 @@ export default function MessagesPage() {
   const [conversationMessages, setConversationMessages] = useState<Message[]>([]);
   const [isLoadingConversation, setIsLoadingConversation] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const channelRef = useRef<RealtimeChannel | null>(null);
+  const supabase = createSupabaseBrowserClient();
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -50,7 +56,7 @@ export default function MessagesPage() {
 
   useEffect(() => {
     const gymDbId = localStorage.getItem('gymDatabaseId');
-    const formattedGymId = localStorage.getItem('gymId'); // This is the formatted_gym_id
+    const formattedGymId = localStorage.getItem('gymId');
     if (gymDbId) setGymDatabaseId(gymDbId);
     else {
       setFetchError("Gym Database ID not found. Please log in again.");
@@ -58,6 +64,18 @@ export default function MessagesPage() {
     }
     if (formattedGymId) setAdminSenderFormattedGymId(formattedGymId);
     else console.warn("Admin sender ID (formatted_gym_id) not found in localStorage.");
+    
+    const tokenDataString = localStorage.getItem('supabase.auth.token');
+    if (tokenDataString) {
+        try {
+            const tokenData = JSON.parse(tokenDataString);
+            if (tokenData.access_token) {
+                setSupabaseToken(tokenData.access_token);
+            }
+        } catch (e) {
+            console.error("MessagesPage: Failed to parse auth token");
+        }
+    }
   }, []);
 
   useEffect(() => {
@@ -92,13 +110,63 @@ export default function MessagesPage() {
   };
 
   useEffect(() => {
-    if (selectedMember && selectedMember.memberId && gymDatabaseId && adminSenderFormattedGymId) {
+    if (selectedMember && selectedMember.memberId && gymDatabaseId && adminSenderFormattedGymId && supabaseToken) {
       fetchConversation(gymDatabaseId, adminSenderFormattedGymId, selectedMember.memberId);
+
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+      }
+
+      const channel = supabase.channel(`messages-${gymDatabaseId}-${selectedMember.id}`)
+        .on<Message>(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'messages',
+            filter: `gym_id=eq.${gymDatabaseId}`
+          },
+          (payload) => {
+            const newMessage = payload.new;
+            const isAdminSender = newMessage.senderId === adminSenderFormattedGymId;
+            const isAdminReceiver = newMessage.receiverId === adminSenderFormattedGymId;
+            const isMemberSender = newMessage.senderId === selectedMember.memberId;
+            const isMemberReceiver = newMessage.receiverId === selectedMember.memberId;
+
+            if ((isAdminSender && isMemberReceiver) || (isMemberSender && isAdminReceiver)) {
+              setConversationMessages(prevMessages => {
+                if (prevMessages.some(m => m.id === newMessage.id)) {
+                  return prevMessages;
+                }
+                return [...prevMessages, newMessage];
+              });
+            }
+          }
+        )
+        .subscribe((status, err) => {
+          if (status === 'CHANNEL_ERROR') {
+            console.error('Channel error:', err);
+            toast({ variant: 'destructive', title: 'Real-time Error', description: 'Could not connect to live message updates.' });
+          }
+        });
+
+      channelRef.current = channel;
     } else {
-      setConversationMessages([]); // Clear messages if no member selected or IDs missing
+      setConversationMessages([]);
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
+      }
     }
+
+    return () => {
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
+      }
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedMember, gymDatabaseId, adminSenderFormattedGymId]);
+  }, [selectedMember, gymDatabaseId, adminSenderFormattedGymId, supabaseToken, supabase]);
 
 
   const filteredMembers = members.filter(member =>
@@ -119,9 +187,7 @@ export default function MessagesPage() {
       toast({ variant: "destructive", title: "Message Failed", description: response.error || "Could not send message." });
     } else {
       setNewMessageInput('');
-      // Optimistically update the conversationMessages state with the new message
       setConversationMessages(prevMessages => [...prevMessages, response.newMessage!]);
-      // No longer calling fetchConversation here to avoid full refresh and loading spinner for the list
     }
     setIsSending(false);
   };
