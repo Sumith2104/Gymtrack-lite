@@ -117,3 +117,50 @@ export async function getGymEarningsData(gymDatabaseId: string): Promise<{ data?
   }
 }
 
+export async function getGymUpiId(gymDatabaseId: string): Promise<{ upiId: string | null; error?: string }> {
+  if (!gymDatabaseId) {
+    return { upiId: null, error: 'Gym ID not provided.' };
+  }
+  const supabase = createSupabaseServerActionClient();
+  try {
+    const { data, error } = await supabase
+      .from('gyms')
+      .select('payment')
+      .eq('id', gymDatabaseId)
+      .single();
+
+    if (error) {
+        // This specific error code means the column doesn't exist.
+        if (error.code === '42703') { 
+            return { upiId: null, error: "The 'payment' column does not exist in the 'gyms' table. Please update your database schema." };
+        }
+        throw error;
+    };
+    return { upiId: data?.payment ?? null };
+  } catch (e: any) {
+    return { upiId: null, error: e.message || 'Failed to fetch UPI ID.' };
+  }
+}
+
+export async function updateGymUpiId(gymDatabaseId: string, upiId: string | null): Promise<{ success: boolean; error?: string }> {
+  if (!gymDatabaseId) {
+    return { success: false, error: 'Gym ID not provided.' };
+  }
+  
+  if (upiId && !/^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z]{2,64}$/.test(upiId)) {
+    return { success: false, error: 'Invalid UPI ID format. It should be like "user@bank".' };
+  }
+  
+  const supabase = createSupabaseServerActionClient();
+  try {
+    const { error } = await supabase
+      .from('gyms')
+      .update({ payment: upiId })
+      .eq('id', gymDatabaseId);
+
+    if (error) throw error;
+    return { success: true };
+  } catch (e: any) {
+    return { success: false, error: e.message || 'Failed to update UPI ID.' };
+  }
+}
