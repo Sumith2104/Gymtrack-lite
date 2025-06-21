@@ -171,6 +171,7 @@ export async function sendCheckInEmailAction(
       to: member.email,
       subject: emailSubject,
       htmlBody: emailHtmlBody,
+      gymDatabaseId: member.gymId,
     });
 
   } catch (error: any) {
@@ -215,4 +216,3 @@ export async function fetchTodaysCheckInsForKioskAction(gymDatabaseId: string, g
     return { checkIns: [], error: 'Failed to fetch check-ins.' };
   }
 }
-

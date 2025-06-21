@@ -158,6 +158,7 @@ export async function addMember(
         to: newMemberAppFormat.email,
         subject: emailSubject,
         htmlBody: emailHtmlBody,
+        gymDatabaseId: gymDatabaseId,
       });
       emailStatus = emailResult.message;
     }
@@ -398,7 +399,8 @@ export async function sendBulkCustomEmailAction(
   subject: string,
   body: string,
   gymName: string,
-  includeQrCode: boolean
+  includeQrCode: boolean,
+  gymDatabaseId: string
 ): Promise<{ attempted: number; successful: number; noEmailAddress: number; failed: number; error?: string }> {
   if (!memberDbIds || memberDbIds.length === 0) {
     return { attempted: 0, successful: 0, noEmailAddress: 0, failed: 0, error: "No member IDs provided for email." };
@@ -448,6 +450,7 @@ export async function sendBulkCustomEmailAction(
           to: member.email,
           subject: subject,
           htmlBody: emailHtmlBody,
+          gymDatabaseId: gymDatabaseId,
         });
 
         if (emailResult.success) {
@@ -465,4 +468,3 @@ export async function sendBulkCustomEmailAction(
     return { attempted, successful, noEmailAddress, failed, error: 'An unexpected error occurred while sending emails.' };
   }
 }
-

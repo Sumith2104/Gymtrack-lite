@@ -23,6 +23,11 @@ export interface Database {
           status: string // text, default 'active'
           created_at: string // timestamp with time zone, default now()
           payment_id: string | null
+          app_email: string | null
+          app_pass: string | null
+          app_host: string | null
+          from_email: string | null
+          port: string | null
         }
         Insert: {
           id?: string
@@ -33,6 +38,11 @@ export interface Database {
           status?: string
           created_at?: string
           payment_id?: string | null
+          app_email?: string | null
+          app_pass?: string | null
+          app_host?: string | null
+          from_email?: string | null
+          port?: string | null
         }
         Update: {
           id?: string
@@ -43,6 +53,11 @@ export interface Database {
           status?: string
           created_at?: string
           payment_id?: string | null
+          app_email?: string | null
+          app_pass?: string | null
+          app_host?: string | null
+          from_email?: string | null
+          port?: string | null
         }
         Relationships: [] // No direct FK to auth.users listed if not strictly enforced or used in RLS
       }

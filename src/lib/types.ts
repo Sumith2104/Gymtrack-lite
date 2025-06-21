@@ -50,6 +50,11 @@ export interface Gym {
   createdAt: string; // timestamptz
   status: string;
   payment_id?: string | null;
+  app_email?: string | null;
+  app_pass?: string | null;
+  app_host?: string | null;
+  from_email?: string | null;
+  port?: string | null;
 }
 
 export interface Plan { // This is the DB schema type, used internally by Supabase client
@@ -145,4 +150,11 @@ export interface NavItem {
   label: string;
   external?: boolean;
   action?: 'logout';
+}
+
+export interface EmailOptions {
+  to: string;
+  subject: string;
+  htmlBody: string;
+  gymDatabaseId?: string | null;
 }

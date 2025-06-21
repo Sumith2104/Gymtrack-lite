@@ -146,6 +146,7 @@ export async function addAnnouncementAction(
               to: member.email,
               subject: emailSubject,
               htmlBody: emailHtmlBody,
+              gymDatabaseId: gymUuid,
             });
             if (emailResult.success) {
               successful++;

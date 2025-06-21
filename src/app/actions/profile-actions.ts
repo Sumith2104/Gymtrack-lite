@@ -12,6 +12,14 @@ export interface EarningsData {
   activeMemberCount: number;
 }
 
+export interface SmtpSettings {
+  app_host: string | null;
+  port: string | null;
+  app_email: string | null;
+  app_pass: string | null;
+  from_email: string | null;
+}
+
 interface RawMemberPlanData {
   membership_status: string; 
   plans: {
@@ -162,5 +170,49 @@ export async function updateGymUpiId(gymDatabaseId: string, upiId: string | null
     return { success: true };
   } catch (e: any) {
     return { success: false, error: e.message || 'Failed to update UPI ID.' };
+  }
+}
+
+export async function getGymSmtpSettings(gymDatabaseId: string): Promise<{ data?: SmtpSettings; error?: string }> {
+  if (!gymDatabaseId) {
+    return { error: 'Gym ID not provided.' };
+  }
+  const supabase = createSupabaseServiceRoleClient();
+  try {
+    const { data, error } = await supabase
+      .from('gyms')
+      .select('app_host, port, app_email, app_pass, from_email')
+      .eq('id', gymDatabaseId)
+      .single();
+
+    if (error) throw error;
+    return { data };
+  } catch (e: any) {
+    return { error: e.message || 'Failed to fetch SMTP settings.' };
+  }
+}
+
+export async function updateGymSmtpSettings(gymDatabaseId: string, settings: SmtpSettings): Promise<{ success: boolean; error?: string }> {
+  if (!gymDatabaseId) {
+    return { success: false, error: 'Gym ID not provided.' };
+  }
+  
+  const supabase = createSupabaseServiceRoleClient();
+  try {
+    const { error } = await supabase
+      .from('gyms')
+      .update({
+        app_host: settings.app_host || null,
+        port: settings.port || null,
+        app_email: settings.app_email || null,
+        app_pass: settings.app_pass || null,
+        from_email: settings.from_email || null,
+      })
+      .eq('id', gymDatabaseId);
+
+    if (error) throw error;
+    return { success: true };
+  } catch (e: any) {
+    return { success: false, error: e.message || 'Failed to update SMTP settings.' };
   }
 }

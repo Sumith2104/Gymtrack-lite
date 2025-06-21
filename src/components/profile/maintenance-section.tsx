@@ -13,6 +13,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import { SmtpForm } from './smtp-form';
 
 export function MaintenanceSection() {
     const { toast } = useToast();
@@ -54,6 +55,10 @@ export function MaintenanceSection() {
                         </AccordionTrigger>
                         <AccordionContent className="pt-6 space-y-6">
                             <UpiForm />
+                            
+                            <Separator />
+
+                            <SmtpForm />
                             
                             <Separator />
                             

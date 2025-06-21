@@ -2,22 +2,19 @@
 'use server';
 
 import nodemailer from 'nodemailer';
+import type { Transporter } from 'nodemailer';
 import { APP_NAME } from '@/lib/constants';
+import { createSupabaseServiceRoleClient } from './supabase/server';
+import type { EmailOptions } from './types';
 
-interface EmailOptions {
-  to: string;
-  subject: string;
-  htmlBody: string;
-}
 
+// Fallback transporter using environment variables
 const SMTP_HOST = process.env.SMTP_HOST;
 const SMTP_PORT = parseInt(process.env.SMTP_PORT || '587', 10);
 const SMTP_USER = process.env.SMTP_USER;
 const SMTP_PASS = process.env.SMTP_PASS;
-const SMTP_FROM_EMAIL = process.env.SMTP_FROM_EMAIL || `"${APP_NAME}" <noreply@example.com>`;
 
-
-const transporter = SMTP_HOST && SMTP_PORT && SMTP_USER && SMTP_PASS
+const defaultTransporter = SMTP_HOST && SMTP_PORT && SMTP_USER && SMTP_PASS
   ? nodemailer.createTransport({
       host: SMTP_HOST,
       port: SMTP_PORT,
@@ -28,6 +25,49 @@ const transporter = SMTP_HOST && SMTP_PORT && SMTP_USER && SMTP_PASS
       },
     })
   : null;
+
+// Function to get a transporter, either gym-specific or default
+async function getTransporter(gymDatabaseId?: string | null): Promise<{transporter: Transporter | null, fromEmail: string}> {
+    const defaultFromEmail = process.env.SMTP_FROM_EMAIL || `"${APP_NAME}" <noreply@example.com>`;
+
+    if (!gymDatabaseId) {
+        return { transporter: defaultTransporter, fromEmail: defaultFromEmail };
+    }
+
+    try {
+        const supabase = createSupabaseServiceRoleClient();
+        const { data: gymSmtp, error } = await supabase
+            .from('gyms')
+            .select('app_host, port, app_email, app_pass, from_email')
+            .eq('id', gymDatabaseId)
+            .single();
+
+        if (error || !gymSmtp || !gymSmtp.app_host || !gymSmtp.port || !gymSmtp.app_email || !gymSmtp.app_pass) {
+            // If any setting is missing, fall back to default
+            return { transporter: defaultTransporter, fromEmail: defaultFromEmail };
+        }
+        
+        const port = parseInt(gymSmtp.port, 10);
+        const gymTransporter = nodemailer.createTransport({
+            host: gymSmtp.app_host,
+            port: port,
+            secure: port === 465,
+            auth: {
+                user: gymSmtp.app_email,
+                pass: gymSmtp.app_pass,
+            },
+        });
+
+        const gymFromEmail = gymSmtp.from_email || gymSmtp.app_email;
+
+        return { transporter: gymTransporter, fromEmail: gymFromEmail };
+
+    } catch (e) {
+        console.error(`[Email Service] Error fetching SMTP config for gym ${gymDatabaseId}, falling back to default.`, e);
+        return { transporter: defaultTransporter, fromEmail: defaultFromEmail };
+    }
+}
+
 
 function getBaseEmailHtml(content: string, subject: string): string {
   const currentYear = new Date().getFullYear();
@@ -71,14 +111,16 @@ function getBaseEmailHtml(content: string, subject: string): string {
   `;
 }
 
-export async function sendEmail({ to, subject, htmlBody }: EmailOptions): Promise<{ success: boolean; message: string }> {
+export async function sendEmail({ to, subject, htmlBody, gymDatabaseId }: EmailOptions): Promise<{ success: boolean; message: string }> {
+  const { transporter, fromEmail } = await getTransporter(gymDatabaseId);
+
   if (!transporter) {
-    
+    console.log(`[Email Service] SMTP not configured. Would send to ${to}: ${subject}`);
     return { success: true, message: 'Email logged to console (SMTP not configured).' };
   }
 
   const mailOptions = {
-    from: SMTP_FROM_EMAIL,
+    from: fromEmail,
     to: to,
     subject: subject,
     html: getBaseEmailHtml(htmlBody, subject),

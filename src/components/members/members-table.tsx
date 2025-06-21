@@ -490,7 +490,7 @@ export function MembersTable() {
                 }
                 const gymName = localStorage.getItem('gymName') || APP_NAME;
                 const memberDbIds = bulkEmailRecipients.map(r => r.id);
-                const response = await sendBulkCustomEmailAction(memberDbIds, subject, body, gymName, includeQrCode);
+                const response = await sendBulkCustomEmailAction(memberDbIds, subject, body, gymName, includeQrCode, currentGymDatabaseId);
 
                 if (response.error) {
                     toast({ variant: "destructive", title: "Email Sending Error", description: response.error });
@@ -719,4 +719,3 @@ export function MembersTable() {
     </div>
   );
 }
-
