@@ -236,13 +236,23 @@ export default function MessagesPage() {
                     return (
                       <React.Fragment key={msg.id}>
                         {dateHeaderElement}
-                        <div className={cn("flex", msg.senderId === adminSenderFormattedGymId ? "justify-end" : "justify-start")}>
+                        <div className={cn("group flex w-full items-end gap-2", msg.senderId === adminSenderFormattedGymId ? "justify-end" : "justify-start")}>
+                          {msg.senderId === adminSenderFormattedGymId && (
+                            <p className="text-[10px] text-muted-foreground mb-1 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
+                              {format(parseISO(msg.createdAt), 'p')}
+                            </p>
+                          )}
                           <div className={cn(
                             "max-w-[70%] p-3 rounded-2xl shadow", 
                             msg.senderId === adminSenderFormattedGymId ? "bg-primary text-primary-foreground" : "bg-card text-card-foreground border"
                           )}>
                             <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
                           </div>
+                          {msg.senderId !== adminSenderFormattedGymId && (
+                            <p className="text-[10px] text-muted-foreground mb-1 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
+                              {format(parseISO(msg.createdAt), 'p')}
+                            </p>
+                          )}
                         </div>
                       </React.Fragment>
                     );
