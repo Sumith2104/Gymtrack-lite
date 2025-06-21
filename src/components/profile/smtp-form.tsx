@@ -15,8 +15,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { PasswordInput } from '../ui/password-input';
 
 const smtpFormSchema = z.object({
-  app_host: z.string().optional().nullable(),
-  port: z.string().optional().nullable(),
   app_email: z.string().optional().nullable(),
   app_pass: z.string().optional().nullable(),
   from_email: z.string().optional().nullable(),
@@ -32,8 +30,6 @@ export function SmtpForm() {
   const form = useForm<SmtpFormValues>({
     resolver: zodResolver(smtpFormSchema),
     defaultValues: {
-      app_host: '',
-      port: '',
       app_email: '',
       app_pass: '',
       from_email: '',
@@ -55,8 +51,6 @@ export function SmtpForm() {
         if (response.data) {
           // Do not display the password.
           form.reset({
-            app_host: response.data.app_host,
-            port: response.data.port,
             app_email: response.data.app_email,
             from_email: response.data.from_email,
             app_pass: '', // Always keep password field blank on load
@@ -110,30 +104,6 @@ export function SmtpForm() {
       <p className="text-sm text-muted-foreground mb-4">Configure your own email server to send emails to members. Leave fields blank to use the system default.</p>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                 <FormField
-                  control={form.control}
-                  name="app_host"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>SMTP Host</FormLabel>
-                      <FormControl><Input placeholder="e.g., smtp.gmail.com" {...field} value={field.value ?? ''} /></FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                 <FormField
-                  control={form.control}
-                  name="port"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>SMTP Port</FormLabel>
-                      <FormControl><Input placeholder="e.g., 587" {...field} value={field.value ?? ''} /></FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-            </div>
             <FormField
               control={form.control}
               name="app_email"

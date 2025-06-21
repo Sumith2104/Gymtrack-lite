@@ -192,24 +192,27 @@ export async function getGymSmtpSettings(gymDatabaseId: string): Promise<{ data?
   }
 }
 
-export async function updateGymSmtpSettings(gymDatabaseId: string, settings: SmtpSettings): Promise<{ success: boolean; error?: string }> {
+export async function updateGymSmtpSettings(gymDatabaseId: string, settings: Partial<SmtpSettings>): Promise<{ success: boolean; error?: string }> {
   if (!gymDatabaseId) {
     return { success: false, error: 'Gym ID not provided.' };
   }
   
   const supabase = createSupabaseServiceRoleClient();
   try {
-    const updatePayload: Partial<SmtpSettings> = {
-      app_host: settings.app_host || null,
-      port: settings.port || null,
-      app_email: settings.app_email || null,
-      from_email: settings.from_email || null,
-    };
+    const updatePayload: Partial<SmtpSettings> = {};
+
+    if (settings.hasOwnProperty('app_host')) updatePayload.app_host = settings.app_host || null;
+    if (settings.hasOwnProperty('port')) updatePayload.port = settings.port || null;
+    if (settings.hasOwnProperty('app_email')) updatePayload.app_email = settings.app_email || null;
+    if (settings.hasOwnProperty('from_email')) updatePayload.from_email = settings.from_email || null;
 
     // Only include app_pass in the update if it's a non-empty string.
-    // This prevents overwriting a saved password with null if the form field is empty.
     if (settings.app_pass && settings.app_pass.length > 0) {
       updatePayload.app_pass = settings.app_pass;
+    }
+
+    if (Object.keys(updatePayload).length === 0) {
+      return { success: true }; // Nothing to update
     }
 
     const { error } = await supabase
