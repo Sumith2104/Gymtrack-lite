@@ -22,6 +22,7 @@ export interface Database {
           formatted_gym_id: string // text, unique. User-friendly unique ID for the gym
           status: string // text, default 'active'
           created_at: string // timestamp with time zone, default now()
+          payment_id: string | null
         }
         Insert: {
           id?: string
@@ -31,6 +32,7 @@ export interface Database {
           formatted_gym_id: string
           status?: string
           created_at?: string
+          payment_id?: string | null
         }
         Update: {
           id?: string
@@ -40,6 +42,7 @@ export interface Database {
           formatted_gym_id?: string
           status?: string
           created_at?: string
+          payment_id?: string | null
         }
         Relationships: [] // No direct FK to auth.users listed if not strictly enforced or used in RLS
       }

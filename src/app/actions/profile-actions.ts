@@ -125,18 +125,18 @@ export async function getGymUpiId(gymDatabaseId: string): Promise<{ upiId: strin
   try {
     const { data, error } = await supabase
       .from('gyms')
-      .select('payment')
+      .select('payment_id')
       .eq('id', gymDatabaseId)
       .single();
 
     if (error) {
         // This specific error code means the column doesn't exist.
         if (error.code === '42703') { 
-            return { upiId: null, error: "The 'payment' column does not exist in the 'gyms' table. Please update your database schema." };
+            return { upiId: null, error: "The 'payment_id' column does not exist in the 'gyms' table. Please update your database schema." };
         }
         throw error;
     };
-    return { upiId: data?.payment ?? null };
+    return { upiId: data?.payment_id ?? null };
   } catch (e: any) {
     return { upiId: null, error: e.message || 'Failed to fetch UPI ID.' };
   }
@@ -155,7 +155,7 @@ export async function updateGymUpiId(gymDatabaseId: string, upiId: string | null
   try {
     const { error } = await supabase
       .from('gyms')
-      .update({ payment: upiId })
+      .update({ payment_id: upiId })
       .eq('id', gymDatabaseId);
 
     if (error) throw error;
