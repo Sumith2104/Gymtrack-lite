@@ -11,6 +11,7 @@ import { CreatePlanForm } from '@/components/profile/create-plan-form';
 import { MembershipDistributionChart } from '@/components/analytics/membership-distribution-chart';
 import { NewMembersYearlyChart } from '@/components/analytics/new-members-yearly-chart';
 import { UpiForm } from '@/components/profile/upi-form';
+import { MaintenanceSection } from '@/components/profile/maintenance-section';
 
 
 export default function ProfilePage() {
@@ -178,6 +179,9 @@ export default function ProfilePage() {
         <MembershipDistributionChart />
         <NewMembersYearlyChart />
       </div>
+
+      {/* Maintenance Section */}
+      <MaintenanceSection />
     </div>
   );
 }
