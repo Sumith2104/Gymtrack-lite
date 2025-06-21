@@ -199,15 +199,22 @@ export async function updateGymSmtpSettings(gymDatabaseId: string, settings: Smt
   
   const supabase = createSupabaseServiceRoleClient();
   try {
+    const updatePayload: Partial<SmtpSettings> = {
+      app_host: settings.app_host || null,
+      port: settings.port || null,
+      app_email: settings.app_email || null,
+      from_email: settings.from_email || null,
+    };
+
+    // Only include app_pass in the update if it's a non-empty string.
+    // This prevents overwriting a saved password with null if the form field is empty.
+    if (settings.app_pass && settings.app_pass.length > 0) {
+      updatePayload.app_pass = settings.app_pass;
+    }
+
     const { error } = await supabase
       .from('gyms')
-      .update({
-        app_host: settings.app_host || null,
-        port: settings.port || null,
-        app_email: settings.app_email || null,
-        app_pass: settings.app_pass || null,
-        from_email: settings.from_email || null,
-      })
+      .update(updatePayload)
       .eq('id', gymDatabaseId);
 
     if (error) throw error;

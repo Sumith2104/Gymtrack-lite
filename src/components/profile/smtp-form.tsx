@@ -6,7 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
 import { Button } from '@/components/ui/button';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { Mail, Save } from 'lucide-react';
@@ -53,7 +53,14 @@ export function SmtpForm() {
           toast({ variant: 'destructive', title: 'Error Fetching SMTP Settings', description: response.error });
         }
         if (response.data) {
-          form.reset(response.data);
+          // Do not display the password.
+          form.reset({
+            app_host: response.data.app_host,
+            port: response.data.port,
+            app_email: response.data.app_email,
+            from_email: response.data.from_email,
+            app_pass: '', // Always keep password field blank on load
+          });
         }
         setIsLoading(false);
       });
@@ -72,6 +79,10 @@ export function SmtpForm() {
 
     if (response.success) {
       toast({ title: 'Success', description: 'SMTP settings updated successfully.' });
+      // Clear password field from form state after successful submission
+       if (data.app_pass) {
+          form.reset({ ...data, app_pass: '' });
+       }
     } else {
       toast({ variant: 'destructive', title: 'Error updating SMTP settings', description: response.error });
     }
@@ -140,7 +151,8 @@ export function SmtpForm() {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>SMTP App Password</FormLabel>
-                  <FormControl><PasswordInput placeholder="Enter your app-specific password" {...field} value={field.value ?? ''} /></FormControl>
+                  <FormControl><PasswordInput placeholder="Enter new password to update" {...field} value={field.value ?? ''} /></FormControl>
+                  <FormDescription>Leave this field blank to keep your current password.</FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
