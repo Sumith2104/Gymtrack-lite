@@ -203,8 +203,13 @@ export async function updateGymSmtpSettings(gymDatabaseId: string, settings: Par
 
     if (settings.hasOwnProperty('app_host')) updatePayload.app_host = settings.app_host || null;
     if (settings.hasOwnProperty('port')) updatePayload.port = settings.port || null;
-    if (settings.hasOwnProperty('app_email')) updatePayload.app_email = settings.app_email || null;
-    if (settings.hasOwnProperty('from_email')) updatePayload.from_email = settings.from_email || null;
+    
+    // When app_email is updated, also update from_email to match.
+    if (settings.hasOwnProperty('app_email')) {
+      const email = settings.app_email || null;
+      updatePayload.app_email = email;
+      updatePayload.from_email = email;
+    }
 
     // Only include app_pass in the update if it's a non-empty string.
     if (settings.app_pass && settings.app_pass.length > 0) {
