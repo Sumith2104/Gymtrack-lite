@@ -5,6 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { HardHat, RotateCw, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { UpiForm } from './upi-form';
+import { Separator } from '@/components/ui/separator';
 
 export function MaintenanceSection() {
     const { toast } = useToast();
@@ -20,14 +22,19 @@ export function MaintenanceSection() {
         <Card className="shadow-lg">
             <CardHeader>
                 <CardTitle className="text-lg font-semibold flex items-center">
-                    <HardHat className="mr-2 h-5 w-5 text-primary" /> Maintenance
+                    <HardHat className="mr-2 h-5 w-5 text-primary" /> Maintenance & Settings
                 </CardTitle>
                 <CardDescription>
-                    System maintenance actions. Use with caution.
+                    Manage system settings and perform maintenance actions. Use with caution.
                 </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-                 <div className="flex items-center justify-between p-3 border rounded-md bg-muted/30">
+            <CardContent className="space-y-6">
+                 {/* UPI Form is now here */}
+                <UpiForm />
+                
+                <Separator />
+                
+                <div className="flex items-center justify-between p-3 border rounded-md bg-muted/30">
                     <div>
                         <h4 className="font-medium">Clear Application Cache</h4>
                         <p className="text-sm text-muted-foreground">Forces a refresh of all cached application data.</p>

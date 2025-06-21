@@ -1,10 +1,10 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
@@ -135,16 +135,12 @@ export function UpiForm() {
   };
 
   return (
-    <Card className="shadow-lg">
-      <CardHeader>
-        <CardTitle className="text-lg font-semibold flex items-center">
-          <Wallet className="mr-2 h-5 w-5 text-primary" /> Payment Details
-        </CardTitle>
-        <CardDescription>Add or update your UPI ID to receive payments from members.</CardDescription>
-      </CardHeader>
-      <CardContent>
-        {renderContent()}
-      </CardContent>
-    </Card>
+    <div>
+      <h4 className="font-medium text-foreground flex items-center mb-2">
+          <Wallet className="mr-2 h-4 w-4 text-primary" /> Payment Details
+      </h4>
+      <p className="text-sm text-muted-foreground mb-4">Add or update your UPI ID to receive payments from members.</p>
+      {renderContent()}
+    </div>
   );
 }
