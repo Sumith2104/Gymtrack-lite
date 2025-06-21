@@ -3,9 +3,7 @@
 
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { OccupancyCard } from '@/components/dashboard/occupancy-card';
-import { CheckinTrendsChart } from '@/components/dashboard/checkin-trends-chart';
-import { DollarSign, Users, TrendingUp, Landmark, AlertCircle, Trophy, PackageOpen, Settings } from 'lucide-react';
+import { DollarSign, Landmark, AlertCircle, PackageOpen } from 'lucide-react';
 import { getGymEarningsData, type EarningsData } from '@/app/actions/profile-actions';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
@@ -168,15 +166,6 @@ export default function ProfilePage() {
           {renderEarningsContent()}
         </CardContent>
       </Card>
-
-      
-      <div>
-        <h2 className="text-2xl font-semibold tracking-tight text-foreground mb-4">Activity Snapshot</h2>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <OccupancyCard className="lg:col-span-1" />
-          <CheckinTrendsChart className="lg:col-span-2" />
-        </div>
-      </div>
     </div>
   );
 }
