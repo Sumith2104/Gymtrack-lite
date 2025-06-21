@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { MessageSquare, Users, Send, AlertCircle, Search, Loader2, X, Smile } from 'lucide-react';
+import { MessageSquare, Users, Send, AlertCircle, Search, Loader2, X, Smile, RefreshCw } from 'lucide-react';
 import type { Member, Message } from '@/lib/types';
 import { fetchMembers as fetchMembersAction } from '@/app/actions/member-actions';
 import { fetchMessagesAction, sendMessageAction } from '@/app/actions/message-actions';
@@ -189,7 +189,22 @@ export default function MessagesPage() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-3">
                     <Avatar className="h-10 w-10"><AvatarFallback className="bg-primary/20 text-primary font-semibold">{getInitials(selectedMember.name)}</AvatarFallback></Avatar>
-                    <div><CardTitle className="text-xl">{selectedMember.name}</CardTitle><CardDescription>{selectedMember.memberId || 'N/A'}</CardDescription></div>
+                    <div>
+                        <CardTitle className="text-xl">{selectedMember.name}</CardTitle>
+                        <CardDescription>{selectedMember.memberId || 'N/A'}</CardDescription>
+                    </div>
+                     <Button variant="ghost" size="icon" 
+                        onClick={() => {
+                          if (selectedMember && selectedMember.memberId && gymDatabaseId && adminSenderFormattedGymId) {
+                            fetchConversation(gymDatabaseId, adminSenderFormattedGymId, selectedMember.memberId);
+                          }
+                        }}
+                        disabled={isLoadingConversation}
+                        className="text-muted-foreground hover:text-foreground"
+                    >
+                      <RefreshCw className={`h-4 w-4 ${isLoadingConversation ? 'animate-spin' : ''}`} />
+                      <span className="sr-only">Refresh chat</span>
+                    </Button>
                   </div>
                   <Button variant="ghost" size="icon" onClick={() => setSelectedMember(null)} className="text-muted-foreground hover:text-destructive"><X className="h-5 w-5" /><span className="sr-only">Close chat</span></Button>
                 </div>
@@ -263,5 +278,3 @@ export default function MessagesPage() {
     </div>
   );
 }
-
-    
