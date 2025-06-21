@@ -18,7 +18,7 @@ import {
   getSortedRowModel,
   useReactTable,
 } from '@tanstack/react-table';
-import { MoreHorizontal, Trash2, Edit3, Mail, FileText, PlusCircle, UserX, UserCheck, UserCog, Search as SearchIcon, Users, AlertCircle, RefreshCw, BadgeCent, CalendarClock } from 'lucide-react'; // Updated icons
+import { MoreHorizontal, Trash2, Edit3, Mail, FileText, PlusCircle, UserCheck, Search as SearchIcon, Users, AlertCircle, RefreshCw, BadgeCent, CalendarClock } from 'lucide-react';
 import { format, differenceInDays, parseISO, isValid } from 'date-fns';
 
 import { Button } from '@/components/ui/button';
@@ -33,10 +33,6 @@ import {
   DropdownMenuTrigger,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
-  DropdownMenuPortal
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import {
@@ -267,7 +263,6 @@ export function MembersTable() {
   };
   
   const filterableDisplayStatuses: (EffectiveMembershipStatus | 'all')[] = ['all', 'active', 'expiring soon', 'expired'];
-  const settableDbStatuses: MembershipStatus[] = ['active', 'expired'];
 
 
   const columns: ColumnDef<Member>[] = [
@@ -368,23 +363,10 @@ export function MembersTable() {
                   <FileText className="mr-2 h-4 w-4" /> Attendance Summary
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuSub>
-                  <DropdownMenuSubTrigger>
-                      <UserCog className="mr-2 h-4 w-4" />
-                      <span>Change DB Status</span>
-                  </DropdownMenuSubTrigger>
-                  <DropdownMenuPortal>
-                      <DropdownMenuSubContent>
-                          {settableDbStatuses.map(s => (
-                              <DropdownMenuItem key={s} onClick={() => handleManualStatusUpdate(member, s)} disabled={s === member.membershipStatus}>
-                              {s === 'active' && <UserCheck className="mr-2 h-4 w-4 text-green-500" />}
-                              {s === 'expired' && <UserX className="mr-2 h-4 w-4 text-red-500" />}
-                              Set to {s.charAt(0).toUpperCase() + s.slice(1)}
-                              </DropdownMenuItem>
-                          ))}
-                      </DropdownMenuSubContent>
-                  </DropdownMenuPortal>
-                </DropdownMenuSub>
+                <DropdownMenuItem onClick={() => handleManualStatusUpdate(member, 'active')} disabled={member.membershipStatus === 'active'}>
+                    <UserCheck className="mr-2 h-4 w-4 text-green-500" />
+                    <span>Set status to Active</span>
+                </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <AlertDialogTrigger asChild>
                   <DropdownMenuItem 
@@ -593,26 +575,13 @@ export function MembersTable() {
                   >
                       <Edit3 className="mr-2 h-4 w-4" /> Edit Member
                   </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                    <DropdownMenuSub>
-                      <DropdownMenuSubTrigger>
-                          <UserCog className="mr-2 h-4 w-4" />
-                          <span>Set DB Status To</span>
-                      </DropdownMenuSubTrigger>
-                      <DropdownMenuPortal>
-                          <DropdownMenuSubContent>
-                          {settableDbStatuses.map(status => ( // Use settableDbStatuses
-                              <DropdownMenuItem key={status} onClick={() => handleBulkStatusUpdate(status)} className="capitalize">
-                              {status === 'active' && <UserCheck className="mr-2 h-4 w-4 text-green-500" />}
-                              {status === 'expired' && <UserX className="mr-2 h-4 w-4 text-red-500" />}
-                              {status}
-                              </DropdownMenuItem>
-                          ))}
-                          </DropdownMenuSubContent>
-                      </DropdownMenuPortal>
-                  </DropdownMenuSub>
                   <DropdownMenuItem onClick={handleOpenBulkEmailDialog} disabled={selectedRowCount === 0}>
                       <Mail className="mr-2 h-4 w-4" /> Send Custom Email
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => handleBulkStatusUpdate('active')} disabled={selectedRowCount === 0}>
+                      <UserCheck className="mr-2 h-4 w-4 text-green-500" />
+                      Set selected to Active
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <AlertDialogTrigger asChild>
