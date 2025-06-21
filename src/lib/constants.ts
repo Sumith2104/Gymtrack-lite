@@ -34,11 +34,6 @@ export const NAV_LINKS_HEADER: NavItem[] = [
     label: 'New Announce',
   },
   {
-    href: '/analytics',
-    icon: BarChart3,
-    label: 'Analytics',
-  },
-  {
     href: '/profile', 
     icon: Settings,
     label: 'Profile',
