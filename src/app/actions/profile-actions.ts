@@ -1,7 +1,7 @@
 
 'use server';
 
-import { createSupabaseServerActionClient } from '@/lib/supabase/server';
+import { createSupabaseServiceRoleClient } from '@/lib/supabase/server';
 import type { MembershipType } from '@/lib/types';
 
 export interface EarningsData {
@@ -25,7 +25,7 @@ export async function getGymEarningsData(gymDatabaseId: string): Promise<{ data?
   if (!gymDatabaseId) {
     return { error: 'Gym ID not provided.' };
   }
-  const supabase = createSupabaseServerActionClient();
+  const supabase = createSupabaseServiceRoleClient();
 
   try {
     // Fetch all active plan definitions for the gym
@@ -121,7 +121,7 @@ export async function getGymUpiId(gymDatabaseId: string): Promise<{ upiId: strin
   if (!gymDatabaseId) {
     return { upiId: null, error: 'Gym ID not provided.' };
   }
-  const supabase = createSupabaseServerActionClient();
+  const supabase = createSupabaseServiceRoleClient();
   try {
     const { data, error } = await supabase
       .from('gyms')
@@ -151,7 +151,7 @@ export async function updateGymUpiId(gymDatabaseId: string, upiId: string | null
     return { success: false, error: 'Invalid UPI ID format. It should be like "user@bank".' };
   }
   
-  const supabase = createSupabaseServerActionClient();
+  const supabase = createSupabaseServiceRoleClient();
   try {
     const { error } = await supabase
       .from('gyms')
