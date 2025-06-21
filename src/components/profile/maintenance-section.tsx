@@ -11,11 +11,22 @@ import { Separator } from '@/components/ui/separator';
 export function MaintenanceSection() {
     const { toast } = useToast();
 
-    const handleAction = (actionName: string) => {
+    const handleCacheClear = () => {
         toast({
             title: "Maintenance Action",
-            description: `${actionName} has been triggered. (This is a placeholder).`,
+            description: `Cache clear has been triggered. (This is a placeholder).`,
         });
+    };
+
+    const handleResync = () => {
+        toast({
+            title: "Re-syncing Data",
+            description: "Refreshing all data on the page...",
+        });
+        // Use a small delay to allow the toast to appear before the page reloads
+        setTimeout(() => {
+            window.location.reload();
+        }, 500);
     };
 
     return (
@@ -39,7 +50,7 @@ export function MaintenanceSection() {
                         <h4 className="font-medium">Clear Application Cache</h4>
                         <p className="text-sm text-muted-foreground">Forces a refresh of all cached application data.</p>
                     </div>
-                    <Button variant="outline" onClick={() => handleAction('Cache cleared')}>
+                    <Button variant="outline" onClick={handleCacheClear}>
                         <Trash2 className="mr-2 h-4 w-4" /> Clear Cache
                     </Button>
                 </div>
@@ -48,7 +59,7 @@ export function MaintenanceSection() {
                         <h4 className="font-medium">Re-sync All Data</h4>
                         <p className="text-sm text-muted-foreground">Fetches the latest data from the server for all modules.</p>
                     </div>
-                    <Button variant="outline" onClick={() => handleAction('Data re-synced')}>
+                    <Button variant="outline" onClick={handleResync}>
                         <RotateCw className="mr-2 h-4 w-4" /> Re-sync
                     </Button>
                 </div>
