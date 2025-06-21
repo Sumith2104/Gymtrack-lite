@@ -8,6 +8,8 @@ import { getGymEarningsData, type EarningsData } from '@/app/actions/profile-act
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { CreatePlanForm } from '@/components/profile/create-plan-form';
+import { MembershipDistributionChart } from '@/components/analytics/membership-distribution-chart';
+import { NewMembersYearlyChart } from '@/components/analytics/new-members-yearly-chart';
 
 
 export default function ProfilePage() {
@@ -166,6 +168,12 @@ export default function ProfilePage() {
           {renderEarningsContent()}
         </CardContent>
       </Card>
+
+      {/* Added Analytics Charts */}
+      <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-2">
+        <MembershipDistributionChart />
+        <NewMembersYearlyChart />
+      </div>
     </div>
   );
 }
