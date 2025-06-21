@@ -219,6 +219,7 @@ export interface Database {
         Row: {
           id: string // uuid
           gym_id: string // uuid
+          formatted_gym_id: string | null
           sender_id: string // TEXT (stores formatted_gym_id if admin, or human-readable members.member_id if member)
           receiver_id: string // TEXT (stores human-readable members.member_id if member, or formatted_gym_id if admin)
           sender_type: string // text, 'admin' or 'member'
@@ -230,6 +231,7 @@ export interface Database {
         Insert: {
           id?: string
           gym_id: string
+          formatted_gym_id?: string | null
           sender_id: string // TEXT
           receiver_id: string // TEXT
           sender_type: string
@@ -241,6 +243,7 @@ export interface Database {
         Update: {
           id?: string
           gym_id?: string
+          formatted_gym_id?: string | null
           sender_id?: string // TEXT
           receiver_id?: string // TEXT
           sender_type?: string
@@ -297,5 +300,3 @@ export interface Database {
     }
   }
 }
-
-    

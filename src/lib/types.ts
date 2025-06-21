@@ -126,6 +126,7 @@ export type MessageReceiverType = 'admin' | 'member';
 export interface Message {
   id: string; // uuid
   gymId: string; // uuid, FK to gyms.id
+  formattedGymId?: string; // The user-friendly formatted ID of the gym
   senderId: string; // TEXT (can be formatted_gym_id for admin or member's UUID for member)
   receiverId: string; // TEXT (can be formatted_gym_id for admin or member's UUID for member)
   senderType: MessageSenderType;

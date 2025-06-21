@@ -39,6 +39,7 @@ export async function fetchMessagesAction(
     const messages: Message[] = dbMessages.map(dbMsg => ({
         id: dbMsg.id,
         gymId: dbMsg.gym_id,
+        formattedGymId: dbMsg.formatted_gym_id ?? undefined,
         senderId: dbMsg.sender_id,
         receiverId: dbMsg.receiver_id,
         senderType: dbMsg.sender_type as MessageSenderType,
@@ -75,6 +76,7 @@ export async function sendMessageAction(
       .from('messages')
       .insert({
         gym_id: gymDatabaseId,
+        formatted_gym_id: adminSenderFormattedGymId,
         sender_id: adminSenderFormattedGymId, // Admin is the sender
         sender_type: 'admin',
         receiver_id: memberReceiverIdentifier, // Member's human-readable ID is the receiver
@@ -92,6 +94,7 @@ export async function sendMessageAction(
     const newMessage: Message = {
         id: dbNewMessage.id,
         gymId: dbNewMessage.gym_id,
+        formattedGymId: dbNewMessage.formatted_gym_id ?? undefined,
         senderId: dbNewMessage.sender_id,
         receiverId: dbNewMessage.receiver_id,
         senderType: dbNewMessage.sender_type as MessageSenderType,
@@ -136,4 +139,3 @@ export async function markMessagesAsReadAction(
     return { success: false, error: 'Failed to mark messages as read.' };
   }
 }
-
