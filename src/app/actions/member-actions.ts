@@ -1,7 +1,7 @@
 
 'use server';
 
-import { addMonths } from 'date-fns';
+import { addMonths, differenceInDays, isValid, parseISO } from 'date-fns';
 import type { Member, MembershipStatus, EffectiveMembershipStatus } from '@/lib/types';
 import { APP_NAME } from '@/lib/constants';
 import { addMemberFormSchema, type AddMemberFormValues } from '@/lib/schemas/member-schemas';
@@ -9,6 +9,24 @@ import { createSupabaseServerActionClient } from '@/lib/supabase/server';
 import { addAnnouncementAction } from './announcement-actions';
 import { sendEmail } from '@/lib/email-service';
 import { formatDateIST, parseValidISO } from '@/lib/date-utils';
+
+// Helper function to determine effective status
+function getEffectiveMembershipStatus(member: Pick<Member, 'membershipStatus' | 'expiryDate'>): EffectiveMembershipStatus {
+  if (member.membershipStatus === 'expired') {
+    return 'expired';
+  }
+  if (member.membershipStatus === 'active' && member.expiryDate) {
+    const expiry = parseValidISO(member.expiryDate);
+    if (expiry && isValid(expiry)) {
+      const daysUntilExpiry = differenceInDays(expiry, new Date());
+      if (daysUntilExpiry < 0) return 'expired';
+      if (daysUntilExpiry <= 14) return 'expiring soon';
+      return 'active';
+    }
+  }
+  return member.membershipStatus === 'active' ? 'active' : 'expired';
+}
+
 
 interface AddMemberServerResponse {
   data?: {
@@ -418,7 +436,7 @@ export async function sendBulkCustomEmailAction(
   try {
     const { data: members, error: fetchError } = await supabase
       .from('members')
-      .select('id, name, email, member_id')
+      .select('id, name, email, member_id, membership_status, expiry_date')
       .in('id', memberDbIds);
 
     if (fetchError) {
@@ -430,7 +448,12 @@ export async function sendBulkCustomEmailAction(
     }
 
     for (const member of members) {
-      if (member.email) {
+      const effectiveStatus = getEffectiveMembershipStatus({
+        membershipStatus: member.membership_status as MembershipStatus,
+        expiryDate: member.expiry_date,
+      });
+
+      if (member.email && (effectiveStatus === 'active' || effectiveStatus === 'expiring soon')) {
         attempted++;
         let emailHtmlBody = `<p>Dear ${member.name || 'Member'},</p><p>${body.replace(/\n/g, '<br />')}</p>`;
 
@@ -458,7 +481,7 @@ export async function sendBulkCustomEmailAction(
         } else {
           failed++;
         }
-      } else {
+      } else if (!member.email && (effectiveStatus === 'active' || effectiveStatus === 'expiring soon')) {
         noEmailAddress++;
       }
     }
