@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -96,7 +96,7 @@ export default function MessagesPage() {
     }
   }, [gymDatabaseId]);
 
-  const fetchConversation = async (currentGymDbId: string, currentAdminId: string, currentMemberIdentifier: string) => {
+  const fetchConversation = useCallback(async (currentGymDbId: string, currentAdminId: string, currentMemberIdentifier: string) => {
     setIsLoadingConversation(true);
     setConversationMessages([]); // Clear previous messages when fetching new conversation
     const response = await fetchMessagesAction(currentGymDbId, currentAdminId, currentMemberIdentifier);
@@ -107,7 +107,7 @@ export default function MessagesPage() {
       setConversationMessages(response.data);
     }
     setIsLoadingConversation(false);
-  };
+  }, [toast]);
 
   useEffect(() => {
     if (selectedMember && selectedMember.memberId && gymDatabaseId && adminSenderFormattedGymId && supabaseToken) {
@@ -165,8 +165,7 @@ export default function MessagesPage() {
         channelRef.current = null;
       }
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedMember, gymDatabaseId, adminSenderFormattedGymId, supabaseToken, supabase]);
+  }, [selectedMember, gymDatabaseId, adminSenderFormattedGymId, supabaseToken, supabase, fetchConversation]);
 
 
   const filteredMembers = members.filter(member =>
