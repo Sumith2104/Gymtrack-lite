@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { DollarSign, Landmark, AlertCircle, PackageOpen } from 'lucide-react';
 import { getGymEarningsData, type EarningsData } from '@/app/actions/profile-actions';
@@ -31,7 +31,7 @@ export default function ProfilePage() {
     }
   }, []);
 
-  useEffect(() => {
+  const fetchEarningsData = useCallback(() => {
     if (gymDatabaseId) {
       setIsLoadingEarnings(true);
       setEarningsError(null);
@@ -57,6 +57,21 @@ export default function ProfilePage() {
         setEarningsError("Gym Database ID not found. Cannot load earnings.");
     }
   }, [gymDatabaseId, gymName]);
+
+  useEffect(() => {
+    fetchEarningsData();
+  }, [fetchEarningsData]);
+
+  useEffect(() => {
+    const handleRefetch = () => {
+      fetchEarningsData();
+    };
+    window.addEventListener('clear-cache-and-refetch', handleRefetch);
+    return () => {
+      window.removeEventListener('clear-cache-and-refetch', handleRefetch);
+    };
+  }, [fetchEarningsData]);
+
 
   const renderEarningsContent = () => {
     if (isLoadingEarnings) {

@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Users, AlertCircle } from 'lucide-react'; 
@@ -34,7 +34,7 @@ export function NewMembersYearlyChart() {
     }
   }, []);
 
-  useEffect(() => {
+  const fetchChartData = useCallback(() => {
     if (!gymDbId) {
       setIsLoading(false);
       setChartData([]);
@@ -61,6 +61,20 @@ export function NewMembersYearlyChart() {
         setIsLoading(false);
       });
   }, [gymDbId]);
+
+  useEffect(() => {
+    fetchChartData();
+  }, [fetchChartData]);
+
+  useEffect(() => {
+    const handleRefetch = () => {
+      fetchChartData();
+    };
+    window.addEventListener('clear-cache-and-refetch', handleRefetch);
+    return () => {
+      window.removeEventListener('clear-cache-and-refetch', handleRefetch);
+    };
+  }, [fetchChartData]);
 
 
   return (

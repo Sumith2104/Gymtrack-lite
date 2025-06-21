@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Pie, PieChart, ResponsiveContainer, Cell } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Users, AlertCircle } from 'lucide-react'; 
@@ -30,7 +30,7 @@ export function MembershipDistributionChart() {
     }
   }, []);
 
-  useEffect(() => {
+  const fetchChartData = useCallback(() => {
     if (!gymDbId) {
       setIsLoading(false);
       setChartData([]); 
@@ -67,6 +67,21 @@ export function MembershipDistributionChart() {
         setIsLoading(false);
       });
   }, [gymDbId]);
+
+  useEffect(() => {
+    fetchChartData();
+  }, [fetchChartData]);
+
+  useEffect(() => {
+    const handleRefetch = () => {
+      fetchChartData();
+    };
+    window.addEventListener('clear-cache-and-refetch', handleRefetch);
+    return () => {
+      window.removeEventListener('clear-cache-and-refetch', handleRefetch);
+    };
+  }, [fetchChartData]);
+
 
   return (
     <Card className="shadow-lg">

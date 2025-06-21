@@ -72,6 +72,16 @@ export function CreatePlanForm() {
     }
   }, [currentGymDbId, fetchExistingPlans]);
 
+  useEffect(() => {
+    const handleRefetch = () => {
+      fetchExistingPlans();
+    };
+    window.addEventListener('clear-cache-and-refetch', handleRefetch);
+    return () => {
+      window.removeEventListener('clear-cache-and-refetch', handleRefetch);
+    };
+  }, [fetchExistingPlans]);
+
   const form = useForm<AddPlanFormValues>({
     resolver: zodResolver(addPlanFormSchema),
     defaultValues: {

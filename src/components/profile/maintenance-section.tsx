@@ -12,9 +12,10 @@ export function MaintenanceSection() {
     const { toast } = useToast();
 
     const handleCacheClear = () => {
+        window.dispatchEvent(new Event('clear-cache-and-refetch'));
         toast({
-            title: "Maintenance Action",
-            description: `Cache clear has been triggered. (This is a placeholder).`,
+            title: "Cache Cleared",
+            description: "Requesting fresh data from the server...",
         });
     };
 
