@@ -5,16 +5,8 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import type { NavItem } from '@/lib/types';
 import { Button } from '@/components/ui/button';
-import { APP_NAME, APP_LOGO as AppLogoIcon, NAV_LINKS_HEADER, USER_NAV_LINKS } from '@/lib/constants';
+import { APP_NAME, APP_LOGO as AppLogoIcon, NAV_LINKS_HEADER } from '@/lib/constants';
 import { cn } from '@/lib/utils';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import {
   Sheet,
   SheetContent,
@@ -23,27 +15,14 @@ import {
   SheetTrigger,
   SheetClose,
 } from '@/components/ui/sheet';
-import { UserCircle, Menu as MenuIcon } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { Menu as MenuIcon } from 'lucide-react';
+import { useState } from 'react';
 
 
 export function AppHeader() {
   const pathname = usePathname();
   const router = useRouter();
-  const [displayGymName, setDisplayGymName] = useState('Gym Owner');
-  const [displayOwnerEmail, setDisplayOwnerEmail] = useState('owner@example.com');
   const [isSheetOpen, setIsSheetOpen] = useState(false); 
-
-  useEffect(() => {
-    const storedGymName = localStorage.getItem('gymName');
-    const storedOwnerEmail = localStorage.getItem('gymOwnerEmail');
-    if (storedGymName) {
-      setDisplayGymName(storedGymName);
-    }
-    if (storedOwnerEmail) {
-      setDisplayOwnerEmail(storedOwnerEmail);
-    }
-  }, []);
   
   const handleLogout = () => {
     localStorage.removeItem('isAuthenticated');
@@ -51,8 +30,6 @@ export function AppHeader() {
     localStorage.removeItem('gymOwnerEmail');
     localStorage.removeItem('gymName');
     localStorage.removeItem('gymDatabaseId');
-    setDisplayGymName('Gym Owner');
-    setDisplayOwnerEmail('owner@example.com');
     setIsSheetOpen(false); 
     router.push('/login');
   };
@@ -141,7 +118,7 @@ export function AppHeader() {
           {NAV_LINKS_HEADER.map((item) => renderNavItem(item, false))}
         </nav>
 
-        {/* Right side items: Mobile Menu Trigger (mobile only) and User Dropdown (always visible) */}
+        {/* Right side items: Mobile Menu Trigger (mobile only) */}
         <div className="flex items-center gap-2">
           {/* Mobile Menu Trigger */}
           <div className="md:hidden">
@@ -168,45 +145,6 @@ export function AppHeader() {
               </SheetContent>
             </Sheet>
           </div>
-
-          {/* User Profile Dropdown */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="rounded-full h-9 w-9">
-                <UserCircle className="h-6 w-6 text-primary hover:text-primary/90" />
-                <span className="sr-only">Toggle user menu</span>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuLabel className="font-normal">
-                <div className="flex flex-col space-y-1">
-                  <p className="text-sm font-medium leading-none">
-                    {displayGymName}
-                  </p>
-                  <p className="text-xs leading-none text-muted-foreground">
-                     {displayOwnerEmail}
-                  </p>
-                </div>
-              </DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              {USER_NAV_LINKS.map((item) => (
-                <DropdownMenuItem
-                  key={item.label}
-                  onClick={() => {
-                    if (item.action === 'logout') {
-                      handleLogout();
-                    } else {
-                      router.push(item.href);
-                    }
-                  }}
-                  className="cursor-pointer"
-                >
-                  <item.icon className="mr-2 h-4 w-4" />
-                  <span>{item.label}</span>
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
         </div>
       </div>
     </header>
