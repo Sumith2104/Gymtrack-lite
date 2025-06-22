@@ -7,7 +7,7 @@ import type { Gym } from '@/lib/types';
 export async function verifyGymOwnerCredentials(
   email: string,
   gymId: string 
-): Promise<Gym | null> {
+): Promise<Gym | 'inactive' | 'not_found'> {
   
   const supabase = createSupabaseServerActionClient();
 
@@ -30,35 +30,29 @@ export async function verifyGymOwnerCredentials(
       .eq('formatted_gym_id', gymId) 
       .single();
 
-    if (error) {
-      
-      if (error.code === 'PGRST116') { 
-         // No gym found matching criteria or multiple matches (should be unique).
+    if (error || !data) {
+      if (error && error.code === 'PGRST116') { 
+        return 'not_found';
       }
-      return null;
+      return 'not_found';
     }
 
-    if (data) {
-      // Deny login if the gym's status is not 'active'.
-      if (data.status !== 'active') {
-        return null;
-      }
-      
-      return {
-        id: data.id,
-        name: data.name,
-        ownerEmail: data.owner_email,
-        ownerUserId: data.owner_user_id,
-        formattedGymId: data.formatted_gym_id,
-        createdAt: data.created_at,
-        status: data.status,
-        payment_id: data.payment_id,
-      };
+    if (data.status !== 'active') {
+      return 'inactive';
     }
+      
+    return {
+      id: data.id,
+      name: data.name,
+      ownerEmail: data.owner_email,
+      ownerUserId: data.owner_user_id,
+      formattedGymId: data.formatted_gym_id,
+      createdAt: data.created_at,
+      status: data.status,
+      payment_id: data.payment_id,
+    };
     
-    return null;
   } catch (e: any) {
-    
-    return null;
+    return 'not_found';
   }
 }

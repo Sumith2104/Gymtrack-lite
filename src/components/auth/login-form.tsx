@@ -44,9 +44,10 @@ export function LoginForm() {
 
   async function onSubmit(data: LoginFormValues) {
     form.clearErrors('root'); // Clear previous root errors
-    const targetGym = await verifyGymOwnerCredentials(data.email, data.gymId);
+    const result = await verifyGymOwnerCredentials(data.email, data.gymId);
 
-    if (targetGym) {
+    if (typeof result === 'object' && result !== null) {
+      const targetGym = result;
       localStorage.setItem('isAuthenticated', 'true');
       localStorage.setItem('gymId', targetGym.formattedGymId);
       localStorage.setItem('gymOwnerEmail', targetGym.ownerEmail);
@@ -74,7 +75,14 @@ export function LoginForm() {
         router.push('/dashboard');
       }, 1500);
 
-    } else {
+    } else if (result === 'inactive') {
+      toast({
+        variant: "destructive",
+        title: "Account Inactive",
+        description: "This gym account is inactive. Please contact an admin.",
+      });
+      form.setError('root', { message: "This gym account is inactive. Please contact an admin." });
+    } else { // 'not_found'
       toast({
         variant: "destructive",
         title: "Authentication Failed",
