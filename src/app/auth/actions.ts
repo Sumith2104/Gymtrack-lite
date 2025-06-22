@@ -39,7 +39,10 @@ export async function verifyGymOwnerCredentials(
     }
 
     if (data) {
-      
+      // Deny login if the gym's status is not 'active'.
+      if (data.status !== 'active') {
+        return null;
+      }
       
       return {
         id: data.id,
