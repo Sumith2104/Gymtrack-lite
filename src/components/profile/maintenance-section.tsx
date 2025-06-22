@@ -14,6 +14,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { SmtpForm } from './smtp-form';
+import { ChangeEmailForm } from './change-email-form';
 
 export function MaintenanceSection() {
     const { toast } = useToast();
@@ -54,6 +55,10 @@ export function MaintenanceSection() {
                             <span className="font-medium text-foreground">Click to Show/Hide Maintenance Options</span>
                         </AccordionTrigger>
                         <AccordionContent className="pt-6 space-y-6">
+                            <ChangeEmailForm />
+
+                            <Separator />
+
                             <UpiForm />
                             
                             <Separator />

@@ -231,3 +231,28 @@ export async function updateGymSmtpSettings(gymDatabaseId: string, settings: Par
     return { success: false, error: e.message || 'Failed to update SMTP settings.' };
   }
 }
+
+
+export async function updateOwnerEmail(gymDatabaseId: string, newEmail: string): Promise<{ success: boolean; error?: string }> {
+  if (!gymDatabaseId) {
+    return { success: false, error: 'Gym ID not provided.' };
+  }
+  
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!newEmail || !emailRegex.test(newEmail)) {
+    return { success: false, error: 'Invalid email format. Please enter a valid email.' };
+  }
+  
+  const supabase = createSupabaseServiceRoleClient();
+  try {
+    const { error } = await supabase
+      .from('gyms')
+      .update({ owner_email: newEmail })
+      .eq('id', gymDatabaseId);
+
+    if (error) throw error;
+    return { success: true };
+  } catch (e: any) {
+    return { success: false, error: e.message || 'Failed to update owner email.' };
+  }
+}
