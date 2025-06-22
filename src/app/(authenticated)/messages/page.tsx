@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useEffect, useState, useRef, useCallback } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -16,9 +16,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { format, parseISO, isToday, isYesterday } from 'date-fns';
-import { createSupabaseBrowserClient } from '@/lib/supabase/client';
-import type { RealtimeChannel } from '@supabase/supabase-js';
-
 
 const formatDateGroupHeader = (date: Date): string => {
   if (isToday(date)) return "Today";
@@ -33,7 +30,6 @@ export default function MessagesPage() {
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [gymDatabaseId, setGymDatabaseId] = useState<string | null>(null);
   const [adminSenderFormattedGymId, setAdminSenderFormattedGymId] = useState<string | null>(null);
-  const [supabaseToken, setSupabaseToken] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [newMessageInput, setNewMessageInput] = useState('');
   const [isSending, setIsSending] = useState(false);
@@ -42,8 +38,6 @@ export default function MessagesPage() {
   const [conversationMessages, setConversationMessages] = useState<Message[]>([]);
   const [isLoadingConversation, setIsLoadingConversation] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
-  const channelRef = useRef<RealtimeChannel | null>(null);
-  const supabase = createSupabaseBrowserClient();
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -65,17 +59,6 @@ export default function MessagesPage() {
     if (formattedGymId) setAdminSenderFormattedGymId(formattedGymId);
     else console.warn("Admin sender ID (formatted_gym_id) not found in localStorage.");
     
-    const tokenDataString = localStorage.getItem('supabase.auth.token');
-    if (tokenDataString) {
-        try {
-            const tokenData = JSON.parse(tokenDataString);
-            if (tokenData.access_token) {
-                setSupabaseToken(tokenData.access_token);
-            }
-        } catch (e) {
-            console.error("MessagesPage: Failed to parse auth token");
-        }
-    }
   }, []);
 
   useEffect(() => {
@@ -96,77 +79,33 @@ export default function MessagesPage() {
     }
   }, [gymDatabaseId]);
 
-  const fetchConversation = useCallback(async (currentGymDbId: string, currentAdminId: string, currentMemberIdentifier: string) => {
-    setIsLoadingConversation(true);
-    setConversationMessages([]); // Clear previous messages when fetching new conversation
-    const response = await fetchMessagesAction(currentGymDbId, currentAdminId, currentMemberIdentifier);
-    if (response.error || !response.data) {
-      toast({ variant: "destructive", title: "Error", description: response.error || "Could not load conversation." });
-      setConversationMessages([]);
-    } else {
-      setConversationMessages(response.data);
-    }
-    setIsLoadingConversation(false);
-  }, [toast]);
-
   useEffect(() => {
-    if (channelRef.current) {
-        supabase.removeChannel(channelRef.current);
-        channelRef.current = null;
-    }
-
-    if (selectedMember && selectedMember.memberId && gymDatabaseId && adminSenderFormattedGymId && supabaseToken) {
-      fetchConversation(gymDatabaseId, adminSenderFormattedGymId, selectedMember.memberId);
-
-      const channel = supabase.channel(`messages-${gymDatabaseId}-${selectedMember.id}`, {
-        config: {
-          realtime: {
-            access_token: supabaseToken,
-          },
-        },
-      })
-      .on<Message>(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'messages',
-          filter: `gym_id=eq.${gymDatabaseId}`
-        },
-        (payload) => {
-          const newMessage = payload.new;
-          const isAdminSender = newMessage.senderId === adminSenderFormattedGymId;
-          const isAdminReceiver = newMessage.receiverId === adminSenderFormattedGymId;
-          const isMemberSender = newMessage.senderId === selectedMember.memberId;
-          const isMemberReceiver = newMessage.receiverId === selectedMember.memberId;
-
-          if ((isAdminSender && isMemberReceiver) || (isMemberSender && isAdminReceiver)) {
-            setConversationMessages(prevMessages => {
-              if (prevMessages.some(m => m.id === newMessage.id)) {
-                return prevMessages;
-              }
-              return [...prevMessages, newMessage];
-            });
-          }
+    if (selectedMember && selectedMember.memberId && gymDatabaseId && adminSenderFormattedGymId) {
+      const fetchAndSetMessages = async () => {
+        const response = await fetchMessagesAction(gymDatabaseId, adminSenderFormattedGymId, selectedMember.memberId);
+        if (response.error || !response.data) {
+          // Don't show toast on poll error to avoid being intrusive.
+          console.error("Error fetching messages:", response.error);
+        } else {
+          setConversationMessages(currentMessages => {
+            if (JSON.stringify(currentMessages) !== JSON.stringify(response.data)) {
+              return response.data;
+            }
+            return currentMessages;
+          });
         }
-      )
-      .subscribe((status, err) => {
-        if (status === 'CHANNEL_ERROR') {
-          console.error('Channel error:', err);
-          toast({ variant: 'destructive', title: 'Real-time Error', description: 'Could not connect to live message updates.' });
-        }
-      });
+      };
 
-      channelRef.current = channel;
+      setIsLoadingConversation(true);
+      fetchAndSetMessages().finally(() => setIsLoadingConversation(false));
+      
+      const intervalId = setInterval(fetchAndSetMessages, 4000); // Poll every 4 seconds
+
+      return () => clearInterval(intervalId);
+    } else {
+      setConversationMessages([]);
     }
-
-    return () => {
-      if (channelRef.current) {
-        supabase.removeChannel(channelRef.current);
-        channelRef.current = null;
-      }
-    };
-  }, [selectedMember, gymDatabaseId, adminSenderFormattedGymId, supabaseToken, supabase, fetchConversation, toast]);
+  }, [selectedMember, gymDatabaseId, adminSenderFormattedGymId]);
 
 
   const filteredMembers = members.filter(member =>
@@ -187,9 +126,7 @@ export default function MessagesPage() {
       toast({ variant: "destructive", title: "Message Failed", description: response.error || "Could not send message." });
     } else {
       setNewMessageInput('');
-      // No need for optimistic update here, as real-time subscription will catch it.
-      // But for instant feedback for the sender, we can keep it.
-      // The duplicate check in the subscription handler prevents it from appearing twice.
+      // Optimistically add the new message. The next poll will sync the state.
       setConversationMessages(prevMessages => [...prevMessages, response.newMessage!]);
     }
     setIsSending(false);
@@ -262,18 +199,6 @@ export default function MessagesPage() {
                         <CardTitle className="text-xl">{selectedMember.name}</CardTitle>
                         <CardDescription>{selectedMember.memberId || 'N/A'}</CardDescription>
                     </div>
-                     <Button variant="ghost" size="icon" 
-                        onClick={() => {
-                          if (selectedMember && selectedMember.memberId && gymDatabaseId && adminSenderFormattedGymId) {
-                            fetchConversation(gymDatabaseId, adminSenderFormattedGymId, selectedMember.memberId);
-                          }
-                        }}
-                        disabled={isLoadingConversation}
-                        className="text-muted-foreground hover:text-foreground"
-                    >
-                      <RefreshCw className={`h-4 w-4 ${isLoadingConversation ? 'animate-spin' : ''}`} />
-                      <span className="sr-only">Refresh chat</span>
-                    </Button>
                   </div>
                   <Button variant="ghost" size="icon" onClick={() => setSelectedMember(null)} className="text-muted-foreground hover:text-destructive"><X className="h-5 w-5" /><span className="sr-only">Close chat</span></Button>
                 </div>
@@ -289,7 +214,7 @@ export default function MessagesPage() {
                   </div>
                 ) : (
                   conversationMessages.map(msg => {
-                    const messageDate = parseISO(msg.createdAt); // msg.createdAt should be a valid ISO string
+                    const messageDate = parseISO(msg.createdAt);
                     const messageDateString = format(messageDate, 'yyyy-MM-dd');
                     let dateHeaderElement: JSX.Element | null = null;
 
