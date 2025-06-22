@@ -166,7 +166,7 @@ export default function MessagesPage() {
         channelRef.current = null;
       }
     };
-  }, [selectedMember, gymDatabaseId, adminSenderFormattedGymId, supabaseToken, supabase, fetchConversation]);
+  }, [selectedMember, gymDatabaseId, adminSenderFormattedGymId, supabaseToken, supabase, fetchConversation, toast]);
 
 
   const filteredMembers = members.filter(member =>
