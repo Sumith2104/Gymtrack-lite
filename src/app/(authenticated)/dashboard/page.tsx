@@ -27,6 +27,17 @@ export default function DashboardPage() {
         });
         localStorage.removeItem('showUpiToast'); // Remove after showing
       }
+
+      const showInactiveSoonToast = localStorage.getItem('showInactiveSoonToast');
+      if (showInactiveSoonToast === 'true') {
+        toast({
+          title: "Account Warning",
+          description: "Your gym account will be inactive soon. Please contact support.",
+          duration: 9000,
+          variant: 'destructive',
+        });
+        localStorage.removeItem('showInactiveSoonToast');
+      }
     }
   }, [toast]);
 

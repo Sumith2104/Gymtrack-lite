@@ -62,6 +62,10 @@ export function LoginForm() {
         localStorage.removeItem('gymOwnerAuthId'); // Ensure it's cleared if null
       }
 
+      if (targetGym.status === 'inactive soon') {
+        localStorage.setItem('showInactiveSoonToast', 'true');
+      }
+
       if (!targetGym.payment_id) {
         localStorage.setItem('showUpiToast', 'true');
       }

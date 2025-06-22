@@ -37,7 +37,7 @@ export async function verifyGymOwnerCredentials(
       return 'not_found';
     }
 
-    if (data.status !== 'active') {
+    if (data.status === 'inactive') {
       return 'inactive';
     }
       
