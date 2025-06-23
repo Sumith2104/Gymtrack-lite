@@ -10,25 +10,24 @@ export async function getCurrentOccupancy(gymDatabaseId: string): Promise<{ curr
   }
   const supabase = createSupabaseServerActionClient();
 
-  const today = new Date();
-  const todayStartUTC = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate(), 0, 0, 0, 0));
-  const todayEndUTC = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate(), 23, 59, 59, 999));
-
   try {
-    const { data, error, count } = await supabase
+    const now = new Date().toISOString();
+    
+    // This query now correctly counts members whose check-in time is in the past
+    // and whose projected check-out time is in the future.
+    const { count, error } = await supabase
       .from('check_ins') 
-      .select('id', { count: 'exact', head: false }) 
+      .select('*', { count: 'exact', head: true }) 
       .eq('gym_id', gymDatabaseId)
-      .gte('check_in_time', todayStartUTC.toISOString())
-      .lte('check_in_time', todayEndUTC.toISOString())
-      .is('check_out_time', null);
-
+      .lte('check_in_time', now)
+      .gt('check_out_time', now);
+      
     if (error) {
       
       return { currentOccupancy: 0, error: error.message };
     }
     
-    return { currentOccupancy: data?.length ?? 0 };
+    return { currentOccupancy: count ?? 0 };
 
   } catch (e: any) {
     
