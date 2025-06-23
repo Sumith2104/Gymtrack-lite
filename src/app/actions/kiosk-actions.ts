@@ -81,13 +81,29 @@ export async function findMemberForCheckInAction(identifier: string, gymDatabase
   }
 }
 
-export async function recordCheckInAction(memberTableUuid: string, gymDatabaseId: string): Promise<{ success: boolean; checkInTime?: string; checkInRecordId?: string; error?: string }> {
+export async function recordCheckInAction(memberTableUuid: string, gymDatabaseId: string): Promise<{ success: boolean; checkInTime?: string; checkOutTime?: string; checkInRecordId?: string; error?: string }> {
   if (!memberTableUuid || !gymDatabaseId) {
     return { success: false, error: "Member UUID and Gym ID are required to record check-in." };
   }
   const supabase = createSupabaseServerActionClient();
-  const checkInTime = new Date().toISOString();
+  
   try {
+    // 1. Fetch gym session settings
+    const { data: gymData, error: gymError } = await supabase
+      .from('gyms')
+      .select('session_time_hours')
+      .eq('id', gymDatabaseId)
+      .single();
+
+    if (gymError || !gymData) {
+      return { success: false, error: "Could not retrieve gym session settings to record check-in." };
+    }
+    
+    const sessionHours = gymData.session_time_hours || 2; // Default to 2 hours if not set
+    const checkInTime = new Date();
+    const checkOutTime = addHours(checkInTime, sessionHours);
+    
+    // 2. Check for existing check-in
     const todayStart = new Date();
     todayStart.setUTCHours(0,0,0,0);
     const todayEnd = new Date();
@@ -110,13 +126,15 @@ export async function recordCheckInAction(memberTableUuid: string, gymDatabaseId
     if(existingCheckin){
         return { success: false, error: "Member is already checked in today and not checked out."};
     }
-
+    
+    // 3. Insert new check-in record
     const { data: newCheckInData, error } = await supabase
       .from('check_ins')
       .insert({
         member_table_id: memberTableUuid,
         gym_id: gymDatabaseId,
-        check_in_time: checkInTime,
+        check_in_time: checkInTime.toISOString(),
+        check_out_time: checkOutTime.toISOString(), // Set the calculated check-out time
         created_at: new Date().toISOString(),
       })
       .select('id') 
@@ -125,7 +143,7 @@ export async function recordCheckInAction(memberTableUuid: string, gymDatabaseId
     if (error || !newCheckInData) {
       return { success: false, error: error?.message || "Failed to insert check-in record." };
     }
-    return { success: true, checkInTime, checkInRecordId: newCheckInData.id };
+    return { success: true, checkInTime: checkInTime.toISOString(), checkOutTime: checkOutTime.toISOString(), checkInRecordId: newCheckInData.id };
 
   } catch (e: any) {
     return { success: false, error: 'An unexpected error occurred while recording the check-in.' };

@@ -55,6 +55,8 @@ export interface Gym {
   app_host?: string | null;
   from_email?: string | null;
   port?: string | null;
+  sessionTimeHours?: number | null;
+  maxCapacity?: number | null;
 }
 
 export interface Plan { // This is the DB schema type, used internally by Supabase client

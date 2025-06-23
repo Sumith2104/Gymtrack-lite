@@ -61,6 +61,13 @@ export function LoginForm() {
         console.warn("Owner User ID is null for this gym. Admin messaging might be affected.");
         localStorage.removeItem('gymOwnerAuthId'); // Ensure it's cleared if null
       }
+      if (targetGym.sessionTimeHours) {
+        localStorage.setItem('gymSessionTimeHours', String(targetGym.sessionTimeHours));
+      }
+      if (targetGym.maxCapacity) {
+        localStorage.setItem('gymMaxCapacity', String(targetGym.maxCapacity));
+      }
+
 
       if (targetGym.status === 'inactive soon') {
         localStorage.setItem('showInactiveSoonToast', 'true');

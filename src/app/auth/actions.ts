@@ -23,7 +23,9 @@ export async function verifyGymOwnerCredentials(
         formatted_gym_id,
         created_at,
         status,
-        payment_id
+        payment_id,
+        session_time_hours,
+        max_capacity
       `
       )
       .eq('owner_email', email)
@@ -50,6 +52,8 @@ export async function verifyGymOwnerCredentials(
       createdAt: data.created_at,
       status: data.status,
       payment_id: data.payment_id,
+      sessionTimeHours: data.session_time_hours,
+      maxCapacity: data.max_capacity,
     };
     
   } catch (e: any) {

@@ -12,8 +12,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
-const MAX_CAPACITY = 100; 
-
 const chartConfig = {
   occupied: {
     label: "Occupied",
@@ -27,6 +25,7 @@ const chartConfig = {
 
 export function OccupancyCard({ className }: { className?: string }) {
   const [occupancy, setOccupancy] = useState(0);
+  const [maxCapacity, setMaxCapacity] = useState(100);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [gymDbId, setGymDbId] = useState<string | null>(null);
@@ -49,6 +48,11 @@ export function OccupancyCard({ className }: { className?: string }) {
     if (typeof window !== 'undefined') {
       const id = localStorage.getItem('gymDatabaseId');
       setGymDbId(id);
+
+      const capacityStr = localStorage.getItem('gymMaxCapacity');
+      if (capacityStr) {
+        setMaxCapacity(parseInt(capacityStr, 10));
+      }
 
       const tokenDataString = localStorage.getItem('supabase.auth.token'); 
       if (tokenDataString) {
@@ -142,7 +146,7 @@ export function OccupancyCard({ className }: { className?: string }) {
 
   const chartData = [
     { name: 'Occupied', value: occupancy, fill: chartConfig.occupied.color },
-    { name: 'Available', value: Math.max(0, MAX_CAPACITY - occupancy), fill: chartConfig.available.color },
+    { name: 'Available', value: Math.max(0, maxCapacity - occupancy), fill: chartConfig.available.color },
   ];
 
   return (
@@ -196,7 +200,7 @@ export function OccupancyCard({ className }: { className?: string }) {
             </ChartContainer>
             <div className="text-3xl font-bold text-primary mt-2">
               {occupancy}
-              <span className="text-xl text-muted-foreground">/{MAX_CAPACITY}</span>
+              <span className="text-xl text-muted-foreground">/{maxCapacity}</span>
             </div>
             <div className="flex items-center justify-center space-x-4 mt-3 text-xs">
                 <div className="flex items-center">

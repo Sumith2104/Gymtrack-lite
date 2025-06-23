@@ -28,6 +28,8 @@ export interface Database {
           app_host: string | null
           from_email: string | null
           port: string | null
+          session_time_hours: number | null
+          max_capacity: number | null
         }
         Insert: {
           id?: string
@@ -43,6 +45,8 @@ export interface Database {
           app_host?: string | null
           from_email?: string | null
           port?: string | null
+          session_time_hours?: number | null
+          max_capacity?: number | null
         }
         Update: {
           id?: string
@@ -58,6 +62,8 @@ export interface Database {
           app_host?: string | null
           from_email?: string | null
           port?: string | null
+          session_time_hours?: number | null
+          max_capacity?: number | null
         }
         Relationships: [] // No direct FK to auth.users listed if not strictly enforced or used in RLS
       }

@@ -3,6 +3,7 @@
 
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/server';
 import type { MembershipType } from '@/lib/types';
+import * as z from 'zod';
 
 export interface EarningsData {
   totalValueOfActivePlans: number; 
@@ -254,5 +255,76 @@ export async function updateOwnerEmail(gymDatabaseId: string, newEmail: string):
     return { success: true };
   } catch (e: any) {
     return { success: false, error: e.message || 'Failed to update owner email.' };
+  }
+}
+
+export interface GymSettings {
+  sessionTimeHours: number | null;
+  maxCapacity: number | null;
+}
+
+export async function getGymSettings(gymDatabaseId: string): Promise<{ data?: GymSettings; error?: string }> {
+  if (!gymDatabaseId) {
+    return { error: 'Gym ID not provided.' };
+  }
+  const supabase = createSupabaseServiceRoleClient();
+  try {
+    const { data, error } = await supabase
+      .from('gyms')
+      .select('session_time_hours, max_capacity')
+      .eq('id', gymDatabaseId)
+      .single();
+
+    if (error) throw error;
+    return { 
+      data: {
+        sessionTimeHours: data.session_time_hours,
+        maxCapacity: data.max_capacity,
+      }
+    };
+  } catch (e: any) {
+    return { error: e.message || 'Failed to fetch gym settings.' };
+  }
+}
+
+const settingsUpdateSchema = z.object({
+  sessionTimeHours: z.number().int().min(1).max(24).optional(),
+  maxCapacity: z.number().int().min(1).max(10000).optional(),
+});
+
+
+export async function updateGymSettings(gymDatabaseId: string, settings: Partial<GymSettings>): Promise<{ success: boolean; error?: string }> {
+  if (!gymDatabaseId) {
+    return { success: false, error: 'Gym ID not provided.' };
+  }
+
+  const validationResult = settingsUpdateSchema.safeParse(settings);
+  if (!validationResult.success) {
+      return { success: false, error: validationResult.error.flatten().fieldErrors.toString() }
+  }
+
+  const updatePayload: { session_time_hours?: number; max_capacity?: number } = {};
+  if (validationResult.data.sessionTimeHours) {
+    updatePayload.session_time_hours = validationResult.data.sessionTimeHours;
+  }
+  if (validationResult.data.maxCapacity) {
+    updatePayload.max_capacity = validationResult.data.maxCapacity;
+  }
+
+  if (Object.keys(updatePayload).length === 0) {
+    return { success: true }; // Nothing to update
+  }
+  
+  const supabase = createSupabaseServiceRoleClient();
+  try {
+    const { error } = await supabase
+      .from('gyms')
+      .update(updatePayload)
+      .eq('id', gymDatabaseId);
+
+    if (error) throw error;
+    return { success: true };
+  } catch (e: any) {
+    return { success: false, error: e.message || 'Failed to update gym settings.' };
   }
 }
