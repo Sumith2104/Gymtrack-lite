@@ -12,7 +12,7 @@ import type { FormattedCheckIn } from '@/lib/types';
 import { format, parseISO, isToday, isYesterday } from 'date-fns';
 import { ListChecks, Search, CalendarIcon as CalendarIconLucide, X, RefreshCw, AlertCircle, PackageSearch, Clock, Fingerprint } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { fetchTodaysCheckInsForKioskAction } from '@/app/actions/kiosk-actions';
+import { fetchAllCheckInsForKioskAction } from '@/app/actions/kiosk-actions';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Separator } from '@/components/ui/separator';
@@ -37,12 +37,12 @@ export function RecentCheckinsCard({ newCheckinEntry, className }: RecentCheckin
   const [filterTerm, setFilterTerm] = useState('');
   const [filterDate, setFilterDate] = useState<Date | undefined>(undefined);
 
-  const loadTodaysCheckins = useCallback(async (currentGymDbId: string, currentGymName: string) => {
+  const loadCheckins = useCallback(async (currentGymDbId: string, currentGymName: string) => {
     setIsLoading(true);
     setError(null);
-    const response = await fetchTodaysCheckInsForKioskAction(currentGymDbId, currentGymName);
+    const response = await fetchAllCheckInsForKioskAction(currentGymDbId, currentGymName);
     if (response.error || !response.checkIns) {
-      setError(response.error || "Failed to load today's check-ins.");
+      setError(response.error || "Failed to load check-ins.");
       setAllFetchedCheckins([]);
     } else {
       setAllFetchedCheckins(response.checkIns.sort((a, b) => new Date(b.checkInTime).getTime() - new Date(a.checkInTime).getTime()));
@@ -56,12 +56,12 @@ export function RecentCheckinsCard({ newCheckinEntry, className }: RecentCheckin
     setGymDbId(id);
     setGymNameForDisplay(name);
     if (id && name) {
-      loadTodaysCheckins(id, name);
+      loadCheckins(id, name);
     } else {
       setIsLoading(false);
       setError("Kiosk not configured (no Gym ID/Name).");
     }
-  }, [loadTodaysCheckins]);
+  }, [loadCheckins]);
   
   useEffect(() => {
     if (newCheckinEntry) {
@@ -119,11 +119,11 @@ export function RecentCheckinsCard({ newCheckinEntry, className }: RecentCheckin
                 <div>
                     <CardTitle className="text-xl font-semibold text-foreground/90">Recent Check-ins</CardTitle>
                     <CardDescription className="text-xs text-muted-foreground mt-1">
-                      Log of member check-ins. Filter by name, ID, or date.
+                      Log of the 100 most recent check-ins. Filter by name, ID, or date.
                     </CardDescription>
                 </div>
                  {gymDbId && gymNameForDisplay && !isLoading && (
-                    <Button variant="ghost" size="icon" className="ml-2 h-8 w-8" onClick={() => loadTodaysCheckins(gymDbId, gymNameForDisplay)}>
+                    <Button variant="ghost" size="icon" className="ml-2 h-8 w-8" onClick={() => loadCheckins(gymDbId, gymNameForDisplay)}>
                         <RefreshCw className="h-4 w-4"/>
                         <span className="sr-only">Refresh List</span>
                     </Button>
@@ -217,4 +217,3 @@ export function RecentCheckinsCard({ newCheckinEntry, className }: RecentCheckin
     </Card>
   );
 }
-

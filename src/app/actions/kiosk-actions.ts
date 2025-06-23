@@ -210,22 +210,18 @@ type DbCheckInWithMember = CheckIn & {
   } | null;
 };
 
-export async function fetchTodaysCheckInsForKioskAction(gymDatabaseId: string, gymName: string): Promise<{ checkIns: FormattedCheckIn[]; error?: string }> {
+export async function fetchAllCheckInsForKioskAction(gymDatabaseId: string, gymName: string): Promise<{ checkIns: FormattedCheckIn[]; error?: string }> {
   if (!gymDatabaseId) return { checkIns: [], error: "Gym ID is required." };
 
   const supabase = createSupabaseServerActionClient();
   
   try {
-    const todayStart = startOfToday().toISOString();
-    const todayEnd = endOfToday().toISOString();
-
     const { data: dbCheckIns, error } = await supabase
       .from('check_ins')
       .select('id, member_table_id, check_in_time, check_out_time, created_at, members(name, member_id)')
       .eq('gym_id', gymDatabaseId)
-      .gte('check_in_time', todayStart) // Only fetch check-ins from today
-      .lte('check_in_time', todayEnd)   // Only fetch check-ins from today
-      .order('check_in_time', { ascending: false });
+      .order('check_in_time', { ascending: false })
+      .limit(100);
 
     if (error) {
       return { checkIns: [], error: error.message };
