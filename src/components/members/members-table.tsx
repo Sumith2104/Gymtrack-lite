@@ -235,13 +235,21 @@ export function MembersTable() {
 
   const handleBulkStatusUpdate = async (newDbStatus: MembershipStatus) => {
     const selectedRows = table.getFilteredSelectedRowModel().rows;
-     if (selectedRows.length === 0 || !currentGymDatabaseId) {
+    if (selectedRows.length === 0 || !currentGymDatabaseId) {
       return;
     }
     const memberIdsToUpdate = selectedRows.map(row => row.original.id);
     const response = await bulkUpdateMemberStatusAction(memberIdsToUpdate, newDbStatus);
 
-    toast({ title: "Bulk Status Update Processed", description: `${response.successCount} member(s) DB status updated to ${newDbStatus}. ${response.errorCount > 0 ? `${response.errorCount} failed. Error: ${response.error}`: (response.error ? `Error: ${response.error}` : '')}` });
+    const description = `${response.successCount} member(s) updated to ${newDbStatus}. ` +
+                        `Emails sent: ${response.emailSentCount}. ` +
+                        (response.errorCount > 0 ? `${response.errorCount} failed. ` : '') +
+                        (response.error ? `Error: ${response.error}` : '');
+    
+    toast({ 
+        title: "Bulk Status Update Processed", 
+        description: description.trim()
+    });
     
     if (response.successCount > 0) {
         loadMembers(currentGymDatabaseId);

@@ -346,13 +346,52 @@ export async function updateMemberStatusAction(memberDbId: string, newStatus: Me
       .from('members')
       .update(updateData)
       .eq('id', memberDbId)
-      .select('*, plans (plan_name, price, duration_months)')
+      .select('*, plans (plan_name, price, duration_months), gyms (name)')
       .single();
 
     if (error || !updatedDbMember) {
       return { error: error?.message || "Failed to update member status or member not found." };
     }
+    
+    const gymName = updatedDbMember.gyms?.name;
     const updatedMemberAppFormat = mapDbMemberToAppMember(updatedDbMember);
+    
+    // Send email notification
+    if (updatedMemberAppFormat.email && gymName) {
+      const emailSubject = `Your Membership Status at ${gymName} has been Updated`;
+      
+      let statusExplanation = '';
+      switch(newStatus) {
+        case 'active':
+          statusExplanation = 'Your membership has been set to <strong>Active</strong>. You can continue to enjoy all the facilities.';
+          break;
+        case 'expiring soon':
+          statusExplanation = 'Your membership has been marked as <strong>Expiring Soon</strong>. Please consider renewing your plan to avoid any interruption.';
+          break;
+        case 'expired':
+          statusExplanation = 'Your membership has been set to <strong>Expired</strong>. Please visit the reception to renew your plan and regain access.';
+          break;
+      }
+      
+      const emailHtmlBody = `
+        <p>Dear ${updatedMemberAppFormat.name},</p>
+        <p>This is a notification to inform you that your membership status at ${gymName} has been updated.</p>
+        <p><strong>New Status:</strong> ${newStatus.charAt(0).toUpperCase() + newStatus.slice(1)}</p>
+        <div class="announcement-content" style="padding: 10px; border-left: 3px solid #FFD700; margin: 10px 0; background-color: #222;">
+            <p>${statusExplanation}</p>
+        </div>
+        <p>If you have any questions, please contact us or visit the reception.</p>
+        <p>Best regards,<br/>The ${gymName} Team</p>
+      `;
+
+      await sendEmail({
+        to: updatedMemberAppFormat.email,
+        subject: emailSubject,
+        htmlBody: emailHtmlBody,
+        gymDatabaseId: updatedMemberAppFormat.gymId,
+      });
+    }
+
     return { updatedMember: updatedMemberAppFormat };
   } catch (e: any) {
     return { error: 'Failed to update status due to an unexpected error.' };
@@ -386,34 +425,87 @@ export async function deleteMembersAction(memberDbIds: string[]): Promise<{ succ
 }
 
 
-export async function bulkUpdateMemberStatusAction(memberDbIds: string[], newStatus: MembershipStatus): Promise<{ successCount: number; errorCount: number; error?: string }> {
+export async function bulkUpdateMemberStatusAction(memberDbIds: string[], newStatus: MembershipStatus): Promise<{ successCount: number; errorCount: number; emailSentCount: number; error?: string }> {
   if (!memberDbIds || memberDbIds.length === 0) {
-    return { successCount: 0, errorCount: 0, error: "No member IDs provided for status update." };
+    return { successCount: 0, errorCount: 0, emailSentCount: 0, error: "No member IDs provided for status update." };
   }
   if (newStatus !== 'active' && newStatus !== 'expired' && newStatus !== 'expiring soon') {
-    return { successCount: 0, errorCount: memberDbIds.length, error: "Invalid status. Can only set to 'active', 'expired', or 'expiring soon'." };
+    return { successCount: 0, errorCount: memberDbIds.length, emailSentCount: 0, error: "Invalid status. Can only set to 'active', 'expired', or 'expiring soon'." };
   }
+  
   const supabase = createSupabaseServerActionClient();
-  try {
-    const { error, data } = await supabase
-      .from('members')
-      .update({ membership_status: newStatus })
-      .in('id', memberDbIds)
-      .select('id');
+  
+  // 1. Fetch members that will be updated to get their email and name
+  const { data: membersToUpdate, error: fetchError } = await supabase
+    .from('members')
+    .select('id, name, email, gym_id, gyms (name)')
+    .in('id', memberDbIds);
 
-    if (error) {
-      return { successCount: 0, errorCount: memberDbIds.length, error: error.message };
+  if (fetchError) {
+      return { successCount: 0, errorCount: memberDbIds.length, emailSentCount: 0, error: `Failed to fetch members for update: ${fetchError.message}` };
+  }
+  if (!membersToUpdate || membersToUpdate.length === 0) {
+      return { successCount: 0, errorCount: memberDbIds.length, emailSentCount: 0, error: 'No matching members found to update.' };
+  }
+
+  // 2. Perform the update
+  const { error: updateError, data: updatedData } = await supabase
+    .from('members')
+    .update({ membership_status: newStatus })
+    .in('id', memberDbIds)
+    .select('id');
+
+  if (updateError) {
+    return { successCount: 0, errorCount: memberDbIds.length, emailSentCount: 0, error: updateError.message };
+  }
+
+  const successCount = updatedData ? updatedData.length : 0;
+  const errorCount = memberDbIds.length - successCount;
+  
+  // 3. Send emails to successfully updated members
+  let emailSentCount = 0;
+  if (successCount > 0) {
+    const successfullyUpdatedIds = new Set(updatedData.map(m => m.id));
+
+    let statusExplanation = '';
+    switch(newStatus) {
+        case 'active': statusExplanation = 'Your membership has been set to <strong>Active</strong>. You can continue to enjoy all the facilities.'; break;
+        case 'expiring soon': statusExplanation = 'Your membership has been marked as <strong>Expiring Soon</strong>. Please consider renewing your plan to avoid any interruption.'; break;
+        case 'expired': statusExplanation = 'Your membership has been set to <strong>Expired</strong>. Please visit the reception to renew your plan and regain access.'; break;
     }
 
-    const SCount = data ? data.length : 0;
-    const ECount = memberDbIds.length - SCount;
+    for (const member of membersToUpdate) {
+      if (successfullyUpdatedIds.has(member.id) && member.email) {
+        const gymName = member.gyms?.name;
+        if (gymName) {
+           const emailSubject = `Your Membership Status at ${gymName} has been Updated`;
+           const emailHtmlBody = `
+            <p>Dear ${member.name},</p>
+            <p>This is a notification to inform you that your membership status at ${gymName} has been updated.</p>
+            <p><strong>New Status:</strong> ${newStatus.charAt(0).toUpperCase() + newStatus.slice(1)}</p>
+            <div class="announcement-content" style="padding: 10px; border-left: 3px solid #FFD700; margin: 10px 0; background-color: #222;">
+                <p>${statusExplanation}</p>
+            </div>
+            <p>If you have any questions, please contact us or visit the reception.</p>
+            <p>Best regards,<br/>The ${gymName} Team</p>
+          `;
+          
+          const emailResult = await sendEmail({
+              to: member.email,
+              subject: emailSubject,
+              htmlBody: emailHtmlBody,
+              gymDatabaseId: member.gym_id,
+          });
 
-    return { successCount: SCount, errorCount: ECount };
-
-  } catch (e: any)
-{
-    return { successCount: 0, errorCount: memberDbIds.length, error: 'An unexpected error occurred during bulk status update.' };
+          if (emailResult.success) {
+              emailSentCount++;
+          }
+        }
+      }
+    }
   }
+
+  return { successCount, errorCount, emailSentCount, error: errorCount > 0 ? "Some members could not be updated." : undefined };
 }
 
 
