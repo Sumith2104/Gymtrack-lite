@@ -363,9 +363,14 @@ export function MembersTable() {
                   <FileText className="mr-2 h-4 w-4" /> Attendance Summary
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
+                <DropdownMenuLabel>Manual Status</DropdownMenuLabel>
                 <DropdownMenuItem onClick={() => handleManualStatusUpdate(member, 'active')} disabled={member.membershipStatus === 'active'}>
                     <UserCheck className="mr-2 h-4 w-4 text-green-500" />
-                    <span>Set status to Active</span>
+                    <span>Set to Active</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleManualStatusUpdate(member, 'expired')} disabled={member.membershipStatus === 'expired'} className="text-destructive focus:text-destructive focus:bg-destructive/10">
+                    <CalendarClock className="mr-2 h-4 w-4" />
+                    <span>Set to Expired</span>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <AlertDialogTrigger asChild>
@@ -588,6 +593,10 @@ export function MembersTable() {
                     <DropdownMenuItem onClick={() => handleBulkStatusUpdate('active')} disabled={selectedRowCount === 0}>
                         <UserCheck className="mr-2 h-4 w-4 text-green-500" />
                         Set selected to Active
+                    </DropdownMenuItem>
+                     <DropdownMenuItem onClick={() => handleBulkStatusUpdate('expired')} disabled={selectedRowCount === 0} className="text-destructive focus:text-destructive focus:bg-destructive/10">
+                        <CalendarClock className="mr-2 h-4 w-4" />
+                        Set selected to Expired
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <AlertDialogTrigger asChild>
