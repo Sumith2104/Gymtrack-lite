@@ -32,30 +32,24 @@ export function AnnouncementsSection({ className }: { className?: string }) {
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [currentFormattedGymId, setCurrentFormattedGymId] = useState<string | null>(null); // Changed from currentGymDbId
+  const [currentFormattedGymId, setCurrentFormattedGymId] = useState<string | null>(null);
   const [selectedAnnouncements, setSelectedAnnouncements] = useState<string[]>([]);
   const { toast } = useToast();
 
   const loadAnnouncements = useCallback(async (formattedGymId: string | null) => {
     if (!formattedGymId) {
-      console.warn('[AnnouncementsSection] loadAnnouncements called with null formattedGymId. Aborting.');
       setIsLoading(false);
       setError("Formatted Gym ID not available. Cannot load announcements.");
       setAnnouncements([]);
       return;
     }
-    console.log(`[AnnouncementsSection] loadAnnouncements called with formattedGymId: ${formattedGymId}`);
     setIsLoading(true);
     setError(null);
-    // Pass formattedGymId to the action
     const response = await fetchAnnouncementsAction(formattedGymId); 
     if (response.error || !response.data) {
       setError(response.error || "Failed to load announcements.");
       setAnnouncements([]);
-      console.error('[AnnouncementsSection] Error or no data from fetchAnnouncementsAction:', response.error);
-      // toast({ variant: "destructive", title: "Error Loading Announcements", description: response.error || "Could not load announcements." });
     } else {
-      console.log(`[AnnouncementsSection] Successfully fetched ${response.data.length} announcements. Preview:`, JSON.stringify(response.data.slice(0,2).map(a => ({id:a.id, title:a.title, fgid:a.formattedGymId}))));
       setAnnouncements(response.data);
     }
     setIsLoading(false);
@@ -63,15 +57,11 @@ export function AnnouncementsSection({ className }: { className?: string }) {
   }, []); 
 
   useEffect(() => {
-    // 'gymId' from localStorage stores the formatted_gym_id
     const formattedGymIdFromStorage = localStorage.getItem('gymId'); 
-    console.log('[AnnouncementsSection] formattedGymId from localStorage on mount:', formattedGymIdFromStorage);
     setCurrentFormattedGymId(formattedGymIdFromStorage);
     if (formattedGymIdFromStorage) {
-      console.log('[AnnouncementsSection] Attempting to load announcements for formattedGymId from storage:', formattedGymIdFromStorage);
       loadAnnouncements(formattedGymIdFromStorage);
     } else {
-      console.warn('[AnnouncementsSection] No formattedGymId found in localStorage. Cannot load announcements initially.');
       setIsLoading(false);
       setError("Formatted Gym ID not found in local storage. Please log in again.");
       setAnnouncements([]);
@@ -81,15 +71,11 @@ export function AnnouncementsSection({ className }: { className?: string }) {
   useEffect(() => {
     const handleReloadAnnouncements = () => {
       if (currentFormattedGymId) {
-        console.log('[AnnouncementsSection] Reload event triggered. Reloading for currentFormattedGymId:', currentFormattedGymId);
         loadAnnouncements(currentFormattedGymId);
       } else {
         const formattedGymIdFromStorageEvent = localStorage.getItem('gymId');
         if (formattedGymIdFromStorageEvent) {
-             console.warn('[AnnouncementsSection] Reload event triggered, currentFormattedGymId state was null, using localStorage value for reload:', formattedGymIdFromStorageEvent);
              loadAnnouncements(formattedGymIdFromStorageEvent);
-        } else {
-            console.warn('[AnnouncementsSection] Reload event triggered, but no formattedGymId available (state or localStorage).');
         }
       }
     };

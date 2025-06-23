@@ -61,7 +61,6 @@ export function CheckinTrendsChart({ className }: { className?: string }) {
              setRealtimeDisabledReason("Access token not found in stored auth data.");
           }
         } catch (e) {
-          console.error("CheckinTrendsChart: Failed to parse auth token from localStorage", e);
           setRealtimeDisabledReason("Could not parse auth token from localStorage.");
         }
       } else {
@@ -91,9 +90,6 @@ export function CheckinTrendsChart({ className }: { className?: string }) {
     }
     
     if (!supabaseToken) {
-      if (realtimeDisabledReason) {
-        console.warn(`CheckinTrendsChart: Realtime subscription skipped for gym ${gymDbId}. Reason: ${realtimeDisabledReason}`);
-      }
       return; 
     }
     setRealtimeDisabledReason(null); 
@@ -119,18 +115,15 @@ export function CheckinTrendsChart({ className }: { className?: string }) {
           table: 'check_ins',
           filter: `gym_id=eq.${gymDbId}`,
         },
-        (payload) => {
-          console.log('CheckinTrendsChart: New check_in received!', payload);
+        () => {
           fetchAndSetTrends(gymDbId); 
         }
       )
       .subscribe((status, err) => {
          if (status === 'SUBSCRIBED') {
-          console.log(`CheckinTrendsChart: Subscribed to check_ins inserts for gym ${gymDbId}`);
-        } else if (status === 'TIMED_OUT') {
-          console.warn(`CheckinTrendsChart: Subscription TIMED_OUT for gym ${gymDbId}. The Supabase client may attempt to reconnect.`, err);
-        } else if (status === 'CHANNEL_ERROR') {
-          console.error(`CheckinTrendsChart: Subscription CHANNEL_ERROR for gym ${gymDbId}:`, err || 'No specific error details from Supabase client.');
+          // console.log(`CheckinTrendsChart: Subscribed to check_ins inserts for gym ${gymDbId}`);
+        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          console.error(`CheckinTrendsChart: Subscription issue for gym ${gymDbId}: ${status}`, err || 'No specific error details from Supabase client.');
         }
       });
     
@@ -139,12 +132,11 @@ export function CheckinTrendsChart({ className }: { className?: string }) {
     return () => {
       if (channelRef.current) {
          supabase.removeChannel(channelRef.current)
-          .then(() => console.log(`CheckinTrendsChart: Unsubscribed from gym ${gymDbId}`))
           .catch(e => console.error(`CheckinTrendsChart: Error unsubscribing from gym ${gymDbId}:`, e.message || e));
         channelRef.current = null;
       }
     };
-  }, [gymDbId, supabase, supabaseToken, realtimeDisabledReason]);
+  }, [gymDbId, supabase, supabaseToken]);
 
 
   return (

@@ -64,7 +64,6 @@ export function OccupancyCard({ className }: { className?: string }) {
             setRealtimeDisabledReason("Access token not found in stored auth data.");
           }
         } catch (e) {
-          console.error("OccupancyCard: Failed to parse auth token from localStorage", e);
           setRealtimeDisabledReason("Could not parse auth token from localStorage.");
         }
       } else {
@@ -88,9 +87,6 @@ export function OccupancyCard({ className }: { className?: string }) {
     }
 
     if (!supabaseToken) {
-      if (realtimeDisabledReason) {
-        console.warn(`OccupancyCard: Realtime subscription skipped for gym ${gymDbId}. Reason: ${realtimeDisabledReason}`);
-      }
       return; 
     }
     setRealtimeDisabledReason(null); 
@@ -116,18 +112,15 @@ export function OccupancyCard({ className }: { className?: string }) {
           table: 'check_ins',
           filter: `gym_id=eq.${gymDbId}`,
         },
-        (payload) => {
-          console.log('OccupancyCard: Change received on check_ins table!', payload);
+        () => {
           fetchAndSetOccupancy(gymDbId); 
         }
       )
       .subscribe((status, err) => {
         if (status === 'SUBSCRIBED') {
-          console.log(`OccupancyCard: Subscribed to check_ins changes for gym ${gymDbId}`);
-        } else if (status === 'TIMED_OUT') {
-          console.warn(`OccupancyCard: Subscription TIMED_OUT for gym ${gymDbId}. The Supabase client may attempt to reconnect.`, err);
-        } else if (status === 'CHANNEL_ERROR') {
-          console.error(`OccupancyCard: Subscription CHANNEL_ERROR for gym ${gymDbId}:`, err || 'No specific error details from Supabase client.');
+          // console.log(`OccupancyCard: Subscribed to check_ins changes for gym ${gymDbId}`);
+        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+           console.error(`OccupancyCard: Subscription issue for gym ${gymDbId}: ${status}`, err || 'No specific error details from Supabase client.');
         }
       });
 
@@ -136,12 +129,11 @@ export function OccupancyCard({ className }: { className?: string }) {
     return () => {
       if (channelRef.current) {
         supabase.removeChannel(channelRef.current)
-          .then(() => console.log(`OccupancyCard: Unsubscribed from gym ${gymDbId}`))
           .catch(e => console.error(`OccupancyCard: Error unsubscribing from gym ${gymDbId}:`, e.message || e));
         channelRef.current = null;
       }
     };
-  }, [gymDbId, supabase, supabaseToken, realtimeDisabledReason]);
+  }, [gymDbId, supabase, supabaseToken]);
 
 
   const chartData = [
