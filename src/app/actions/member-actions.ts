@@ -12,9 +12,12 @@ import { formatDateIST, parseValidISO } from '@/lib/date-utils';
 
 // Helper function to determine effective status
 function getEffectiveMembershipStatus(member: Pick<Member, 'membershipStatus' | 'expiryDate'>): EffectiveMembershipStatus {
-  if (member.membershipStatus === 'expired') {
-    return 'expired';
+  // If the status is manually set to 'expired' or 'expiring soon', this takes precedence.
+  if (member.membershipStatus === 'expired' || member.membershipStatus === 'expiring soon') {
+    return member.membershipStatus;
   }
+
+  // Otherwise (status is 'active'), we rely on the expiry date.
   if (member.membershipStatus === 'active' && member.expiryDate) {
     const expiry = parseValidISO(member.expiryDate);
     if (expiry && isValid(expiry)) {
@@ -24,7 +27,9 @@ function getEffectiveMembershipStatus(member: Pick<Member, 'membershipStatus' | 
       return 'active';
     }
   }
-  return member.membershipStatus === 'active' ? 'active' : 'expired';
+  
+  // Fallback for 'active' status without a valid date.
+  return 'active';
 }
 
 
@@ -329,8 +334,8 @@ export async function deleteMemberAction(memberDbId: string): Promise<{ success:
 
 export async function updateMemberStatusAction(memberDbId: string, newStatus: MembershipStatus): Promise<{ updatedMember?: Member; error?: string }> {
   if (!memberDbId || !newStatus) return { error: "Member ID and new status are required." };
-  if (newStatus !== 'active' && newStatus !== 'expired') {
-    return { error: "Invalid status. Can only set to 'active' or 'expired'." };
+  if (newStatus !== 'active' && newStatus !== 'expired' && newStatus !== 'expiring soon') {
+    return { error: "Invalid status. Can only set to 'active', 'expired', or 'expiring soon'." };
   }
 
   const supabase = createSupabaseServerActionClient();
@@ -385,8 +390,8 @@ export async function bulkUpdateMemberStatusAction(memberDbIds: string[], newSta
   if (!memberDbIds || memberDbIds.length === 0) {
     return { successCount: 0, errorCount: 0, error: "No member IDs provided for status update." };
   }
-  if (newStatus !== 'active' && newStatus !== 'expired') {
-    return { successCount: 0, errorCount: memberDbIds.length, error: "Invalid status. Can only set to 'active' or 'expired'." };
+  if (newStatus !== 'active' && newStatus !== 'expired' && newStatus !== 'expiring soon') {
+    return { successCount: 0, errorCount: memberDbIds.length, error: "Invalid status. Can only set to 'active', 'expired', or 'expiring soon'." };
   }
   const supabase = createSupabaseServerActionClient();
   try {

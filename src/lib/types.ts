@@ -1,7 +1,7 @@
 
 import type { LucideIcon } from 'lucide-react';
 
-export type MembershipStatus = 'active' | 'expired'; // Defines what's stored in the DB
+export type MembershipStatus = 'active' | 'expired' | 'expiring soon'; // Defines what's stored in the DB
 
 // This can be used for suggested plan names, but actual plan names will be strings.
 export type MembershipType = 'Basic' | 'Premium' | 'Annual' | 'Monthly' | '6-Month' | 'Class Pass' | 'Other';
