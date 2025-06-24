@@ -2,7 +2,7 @@
 'use server';
 
 import { addMonths, differenceInDays, isValid, parseISO } from 'date-fns';
-import type { Member, MembershipStatus, EffectiveMembershipStatus } from '@/lib/types';
+import type { Member, MembershipStatus, EffectiveMembershipStatus, AttendanceSummary } from '@/lib/types';
 import { APP_NAME } from '@/lib/constants';
 import { addMemberFormSchema, type AddMemberFormValues } from '@/lib/schemas/member-schemas';
 import { createSupabaseServerActionClient } from '@/lib/supabase/server';
@@ -586,5 +586,46 @@ export async function sendBulkCustomEmailAction(
 
   } catch (e: any) {
     return { attempted, successful, noEmailAddress, failed, error: 'An unexpected error occurred while sending emails.' };
+  }
+}
+
+export async function getMemberAttendanceSummary(memberDbId: string): Promise<{ data?: AttendanceSummary; error?: string }> {
+  if (!memberDbId) {
+    return { error: 'Member ID is required.' };
+  }
+  const supabase = createSupabaseServerActionClient();
+  try {
+    const { data: checkIns, error } = await supabase
+      .from('check_ins')
+      .select('check_in_time')
+      .eq('member_table_id', memberDbId)
+      .order('check_in_time', { ascending: false });
+
+    if (error) {
+      throw error;
+    }
+
+    if (!checkIns || checkIns.length === 0) {
+      return {
+        data: {
+          totalCheckIns: 0,
+          lastCheckInTime: null,
+          recentCheckIns: [],
+        },
+      };
+    }
+    
+    const recentCheckInDates = checkIns.slice(0, 5).map(ci => parseISO(ci.check_in_time));
+    
+    const summary: AttendanceSummary = {
+      totalCheckIns: checkIns.length,
+      lastCheckInTime: checkIns[0] ? parseISO(checkIns[0].check_in_time) : null,
+      recentCheckIns: recentCheckInDates,
+    };
+
+    return { data: summary };
+
+  } catch (e: any) {
+    return { error: `Failed to fetch attendance summary: ${e.message}` };
   }
 }

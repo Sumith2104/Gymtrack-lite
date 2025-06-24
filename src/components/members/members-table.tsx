@@ -49,7 +49,7 @@ import type { Member, MembershipStatus, AttendanceSummary, EffectiveMembershipSt
 import { AddMemberDialog } from './add-member-dialog';
 import { AttendanceOverviewDialog } from './attendance-overview-dialog';
 import { BulkEmailDialog } from './bulk-email-dialog';
-import { fetchMembers, deleteMemberAction, updateMemberStatusAction, deleteMembersAction, bulkUpdateMemberStatusAction, sendBulkCustomEmailAction } from '@/app/actions/member-actions';
+import { fetchMembers, deleteMemberAction, updateMemberStatusAction, deleteMembersAction, bulkUpdateMemberStatusAction, sendBulkCustomEmailAction, getMemberAttendanceSummary } from '@/app/actions/member-actions';
 import { APP_NAME } from '@/lib/constants';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
@@ -100,7 +100,7 @@ export function MembersTable() {
   
   const [isAttendanceDialogOpen, setIsAttendanceDialogOpen] = React.useState(false);
   const [memberForAttendance, setMemberForAttendance] = React.useState<Member | null>(null);
-  const [mockAttendanceData, setMockAttendanceData] = React.useState<AttendanceSummary | null>(null);
+  const [attendanceData, setAttendanceData] = React.useState<AttendanceSummary | null>(null);
 
   const [isBulkEmailDialogOpen, setIsBulkEmailDialogOpen] = React.useState(false);
   const [bulkEmailRecipients, setBulkEmailRecipients] = React.useState<Member[]>([]);
@@ -203,16 +203,23 @@ export function MembersTable() {
     }
   };
   
-  const handleViewAttendance = (member: Member) => {
+  const handleViewAttendance = async (member: Member) => {
     setMemberForAttendance(member);
-    const lastCheckin = new Date(Date.now() - Math.random() * 10 * 86400000); 
-    const recentCheckins = Array.from({length: Math.floor(Math.random()* 5) +1 }, (_, i) => new Date(lastCheckin.getTime() - i * Math.random() * 3 * 86400000));
-    setMockAttendanceData({
-        totalCheckIns: Math.floor(Math.random() * 100) + 5,
-        lastCheckInTime: recentCheckins.length > 0 ? recentCheckins[0] : null,
-        recentCheckIns: recentCheckins.sort((a,b) => b.getTime() - a.getTime()),
-    });
+    setAttendanceData(null); // Clear previous data to show loading skeleton
     setIsAttendanceDialogOpen(true);
+
+    const response = await getMemberAttendanceSummary(member.id);
+
+    if (response.error || !response.data) {
+      toast({
+        variant: "destructive",
+        title: "Error fetching attendance",
+        description: response.error || "Could not load attendance summary."
+      });
+      setAttendanceData({ totalCheckIns: 0, lastCheckInTime: null, recentCheckIns: [] });
+    } else {
+      setAttendanceData(response.data);
+    }
   };
   
   const handleBulkDelete = async () => {
@@ -465,12 +472,12 @@ export function MembersTable() {
         onMemberSaved={handleMemberSaved}
         memberToEdit={memberToEdit}
       />
-       {memberForAttendance && mockAttendanceData && (
+       {memberForAttendance && (
         <AttendanceOverviewDialog
           isOpen={isAttendanceDialogOpen}
           onOpenChange={setIsAttendanceDialogOpen}
           member={memberForAttendance}
-          attendanceSummary={mockAttendanceData}
+          attendanceSummary={attendanceData}
         />
       )}
       {isBulkEmailDialogOpen && (
