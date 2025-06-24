@@ -146,10 +146,13 @@ export function MembersTable() {
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
   const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({
-    planPrice: false,
-    createdAt: false, 
+    email: false,
     age: false,
     phoneNumber: false,
+    joinDate: false,
+    membershipType: false,
+    planPrice: false,
+    createdAt: false,
   });
   const [rowSelection, setRowSelection] = React.useState({});
   const [statusFilter, setStatusFilter] = React.useState<EffectiveMembershipStatus | 'all'>('all');
