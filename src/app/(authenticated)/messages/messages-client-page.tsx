@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useEffect, useState, useRef } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -26,6 +26,7 @@ const formatDateGroupHeader = (date: Date): string => {
 
 export function MessagesClientPage() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const [members, setMembers] = useState<Member[]>([]);
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
   const [isLoadingMembers, setIsLoadingMembers] = useState(true);
@@ -85,11 +86,17 @@ export function MessagesClientPage() {
     const memberIdToSelect = searchParams.get('memberId');
     if (memberIdToSelect && members.length > 0) {
       const member = members.find(m => m.id === memberIdToSelect);
-      if (member && selectedMember?.id !== memberIdToSelect) {
+       if (member) {
         setSelectedMember(member);
+      } else {
+        // If member ID from URL is invalid, clear it.
+        setSelectedMember(null);
+        router.replace('/messages', { scroll: false });
       }
+    } else {
+        setSelectedMember(null);
     }
-  }, [searchParams, members, selectedMember]);
+  }, [searchParams, members, router]);
 
   useEffect(() => {
     if (selectedMember && selectedMember.memberId && gymDatabaseId && adminSenderFormattedGymId) {
@@ -147,6 +154,11 @@ export function MessagesClientPage() {
   const getInitials = (name: string) => name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2);
 
   let lastProcessedDateString: string | null = null;
+  
+  const handleCloseChat = () => {
+    setSelectedMember(null);
+    router.push('/messages', { scroll: false }); // Clear URL params and state
+  };
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 flex-1 min-h-0">
@@ -203,7 +215,7 @@ export function MessagesClientPage() {
                       <CardDescription>{selectedMember.memberId || 'N/A'}</CardDescription>
                   </div>
                 </div>
-                <Button variant="ghost" size="icon" onClick={() => setSelectedMember(null)} className="text-muted-foreground hover:text-destructive"><X className="h-5 w-5" /><span className="sr-only">Close chat</span></Button>
+                <Button variant="ghost" size="icon" onClick={handleCloseChat} className="text-muted-foreground hover:text-destructive"><X className="h-5 w-5" /><span className="sr-only">Close chat</span></Button>
               </div>
             </CardHeader>
             <CardContent className="flex-1 p-4 space-y-2 overflow-y-auto min-h-0 bg-muted/20">
