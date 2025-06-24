@@ -9,6 +9,7 @@ import { Separator } from '@/components/ui/separator';
 import { format, parseISO, isValid, differenceInDays } from 'date-fns';
 import type { EffectiveMembershipStatus } from '@/lib/types';
 import { MemberCheckinHistoryChart } from '@/components/members/member-checkin-history-chart';
+import { BackButton } from '@/components/layout/back-button';
 
 function getEffectiveDisplayStatus(status: string, expiryDateStr: string | null): EffectiveMembershipStatus {
   if (status === 'expired' || status === 'expiring soon') {
@@ -56,6 +57,9 @@ export default async function MemberProfilePage({ params }: { params: { memberDb
 
   return (
     <div className="flex flex-col gap-6">
+      <div>
+        <BackButton />
+      </div>
       <Card className="w-full shadow-lg">
         <CardContent className="p-6">
           <div className="flex flex-col sm:flex-row items-center gap-6">
