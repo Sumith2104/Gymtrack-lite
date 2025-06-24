@@ -30,6 +30,7 @@ export interface Member {
   expiryDate: string | null; // timestamptz - calculated based on plan (members.expiry_date)
   membershipType?: string | null; // User-facing plan name, e.g., "Basic" (derived from plans.plan_name via planId) - Changed from MembershipType | null
   planPrice?: number | null; // Price of the current plan (derived from plans.price via planId)
+  profileUrl: string | null;
 }
 
 export interface Announcement {
@@ -159,4 +160,9 @@ export interface EmailOptions {
   subject: string;
   htmlBody: string;
   gymDatabaseId?: string | null;
+}
+
+export interface MonthlyCheckin {
+    month: string; // e.g., "Jan"
+    count: number;
 }

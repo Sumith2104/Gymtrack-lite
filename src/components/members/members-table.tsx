@@ -18,6 +18,7 @@ import {
   getSortedRowModel,
   useReactTable,
 } from '@tanstack/react-table';
+import Link from 'next/link';
 import { MoreHorizontal, Trash2, Edit3, Mail, FileText, PlusCircle, UserCheck, Search as SearchIcon, Users, AlertCircle, RefreshCw, BadgeCent, CalendarClock, Clock } from 'lucide-react';
 import { format, differenceInDays, parseISO, isValid } from 'date-fns';
 
@@ -309,7 +310,14 @@ export function MembersTable() {
     {
       accessorKey: 'memberId',
       header: ({ column }) => <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}>Member ID <CaretSortIcon className="ml-2 h-4 w-4" /></Button>,
-      cell: ({ row }) => <div>{row.getValue('memberId')}</div>,
+      cell: ({ row }) => {
+        const memberId = row.getValue('memberId') as string;
+        return (
+            <Link href={`/members/${row.original.id}`} className="hover:underline text-primary">
+                {memberId}
+            </Link>
+        )
+      },
     },
     {
       accessorKey: 'email',

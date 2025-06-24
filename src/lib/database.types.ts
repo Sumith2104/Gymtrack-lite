@@ -119,6 +119,7 @@ export interface Database {
           join_date: string | null // timestamp with time zone
           expiry_date: string | null // timestamp with time zone
           created_at: string // timestamp with time zone, default now()
+          profile_url: string | null // text
         }
         Insert: {
           id?: string
@@ -134,6 +135,7 @@ export interface Database {
           join_date?: string | null
           expiry_date?: string | null
           created_at?: string
+          profile_url?: string | null
         }
         Update: {
           id?: string
@@ -149,6 +151,7 @@ export interface Database {
           join_date?: string | null
           expiry_date?: string | null
           created_at?: string
+          profile_url?: string | null
         }
         Relationships: [
           {

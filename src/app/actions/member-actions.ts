@@ -1,8 +1,8 @@
 
 'use server';
 
-import { addMonths, differenceInDays, isValid, parseISO } from 'date-fns';
-import type { Member, MembershipStatus, EffectiveMembershipStatus, AttendanceSummary } from '@/lib/types';
+import { addMonths, differenceInDays, isValid, parseISO, format, subMonths, startOfMonth, eachMonthOfInterval, endOfMonth } from 'date-fns';
+import type { Member, MembershipStatus, EffectiveMembershipStatus, AttendanceSummary, MonthlyCheckin } from '@/lib/types';
 import { APP_NAME } from '@/lib/constants';
 import { addMemberFormSchema, type AddMemberFormValues } from '@/lib/schemas/member-schemas';
 import { createSupabaseServerActionClient } from '@/lib/supabase/server';
@@ -60,6 +60,7 @@ function mapDbMemberToAppMember(dbMember: any): Member {
     expiryDate: dbMember.expiry_date,
     membershipType: typeFromDbMember || planDetails?.plan_name || 'N/A',
     planPrice: planDetails?.price ?? 0,
+    profileUrl: dbMember.profile_url,
   };
 }
 
@@ -295,7 +296,7 @@ export async function fetchMembers(gymDatabaseId: string): Promise<{ data?: Memb
   try {
     const { data: dbMembers, error } = await supabase
       .from('members')
-      .select('*, plans (plan_name, price, duration_months)')
+      .select('*, profile_url, plans (plan_name, price, duration_months)')
       .eq('gym_id', gymDatabaseId)
       .order('created_at', { ascending: false });
 
@@ -346,7 +347,7 @@ export async function updateMemberStatusAction(memberDbId: string, newStatus: Me
       .from('members')
       .update(updateData)
       .eq('id', memberDbId)
-      .select('*, plans (plan_name, price, duration_months), gyms (name)')
+      .select('*, profile_url, plans (plan_name, price, duration_months), gyms (name)')
       .single();
 
     if (error || !updatedDbMember) {
@@ -627,5 +628,85 @@ export async function getMemberAttendanceSummary(memberDbId: string): Promise<{ 
 
   } catch (e: any) {
     return { error: `Failed to fetch attendance summary: ${e.message}` };
+  }
+}
+
+export async function getMemberById(memberDbId: string): Promise<{ data?: Member; error?: string }> {
+  if (!memberDbId) {
+    return { error: "Member Database ID is required." };
+  }
+  const supabase = createSupabaseServerActionClient();
+  try {
+    const { data: dbMember, error } = await supabase
+      .from('members')
+      .select('*, profile_url, plans (plan_name, price, duration_months)')
+      .eq('id', memberDbId)
+      .single();
+
+    if (error) {
+      return { error: `Database error: ${error.message}` };
+    }
+    if (!dbMember) {
+      return { error: "Member not found." };
+    }
+    const member = mapDbMemberToAppMember(dbMember);
+    return { data: member };
+
+  } catch (e: any) {
+    return { error: `An unexpected error occurred: ${e.message}` };
+  }
+}
+
+export async function getMemberCheckinHistory(memberDbId: string): Promise<{ data?: MonthlyCheckin[]; error?: string }> {
+  if (!memberDbId) {
+    return { error: 'Member ID is required.' };
+  }
+  const supabase = createSupabaseServerActionClient();
+
+  const today = new Date();
+  const twelveMonthsAgo = subMonths(today, 11);
+  const startOfInterval = startOfMonth(twelveMonthsAgo);
+
+  try {
+    const { data: checkIns, error } = await supabase
+      .from('check_ins')
+      .select('check_in_time')
+      .eq('member_table_id', memberDbId)
+      .gte('check_in_time', startOfInterval.toISOString());
+    
+    if (error) {
+      throw error;
+    }
+
+    const monthsInterval = eachMonthOfInterval({
+      start: startOfInterval,
+      end: today,
+    });
+
+    const monthlyData = monthsInterval.map(monthDate => ({
+      month: format(monthDate, 'MMM'),
+      count: 0,
+    }));
+    
+    const monthlyMap = new Map<string, number>();
+    monthlyData.forEach(m => monthlyMap.set(m.month, 0));
+
+    if (checkIns) {
+      for (const checkIn of checkIns) {
+        const monthName = format(parseISO(checkIn.check_in_time), 'MMM');
+        if (monthlyMap.has(monthName)) {
+          monthlyMap.set(monthName, (monthlyMap.get(monthName) || 0) + 1);
+        }
+      }
+    }
+
+    const finalData = monthlyData.map(m => ({
+        ...m,
+        count: monthlyMap.get(m.month) || 0,
+    }));
+    
+    return { data: finalData };
+  } catch (e: any) {
+    return { error: `Failed to fetch check-in history: ${e.message}` };
   }
 }
