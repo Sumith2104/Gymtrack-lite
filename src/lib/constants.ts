@@ -29,6 +29,11 @@ export const NAV_LINKS_HEADER: NavItem[] = [
     label: 'Messages',
   },
   {
+    href: '/analytics',
+    icon: BarChart3,
+    label: 'Analytics',
+  },
+  {
     href: '/new-announcement',
     icon: Megaphone,
     label: 'New Announce',
