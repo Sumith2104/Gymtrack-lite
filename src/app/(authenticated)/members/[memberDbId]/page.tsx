@@ -4,12 +4,14 @@ import { notFound } from 'next/navigation';
 import Image from 'next/image';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { User, Mail, Phone, Calendar, Shield, IndianRupee, Hash, BarChartHorizontal } from 'lucide-react';
+import { User, Mail, Phone, Calendar, Shield, IndianRupee, Hash, BarChartHorizontal, MessageSquare } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { format, parseISO, isValid, differenceInDays } from 'date-fns';
 import type { EffectiveMembershipStatus } from '@/lib/types';
 import { MemberCheckinHistoryChart } from '@/components/members/member-checkin-history-chart';
 import { BackButton } from '@/components/layout/back-button';
+import Link from 'next/link';
+import { Button } from '@/components/ui/button';
 
 function getEffectiveDisplayStatus(status: string, expiryDateStr: string | null): EffectiveMembershipStatus {
   if (status === 'expired' || status === 'expiring soon') {
@@ -76,8 +78,14 @@ export default async function MemberProfilePage({ params }: { params: { memberDb
             <div className="flex-1 text-center sm:text-left">
               <h1 className="text-3xl font-bold text-foreground">{member.name}</h1>
               <p className="text-lg text-muted-foreground">Member ID: {member.memberId}</p>
-              <div className="mt-2">
+              <div className="mt-4 flex flex-wrap items-center justify-center sm:justify-start gap-4">
                 <StatusBadge status={member.membershipStatus} expiryDate={member.expiryDate} />
+                <Link href={`/messages?memberId=${member.id}`}>
+                  <Button variant="outline">
+                    <MessageSquare className="mr-2 h-4 w-4" />
+                    Start a Chat
+                  </Button>
+                </Link>
               </div>
             </div>
           </div>
