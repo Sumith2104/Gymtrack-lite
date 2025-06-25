@@ -1,10 +1,11 @@
+
 'use client';
 
 import { useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
-import { User, Phone, Mail, MapPin, Send } from 'lucide-react';
+import { User, Phone, Mail, MapPin, Send, Building } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -28,6 +29,7 @@ import { useToast } from "@/hooks/use-toast";
 import { sendNewGymRequestEmailAction } from '@/app/actions/super-admin-actions';
 
 const requestSchema = z.object({
+  gymName: z.string().min(2, { message: 'Gym name must be at least 2 characters.' }),
   ownerName: z.string().min(2, { message: 'Owner name must be at least 2 characters.' }),
   phone: z.string().min(10, { message: 'A valid phone number is required.' }),
   email: z.string().email({ message: 'A valid email address is required.' }),
@@ -43,6 +45,7 @@ export function RequestGymDialog() {
   const form = useForm<RequestFormValues>({
     resolver: zodResolver(requestSchema),
     defaultValues: {
+      gymName: '',
       ownerName: '',
       phone: '',
       email: '',
@@ -85,6 +88,19 @@ export function RequestGymDialog() {
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-2">
+            <FormField
+              control={form.control}
+              name="gymName"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="flex items-center"><Building className="mr-2 h-4 w-4" />Gym Name</FormLabel>
+                  <FormControl>
+                    <Input placeholder="e.g., Steel Fitness" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
             <FormField
               control={form.control}
               name="ownerName"

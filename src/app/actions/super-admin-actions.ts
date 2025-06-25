@@ -1,3 +1,4 @@
+
 'use server';
 
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/server';
@@ -6,6 +7,7 @@ import { z } from 'zod';
 import { APP_NAME } from '@/lib/constants';
 
 const NewGymRequestSchema = z.object({
+  gymName: z.string().min(2, 'Gym name must be at least 2 characters.'),
   ownerName: z.string().min(2, 'Name must be at least 2 characters.'),
   phone: z.string().min(10, 'Please enter a valid phone number.'),
   email: z.string().email('Please enter a valid email address.'),
@@ -25,7 +27,7 @@ export async function sendNewGymRequestEmailAction(formData: NewGymRequestValues
     return { success: false, error: 'Validation failed. Please check your inputs.' };
   }
 
-  const { ownerName, phone, email, city } = validationResult.data;
+  const { gymName, ownerName, phone, email, city } = validationResult.data;
 
   const supabase = createSupabaseServiceRoleClient();
 
@@ -49,6 +51,7 @@ export async function sendNewGymRequestEmailAction(formData: NewGymRequestValues
       <p>A new request to create a gym has been submitted.</p>
       <p>Here are the details:</p>
       <ul>
+        <li><strong>Gym Name:</strong> ${gymName}</li>
         <li><strong>Owner's Name:</strong> ${ownerName}</li>
         <li><strong>Owner's Email:</strong> ${email}</li>
         <li><strong>Owner's Phone:</strong> ${phone}</li>
