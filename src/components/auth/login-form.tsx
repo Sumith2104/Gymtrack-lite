@@ -21,6 +21,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useToast } from "@/hooks/use-toast";
 import { verifyGymOwnerCredentials } from '@/app/auth/actions';
 import type { Gym } from '@/lib/types';
+import { RequestGymDialog } from './request-gym-dialog';
+import { Separator } from '../ui/separator';
 
 
 const loginSchema = z.object({
@@ -153,6 +155,10 @@ export function LoginForm() {
             </Button>
           </form>
         </Form>
+        <Separator className="my-6" />
+        <div className="text-center">
+          <RequestGymDialog />
+        </div>
       </CardContent>
     </Card>
   );
