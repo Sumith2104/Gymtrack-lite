@@ -96,8 +96,9 @@ export function CheckinForm({ className, onSuccessfulCheckin }: CheckinFormProps
 
     const actualCheckInTime = recordResponse.checkInTime;
 
+    // Fire-and-forget the email action. The UI doesn't need to wait for this.
     if (member.email && currentKioskGymName) {
-        await sendCheckInEmailAction(member, actualCheckInTime, currentKioskGymName);
+      sendCheckInEmailAction(member, actualCheckInTime, currentKioskGymName);
     }
 
     const formattedCheckinForDisplay: FormattedCheckIn = {
