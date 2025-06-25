@@ -72,6 +72,30 @@ export async function sendNewGymRequestEmailAction(formData: NewGymRequestValues
       return { success: false, error: `Failed to send request email: ${emailResult.message}` };
     }
 
+    // Now, send a confirmation email to the user who made the request.
+    const userConfirmationSubject = `Your ${APP_NAME} Request Has Been Received`;
+    const userConfirmationHtmlBody = `
+      <p>Hi ${ownerName},</p>
+      <p>Thank you for your interest in ${APP_NAME}. We have received your request to create a new gym account for "${gymName}".</p>
+      <p>Our team will review your information and get in touch with you soon to discuss the next steps.</p>
+      <p>We're excited about the possibility of you joining our platform!</p>
+      <br>
+      <p>Best regards,<br/>The ${APP_NAME} Team</p>
+    `;
+
+    // Send confirmation email to the user, also using default SMTP settings
+    const userEmailResult = await sendEmail({
+      to: email, // The user's email
+      subject: userConfirmationSubject,
+      htmlBody: userConfirmationHtmlBody,
+      gymDatabaseId: null, // Use default/super admin SMTP
+    });
+
+    if (!userEmailResult.success) {
+      // Log the error but don't fail the entire operation, as the primary request to admin succeeded.
+      console.warn(`[sendNewGymRequestEmailAction] Failed to send confirmation email to ${email}: ${userEmailResult.message}`);
+    }
+
     return { success: true };
 
   } catch (error) {
