@@ -14,7 +14,7 @@ const SMTP_PORT = parseInt(process.env.SMTP_PORT || '587', 10);
 const SMTP_USER = process.env.SMTP_USER;
 const SMTP_PASS = process.env.SMTP_PASS;
 
-const defaultTransporter = SMTP_HOST && SMTP_PORT && SMTP_USER && SMTP_PASS
+const envVarTransporter = SMTP_HOST && SMTP_PORT && SMTP_USER && SMTP_PASS
   ? nodemailer.createTransport({
       host: SMTP_HOST,
       port: SMTP_PORT,
@@ -25,15 +25,73 @@ const defaultTransporter = SMTP_HOST && SMTP_PORT && SMTP_USER && SMTP_PASS
       },
     })
   : null;
+const envVarFromEmail = process.env.SMTP_FROM_EMAIL || `"${APP_NAME}" <noreply@example.com>`;
+
+
+// New function to get the super admin transporter from DB
+async function getSuperAdminTransporter(): Promise<{transporter: Transporter; fromEmail: string} | null> {
+    try {
+        const supabase = createSupabaseServiceRoleClient();
+        // The image provided suggests there's a gym entry that holds the super admin SMTP config.
+        // Let's find the super admin's email first.
+        const { data: superAdmin, error: adminError } = await supabase
+            .from('super_admins')
+            .select('email')
+            .limit(1)
+            .single();
+        
+        if (adminError || !superAdmin) {
+            // No super admin configured in the DB.
+            return null; 
+        }
+        
+        // Now, find the gym owned by this super admin to get its SMTP settings.
+        const { data: gymSmtp, error: gymError } = await supabase
+            .from('gyms')
+            .select('app_host, port, app_email, app_pass, from_email')
+            .eq('owner_email', superAdmin.email)
+            .single();
+        
+        // If the super admin's gym or its settings are incomplete, we can't create a transporter.
+        if (gymError || !gymSmtp || !gymSmtp.app_host || !gymSmtp.port || !gymSmtp.app_email || !gymSmtp.app_pass) {
+            return null; 
+        }
+
+        const port = parseInt(gymSmtp.port, 10);
+        const superAdminTransporter = nodemailer.createTransport({
+            host: gymSmtp.app_host,
+            port: port,
+            secure: port === 465,
+            auth: {
+                user: gymSmtp.app_email,
+                pass: gymSmtp.app_pass,
+            },
+        });
+
+        const superAdminFromEmail = gymSmtp.from_email || gymSmtp.app_email;
+        return { transporter: superAdminTransporter, fromEmail: superAdminFromEmail };
+        
+    } catch (e) {
+        console.error(`[Email Service] Could not get Super Admin SMTP config from DB.`, e);
+        return null;
+    }
+}
+
 
 // Function to get a transporter, either gym-specific or default
 async function getTransporter(gymDatabaseId?: string | null): Promise<{transporter: Transporter | null, fromEmail: string}> {
-    const defaultFromEmail = process.env.SMTP_FROM_EMAIL || `"${APP_NAME}" <noreply@example.com>`;
+    
+    // Default settings are now fetched from DB first, then .env
+    const superAdminSettings = await getSuperAdminTransporter();
+    const defaultTransporter = superAdminSettings?.transporter || envVarTransporter;
+    const defaultFromEmail = superAdminSettings?.fromEmail || envVarFromEmail;
 
     if (!gymDatabaseId) {
+        // If no gymId is specified, we MUST use the default (super admin DB config or .env fallback)
         return { transporter: defaultTransporter, fromEmail: defaultFromEmail };
     }
 
+    // If a gymId IS provided, try to use its specific settings
     try {
         const supabase = createSupabaseServiceRoleClient();
         const { data: gymSmtp, error } = await supabase
@@ -42,8 +100,8 @@ async function getTransporter(gymDatabaseId?: string | null): Promise<{transport
             .eq('id', gymDatabaseId)
             .single();
 
+        // If gym-specific settings are incomplete, fall back to the defaults
         if (error || !gymSmtp || !gymSmtp.app_host || !gymSmtp.port || !gymSmtp.app_email || !gymSmtp.app_pass) {
-            // If any setting is missing, fall back to default
             return { transporter: defaultTransporter, fromEmail: defaultFromEmail };
         }
         
