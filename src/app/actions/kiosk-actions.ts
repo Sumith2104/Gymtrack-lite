@@ -26,7 +26,7 @@ function getEffectiveStatusForCheckin(member: Member): EffectiveMembershipStatus
 }
 
 function mapDbMemberToAppMember(dbMember: any): Member { 
-  const planDetails = dbMember.plans; 
+  const planDetails = dbMember.plans; // This may be null if we don't join
   return {
     id: dbMember.id,
     gymId: dbMember.gym_id,
@@ -40,7 +40,7 @@ function mapDbMemberToAppMember(dbMember: any): Member {
     phoneNumber: dbMember.phone_number,
     joinDate: dbMember.join_date,
     expiryDate: dbMember.expiry_date,
-    membershipType: planDetails?.plan_name as MembershipType || 'Other',
+    membershipType: dbMember.membership_type as MembershipType || 'Other',
     planPrice: planDetails?.price || 0,
   };
 }
@@ -52,9 +52,11 @@ export async function findMemberForCheckInAction(identifier: string, gymDatabase
   }
   const supabase = createSupabaseServerActionClient();
   try {
+    // Optimized: Removed the join on `plans` table to speed up the query.
+    // The necessary `membership_type` is already on the members table.
     const { data: dbMember, error } = await supabase
       .from('members')
-      .select('*, plans(plan_name, price, duration_months)') 
+      .select('*') 
       .eq('member_id', identifier)
       .eq('gym_id', gymDatabaseId)
       .single();
