@@ -1,7 +1,7 @@
 
 import { getMemberById } from '@/app/actions/member-actions';
 import { notFound } from 'next/navigation';
-import Image from 'next/image';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { User, Mail, Phone, Calendar, Shield, IndianRupee, Hash, BarChartHorizontal, MessageSquare } from 'lucide-react';
@@ -50,6 +50,25 @@ function InfoItem({ icon: Icon, label, value }: { icon: React.ElementType, label
   )
 }
 
+const getInitials = (name: string): string => {
+  if (!name) return '??';
+  const names = name.trim().split(/\s+/).filter(Boolean);
+  if (names.length === 0) return '??';
+
+  if (names.length > 1) {
+    const firstInitial = names[0][0];
+    const lastInitial = names[names.length - 1][0];
+    return (firstInitial + lastInitial).toUpperCase();
+  }
+  
+  if (names[0].length > 1) {
+    return names[0].substring(0, 2).toUpperCase();
+  }
+  
+  return names[0][0].toUpperCase();
+};
+
+
 export default async function MemberProfilePage({ params }: { params: { memberDbId: string } }) {
   const { data: member, error } = await getMemberById(params.memberDbId);
 
@@ -66,14 +85,12 @@ export default async function MemberProfilePage({ params }: { params: { memberDb
         <CardContent className="p-6">
           <div className="flex flex-col sm:flex-row items-center gap-6">
             <div className="relative">
-              <Image
-                src={member.profileUrl || "https://placehold.co/128x128.png"}
-                alt={`${member.name}'s profile picture`}
-                width={128}
-                height={128}
-                className="rounded-full border-4 border-primary/50 object-cover"
-                data-ai-hint="profile picture"
-              />
+                <Avatar className="h-32 w-32 border-4 border-primary/50">
+                    <AvatarImage src={member.profileUrl || ''} alt={`${member.name}'s profile picture`} data-ai-hint="profile picture" />
+                    <AvatarFallback className="text-4xl font-bold bg-muted text-muted-foreground">
+                        {getInitials(member.name)}
+                    </AvatarFallback>
+                </Avatar>
             </div>
             <div className="flex-1 text-center sm:text-left">
               <h1 className="text-3xl font-bold text-foreground">{member.name}</h1>

@@ -24,6 +24,24 @@ const formatDateGroupHeader = (date: Date): string => {
   return format(date, "MMMM d, yyyy");
 };
 
+const getInitials = (name: string): string => {
+  if (!name) return '??';
+  const names = name.trim().split(/\s+/).filter(Boolean);
+  if (names.length === 0) return '??';
+
+  if (names.length > 1) {
+    const firstInitial = names[0][0];
+    const lastInitial = names[names.length - 1][0];
+    return (firstInitial + lastInitial).toUpperCase();
+  }
+  
+  if (names[0].length > 1) {
+    return names[0].substring(0, 2).toUpperCase();
+  }
+  
+  return names[0][0].toUpperCase();
+};
+
 export function MessagesClientPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -150,8 +168,6 @@ export function MessagesClientPage() {
     }
     setIsSending(false);
   };
-
-  const getInitials = (name: string) => name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2);
 
   let lastProcessedDateString: string | null = null;
   
