@@ -67,13 +67,11 @@ import {
 
 
 const getEffectiveDisplayStatus = (member: Member): EffectiveMembershipStatus => {
-  // If the status is manually set to 'expired' or 'expiring soon', this takes precedence.
-  if (member.membershipStatus === 'expired' || member.membershipStatus === 'expiring soon') {
-    return member.membershipStatus;
+  if (member.membershipStatus === 'expired') {
+    return 'expired';
   }
 
-  // Otherwise (status is 'active'), we rely on the expiry date.
-  if (member.membershipStatus === 'active' && member.expiryDate) {
+  if (member.expiryDate) {
     const expiry = parseISO(member.expiryDate);
     if (isValid(expiry)) {
       const daysUntilExpiry = differenceInDays(expiry, new Date());
@@ -83,7 +81,7 @@ const getEffectiveDisplayStatus = (member: Member): EffectiveMembershipStatus =>
     }
   }
 
-  // Fallback for 'active' status without a valid date.
+  // Fallback for active status without a valid date or if status is not 'expired'.
   return 'active';
 };
 
@@ -390,10 +388,6 @@ export function MembersTable() {
                     <UserCheck className="mr-2 h-4 w-4 text-green-500" />
                     <span>Set to Active</span>
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleManualStatusUpdate(member, 'expiring soon')} disabled={member.membershipStatus === 'expiring soon'} className="text-orange-500 focus:text-orange-500 focus:bg-orange-500/10">
-                    <Clock className="mr-2 h-4 w-4" />
-                    <span>Set to Expiring Soon</span>
-                </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => handleManualStatusUpdate(member, 'expired')} disabled={member.membershipStatus === 'expired'} className="text-destructive focus:text-destructive focus:bg-destructive/10">
                     <CalendarClock className="mr-2 h-4 w-4" />
                     <span>Set to Expired</span>
@@ -619,10 +613,6 @@ export function MembersTable() {
                     <DropdownMenuItem onClick={() => handleBulkStatusUpdate('active')} disabled={selectedRowCount === 0}>
                         <UserCheck className="mr-2 h-4 w-4 text-green-500" />
                         Set selected to Active
-                    </DropdownMenuItem>
-                     <DropdownMenuItem onClick={() => handleBulkStatusUpdate('expiring soon')} disabled={selectedRowCount === 0} className="text-orange-500 focus:text-orange-500 focus:bg-orange-500/10">
-                        <Clock className="mr-2 h-4 w-4" />
-                        Set selected to Expiring Soon
                     </DropdownMenuItem>
                      <DropdownMenuItem onClick={() => handleBulkStatusUpdate('expired')} disabled={selectedRowCount === 0} className="text-destructive focus:text-destructive focus:bg-destructive/10">
                         <CalendarClock className="mr-2 h-4 w-4" />

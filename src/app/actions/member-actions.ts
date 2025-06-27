@@ -12,12 +12,10 @@ import { formatDateIST, parseValidISO } from '@/lib/date-utils';
 
 // Helper function to determine effective status
 function getEffectiveMembershipStatus(member: Pick<Member, 'membershipStatus' | 'expiryDate'>): EffectiveMembershipStatus {
-  // If the status is manually set to 'expired' or 'expiring soon', this takes precedence.
-  if (member.membershipStatus === 'expired' || member.membershipStatus === 'expiring soon') {
-    return member.membershipStatus;
+  if (member.membershipStatus === 'expired') {
+    return 'expired';
   }
 
-  // Otherwise (status is 'active'), we rely on the expiry date.
   if (member.membershipStatus === 'active' && member.expiryDate) {
     const expiry = parseValidISO(member.expiryDate);
     if (expiry && isValid(expiry)) {
@@ -335,8 +333,8 @@ export async function deleteMemberAction(memberDbId: string): Promise<{ success:
 
 export async function updateMemberStatusAction(memberDbId: string, newStatus: MembershipStatus): Promise<{ updatedMember?: Member; error?: string }> {
   if (!memberDbId || !newStatus) return { error: "Member ID and new status are required." };
-  if (newStatus !== 'active' && newStatus !== 'expired' && newStatus !== 'expiring soon') {
-    return { error: "Invalid status. Can only set to 'active', 'expired', or 'expiring soon'." };
+  if (newStatus !== 'active' && newStatus !== 'expired') {
+    return { error: "Invalid status. Can only set to 'active' or 'expired'." };
   }
 
   const supabase = createSupabaseServerActionClient();
@@ -365,9 +363,6 @@ export async function updateMemberStatusAction(memberDbId: string, newStatus: Me
       switch(newStatus) {
         case 'active':
           statusExplanation = 'Your membership has been set to <strong>Active</strong>. You can continue to enjoy all the facilities.';
-          break;
-        case 'expiring soon':
-          statusExplanation = 'Your membership has been marked as <strong>Expiring Soon</strong>. Please consider renewing your plan to avoid any interruption.';
           break;
         case 'expired':
           statusExplanation = 'Your membership has been set to <strong>Expired</strong>. Please visit the reception to renew your plan and regain access.';
@@ -430,8 +425,8 @@ export async function bulkUpdateMemberStatusAction(memberDbIds: string[], newSta
   if (!memberDbIds || memberDbIds.length === 0) {
     return { successCount: 0, errorCount: 0, emailSentCount: 0, error: "No member IDs provided for status update." };
   }
-  if (newStatus !== 'active' && newStatus !== 'expired' && newStatus !== 'expiring soon') {
-    return { successCount: 0, errorCount: memberDbIds.length, emailSentCount: 0, error: "Invalid status. Can only set to 'active', 'expired', or 'expiring soon'." };
+  if (newStatus !== 'active' && newStatus !== 'expired') {
+    return { successCount: 0, errorCount: memberDbIds.length, emailSentCount: 0, error: "Invalid status. Can only set to 'active' or 'expired'." };
   }
   
   const supabase = createSupabaseServerActionClient();
@@ -471,7 +466,6 @@ export async function bulkUpdateMemberStatusAction(memberDbIds: string[], newSta
     let statusExplanation = '';
     switch(newStatus) {
         case 'active': statusExplanation = 'Your membership has been set to <strong>Active</strong>. You can continue to enjoy all the facilities.'; break;
-        case 'expiring soon': statusExplanation = 'Your membership has been marked as <strong>Expiring Soon</strong>. Please consider renewing your plan to avoid any interruption.'; break;
         case 'expired': statusExplanation = 'Your membership has been set to <strong>Expired</strong>. Please visit the reception to renew your plan and regain access.'; break;
     }
 
