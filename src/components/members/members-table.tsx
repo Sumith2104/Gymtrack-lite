@@ -311,9 +311,11 @@ export function MembersTable() {
       cell: ({ row }) => {
         const memberId = row.getValue('memberId') as string;
         return (
+          <div className="text-center">
             <Link href={`/members/${row.original.id}`} className="hover:underline text-primary">
                 {memberId}
             </Link>
+          </div>
         )
       },
     },
@@ -355,7 +357,7 @@ export function MembersTable() {
         if (status === 'active') badgeClass = 'bg-green-500/20 text-green-700 border-green-500/30 hover:bg-green-500/30 dark:bg-green-500/10 dark:text-green-400 dark:border-green-500/20 dark:hover:bg-green-500/20';
         else if (status === 'expired') badgeClass = 'bg-red-500/20 text-red-700 border-red-500/30 hover:bg-red-500/30 dark:bg-red-500/10 dark:text-red-400 dark:border-red-500/20 dark:hover:bg-red-500/20'; 
         else if (status === 'expiring soon') badgeClass = 'bg-orange-500/20 text-orange-700 border-orange-500/30 hover:bg-orange-500/30 dark:bg-orange-500/10 dark:text-orange-400 dark:border-orange-500/20 dark:hover:bg-orange-500/20';
-        return <Badge variant="outline" className={`capitalize ${badgeClass}`}>{status}</Badge>;
+        return <div className="text-center"><Badge variant="outline" className={`capitalize ${badgeClass}`}>{status}</Badge></div>;
       },
       filterFn: (row, id, value) => value === 'all' || value.includes(getEffectiveDisplayStatus(row.original)),
     },
@@ -366,56 +368,58 @@ export function MembersTable() {
       cell: ({ row }) => {
         const member = row.original;
         return (
-          <AlertDialog>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="h-8 w-8 p-0">
-                  <span className="sr-only">Open menu</span>
-                  <MoreHorizontal className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuLabel>Member Actions</DropdownMenuLabel>
-                <DropdownMenuItem onClick={() => openEditDialog(member)}>
-                  <Edit3 className="mr-2 h-4 w-4" /> Edit Details
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleViewAttendance(member)}>
-                  <FileText className="mr-2 h-4 w-4" /> Attendance Summary
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuLabel>Manual Status</DropdownMenuLabel>
-                <DropdownMenuItem onClick={() => handleManualStatusUpdate(member, 'active')} disabled={member.membershipStatus === 'active'}>
-                    <UserCheck className="mr-2 h-4 w-4 text-green-500" />
-                    <span>Set to Active</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleManualStatusUpdate(member, 'expired')} disabled={member.membershipStatus === 'expired'} className="text-destructive focus:text-destructive focus:bg-destructive/10">
-                    <CalendarClock className="mr-2 h-4 w-4" />
-                    <span>Set to Expired</span>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <AlertDialogTrigger asChild>
-                  <DropdownMenuItem 
-                      onSelect={(e) => e.preventDefault()} 
-                      className="text-destructive focus:text-destructive focus:bg-destructive/10"
-                  >
-                    <Trash2 className="mr-2 h-4 w-4" /> Delete Member
+          <div className="text-center">
+            <AlertDialog>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="h-8 w-8 p-0">
+                    <span className="sr-only">Open menu</span>
+                    <MoreHorizontal className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuLabel>Member Actions</DropdownMenuLabel>
+                  <DropdownMenuItem onClick={() => openEditDialog(member)}>
+                    <Edit3 className="mr-2 h-4 w-4" /> Edit Details
                   </DropdownMenuItem>
-                </AlertDialogTrigger>
-              </DropdownMenuContent>
-            </DropdownMenu>
-            <AlertDialogContent>
-                <AlertDialogHeader>
-                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                <AlertDialogDescription>
-                    This action cannot be undone. This will permanently delete {member.name}.
-                </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={() => executeDeleteMember(member)} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
-                </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+                  <DropdownMenuItem onClick={() => handleViewAttendance(member)}>
+                    <FileText className="mr-2 h-4 w-4" /> Attendance Summary
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuLabel>Manual Status</DropdownMenuLabel>
+                  <DropdownMenuItem onClick={() => handleManualStatusUpdate(member, 'active')} disabled={member.membershipStatus === 'active'}>
+                      <UserCheck className="mr-2 h-4 w-4 text-green-500" />
+                      <span>Set to Active</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleManualStatusUpdate(member, 'expired')} disabled={member.membershipStatus === 'expired'} className="text-destructive focus:text-destructive focus:bg-destructive/10">
+                      <CalendarClock className="mr-2 h-4 w-4" />
+                      <span>Set to Expired</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <AlertDialogTrigger asChild>
+                    <DropdownMenuItem 
+                        onSelect={(e) => e.preventDefault()} 
+                        className="text-destructive focus:text-destructive focus:bg-destructive/10"
+                    >
+                      <Trash2 className="mr-2 h-4 w-4" /> Delete Member
+                    </DropdownMenuItem>
+                  </AlertDialogTrigger>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <AlertDialogContent>
+                  <AlertDialogHeader>
+                  <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                      This action cannot be undone. This will permanently delete {member.name}.
+                  </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={() => executeDeleteMember(member)} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
+                  </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
         );
       },
     },
