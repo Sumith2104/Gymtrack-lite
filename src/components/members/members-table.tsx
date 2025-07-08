@@ -303,7 +303,7 @@ export function MembersTable() {
     {
       accessorKey: 'name',
       header: ({ column }) => <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}>Name <CaretSortIcon className="ml-2 h-4 w-4" /></Button>,
-      cell: ({ row }) => <div className="font-semibold">{row.getValue('name')}</div>,
+      cell: ({ row }) => <div className="font-semibold pl-[5px]">{row.getValue('name')}</div>,
     },
     {
       accessorKey: 'memberId',
@@ -311,7 +311,7 @@ export function MembersTable() {
       cell: ({ row }) => {
         const memberId = row.getValue('memberId') as string;
         return (
-          <div className="text-center">
+          <div className="text-center relative -left-[20px]">
             <Link href={`/members/${row.original.id}`} className="hover:underline text-primary">
                 {memberId}
             </Link>
@@ -357,7 +357,7 @@ export function MembersTable() {
         if (status === 'active') badgeClass = 'bg-green-500/20 text-green-700 border-green-500/30 hover:bg-green-500/30 dark:bg-green-500/10 dark:text-green-400 dark:border-green-500/20 dark:hover:bg-green-500/20';
         else if (status === 'expired') badgeClass = 'bg-red-500/20 text-red-700 border-red-500/30 hover:bg-red-500/30 dark:bg-red-500/10 dark:text-red-400 dark:border-red-500/20 dark:hover:bg-red-500/20'; 
         else if (status === 'expiring soon') badgeClass = 'bg-orange-500/20 text-orange-700 border-orange-500/30 hover:bg-orange-500/30 dark:bg-orange-500/10 dark:text-orange-400 dark:border-orange-500/20 dark:hover:bg-orange-500/20';
-        return <div className="text-center"><Badge variant="outline" className={`capitalize ${badgeClass}`}>{status}</Badge></div>;
+        return <div className="text-center relative -left-[10px]"><Badge variant="outline" className={`capitalize ${badgeClass}`}>{status}</Badge></div>;
       },
       filterFn: (row, id, value) => value === 'all' || value.includes(getEffectiveDisplayStatus(row.original)),
     },
@@ -657,7 +657,7 @@ export function MembersTable() {
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
                 {headerGroup.headers.map((header) => (
-                  <TableHead key={header.id} className="whitespace-nowrap text-sm">
+                  <TableHead key={header.id}>
                     {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
                   </TableHead>
                 ))}
@@ -685,7 +685,7 @@ export function MembersTable() {
               table.getRowModel().rows.map((row) => (
                 <TableRow key={row.id} data-state={row.getIsSelected() && 'selected'}>
                   {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id} className="whitespace-nowrap text-sm">
+                    <TableCell key={cell.id}>
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </TableCell>
                   ))}
