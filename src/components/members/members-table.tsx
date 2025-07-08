@@ -363,7 +363,7 @@ export function MembersTable() {
     },
     {
       id: 'actions', 
-      header: 'Actions',
+      header: () => <div className="text-center">Actions</div>,
       enableHiding: false,
       cell: ({ row }) => {
         const member = row.original;
@@ -657,7 +657,7 @@ export function MembersTable() {
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
                 {headerGroup.headers.map((header) => (
-                  <TableHead key={header.id} className="whitespace-nowrap px-3 py-3 text-sm">
+                  <TableHead key={header.id} className="whitespace-nowrap text-sm">
                     {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
                   </TableHead>
                 ))}
@@ -669,7 +669,7 @@ export function MembersTable() {
                 Array.from({length: 5}).map((_, rowIndex) => (
                     <TableRow key={`skeleton-row-${rowIndex}`}>
                         {columns.map((_colDef, colIndex) => (
-                            <TableCell key={`skeleton-cell-row-${rowIndex}-col-${colIndex}`} className="px-3 py-3">
+                            <TableCell key={`skeleton-cell-row-${rowIndex}-col-${colIndex}`}>
                                 <Skeleton className="h-5 w-full" />
                             </TableCell>
                         ))}
@@ -685,7 +685,7 @@ export function MembersTable() {
               table.getRowModel().rows.map((row) => (
                 <TableRow key={row.id} data-state={row.getIsSelected() && 'selected'}>
                   {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id} className="whitespace-nowrap px-3 py-3 text-sm">
+                    <TableCell key={cell.id} className="whitespace-nowrap text-sm">
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </TableCell>
                   ))}
