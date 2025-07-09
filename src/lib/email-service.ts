@@ -32,43 +32,29 @@ const envVarFromEmail = process.env.SMTP_FROM_EMAIL || `"${APP_NAME}" <noreply@e
 async function getSuperAdminTransporter(): Promise<{transporter: Transporter; fromEmail: string} | null> {
     try {
         const supabase = createSupabaseServiceRoleClient();
-        // The image provided suggests there's a gym entry that holds the super admin SMTP config.
-        // Let's find the super admin's email first.
-        const { data: superAdmin, error: adminError } = await supabase
+        
+        const { data: superAdminSmtp, error: adminSmtpError } = await supabase
             .from('super_admins')
-            .select('email')
+            .select('smtp_host, smtp_port, smtp_username, smtp_pass, smtp_from')
             .limit(1)
             .single();
         
-        if (adminError || !superAdmin) {
-            // No super admin configured in the DB.
-            return null; 
-        }
-        
-        // Now, find the gym owned by this super admin to get its SMTP settings.
-        const { data: gymSmtp, error: gymError } = await supabase
-            .from('gyms')
-            .select('app_host, port, app_email, app_pass, from_email')
-            .eq('owner_email', superAdmin.email)
-            .single();
-        
-        // If the super admin's gym or its settings are incomplete, we can't create a transporter.
-        if (gymError || !gymSmtp || !gymSmtp.app_host || !gymSmtp.port || !gymSmtp.app_email || !gymSmtp.app_pass) {
-            return null; 
+        if (adminSmtpError || !superAdminSmtp || !superAdminSmtp.smtp_host || !superAdminSmtp.smtp_port || !superAdminSmtp.smtp_username || !superAdminSmtp.smtp_pass) {
+            return null; // No super admin SMTP configured or incomplete config.
         }
 
-        const port = parseInt(gymSmtp.port, 10);
+        const port = parseInt(superAdminSmtp.smtp_port, 10);
         const superAdminTransporter = nodemailer.createTransport({
-            host: gymSmtp.app_host,
+            host: superAdminSmtp.smtp_host,
             port: port,
             secure: port === 465,
             auth: {
-                user: gymSmtp.app_email,
-                pass: gymSmtp.app_pass,
+                user: superAdminSmtp.smtp_username,
+                pass: superAdminSmtp.smtp_pass,
             },
         });
 
-        const superAdminFromEmail = gymSmtp.from_email || gymSmtp.app_email;
+        const superAdminFromEmail = superAdminSmtp.smtp_from || superAdminSmtp.smtp_username;
         return { transporter: superAdminTransporter, fromEmail: superAdminFromEmail };
         
     } catch (e) {

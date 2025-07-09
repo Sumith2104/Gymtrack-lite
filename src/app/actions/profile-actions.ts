@@ -198,7 +198,7 @@ export async function getSuperAdminSmtpSettings(): Promise<{ data?: Partial<Smtp
   try {
     const { data: superAdmin, error: adminError } = await supabase
       .from('super_admins')
-      .select('email')
+      .select('smtp_host, smtp_port, smtp_username, smtp_from') // Don't select smtp_pass
       .limit(1)
       .single();
 
@@ -206,21 +206,11 @@ export async function getSuperAdminSmtpSettings(): Promise<{ data?: Partial<Smtp
       return { error: 'Super admin configuration not found.' };
     }
 
-    const { data: gymSmtp, error: gymError } = await supabase
-      .from('gyms')
-      .select('app_host, port, app_email, from_email')
-      .eq('owner_email', superAdmin.email)
-      .single();
-
-    if (gymError || !gymSmtp) {
-      return { error: 'Default SMTP settings not found for super admin.' };
-    }
-
     return { data: {
-        app_host: gymSmtp.app_host,
-        port: gymSmtp.port,
-        app_email: gymSmtp.app_email,
-        from_email: gymSmtp.from_email,
+        app_host: superAdmin.smtp_host,
+        port: superAdmin.smtp_port,
+        app_email: superAdmin.smtp_username, // Map smtp_username to app_email
+        from_email: superAdmin.smtp_from,
         app_pass: null // Never return the password
     }};
   } catch (e: any) {

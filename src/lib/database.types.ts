@@ -295,6 +295,11 @@ export interface Database {
           password_hash: string // text. Store hashed passwords securely
           created_at: string // timestamp with time zone, default now()
           updated_at: string | null // timestamp with time zone, default now()
+          smtp_username: string | null
+          smtp_pass: string | null
+          smtp_host: string | null
+          smtp_from: string | null
+          smtp_port: string | null
         }
         Insert: {
           id?: string
@@ -302,6 +307,11 @@ export interface Database {
           password_hash: string
           created_at?: string
           updated_at?: string | null
+          smtp_username?: string | null
+          smtp_pass?: string | null
+          smtp_host?: string | null
+          smtp_from?: string | null
+          smtp_port?: string | null
         }
         Update: {
           id?: string
@@ -309,6 +319,11 @@ export interface Database {
           password_hash?: string
           created_at?: string
           updated_at?: string | null
+          smtp_username?: string | null
+          smtp_pass?: string | null
+          smtp_host?: string | null
+          smtp_from?: string | null
+          smtp_port?: string | null
         }
         Relationships: []
       }
