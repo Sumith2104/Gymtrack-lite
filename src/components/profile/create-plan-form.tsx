@@ -197,7 +197,7 @@ export function CreatePlanForm() {
             {editingPlan ? `Editing Plan: ${editingPlan.name}` : 'Create New Plan'}
           </h3>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 p-4 border rounded-md bg-muted/20">
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 p-4 rounded-md bg-muted/20">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
@@ -287,16 +287,16 @@ export function CreatePlanForm() {
                 <Skeleton className="h-10 w-2/3 rounded-md" />
             </div>
           ) : fetchPlansError ? (
-             <div className="text-destructive flex items-center p-3 border border-destructive/50 bg-destructive/10 rounded-md">
+             <div className="text-destructive flex items-center p-3 border-destructive/50 bg-destructive/10 rounded-md">
                 <AlertCircle className="h-5 w-5 mr-2"/> 
                 <p>{fetchPlansError}</p>
             </div>
           ) : existingPlans.length === 0 ? (
-            <p className="text-muted-foreground text-sm p-3 border rounded-md bg-muted/20">
+            <p className="text-muted-foreground text-sm p-3 rounded-md bg-muted/20">
               {!currentGymDbId ? "Gym not identified." : "No active plans found for this gym. Create one above."}
             </p>
           ) : (
-            <ScrollArea className="h-[200px] w-full rounded-md border p-1">
+            <ScrollArea className="h-[200px] w-full rounded-md p-1">
               <ul className="space-y-1 p-3">
                 {existingPlans.map((plan) => (
                   <li key={plan.uuid} className="flex justify-between items-center p-2 rounded-md hover:bg-muted/30 text-sm">

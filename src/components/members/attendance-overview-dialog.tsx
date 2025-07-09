@@ -74,7 +74,7 @@ export function AttendanceOverviewDialog({
               Last 5 Recent Check-ins:
           </h4>
           {attendanceSummary.recentCheckIns.length > 0 ? (
-            <ScrollArea className="h-[150px] w-full rounded-md border p-3 bg-card">
+            <ScrollArea className="h-[150px] w-full rounded-md p-3 bg-card">
               <ul className="space-y-2">
                 {attendanceSummary.recentCheckIns.map((checkInDate, index) => (
                   <li key={index} className="text-xs text-muted-foreground">
@@ -84,7 +84,7 @@ export function AttendanceOverviewDialog({
               </ul>
             </ScrollArea>
           ) : (
-            <p className="text-sm text-muted-foreground p-3 bg-card rounded-md border">No recent check-in data available.</p>
+            <p className="text-sm text-muted-foreground p-3 bg-card rounded-md">No recent check-in data available.</p>
           )}
         </div>
       </div>

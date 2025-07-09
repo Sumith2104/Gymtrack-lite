@@ -240,7 +240,7 @@ export function MaintenanceSection() {
                             
                             <Separator />
 
-                            <div className="flex items-center justify-between p-3 border rounded-md bg-muted/30">
+                            <div className="flex items-center justify-between p-3 rounded-md bg-muted/30">
                                 <div>
                                     <h4 className="font-medium">Clear Application Cache</h4>
                                     <p className="text-sm text-muted-foreground">Forces a refresh of all cached application data.</p>
@@ -249,7 +249,7 @@ export function MaintenanceSection() {
                                     <Trash2 className="mr-2 h-4 w-4" /> Clear Cache
                                 </Button>
                             </div>
-                             <div className="flex items-center justify-between p-3 border rounded-md bg-muted/30">
+                             <div className="flex items-center justify-between p-3 rounded-md bg-muted/30">
                                 <div>
                                     <h4 className="font-medium">Re-sync All Data</h4>
                                     <p className="text-sm text-muted-foreground">Fetches the latest data from the server for all modules.</p>

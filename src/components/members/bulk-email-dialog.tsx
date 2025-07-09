@@ -129,7 +129,7 @@ export function BulkEmailDialog({ isOpen, onOpenChange, recipients, onSend }: Bu
                 control={form.control}
                 name="includeQrCode"
                 render={({ field }) => (
-                  <FormItem className="flex flex-row items-center space-x-3 space-y-0 rounded-md border p-3 shadow-sm bg-muted/50">
+                  <FormItem className="flex flex-row items-center space-x-3 space-y-0 rounded-md p-3 shadow-sm bg-muted/50">
                     <FormControl>
                       <Checkbox
                         checked={field.value}

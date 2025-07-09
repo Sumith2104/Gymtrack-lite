@@ -474,7 +474,7 @@ export function MembersTable() {
   const selectedRowCount = table.getFilteredSelectedRowModel().rows.length;
 
   return (
-    <div className="w-full space-y-4 p-4 md:p-6 bg-card rounded-lg border border-border shadow-sm">
+    <div className="w-full space-y-4 p-4 md:p-6 bg-card rounded-lg shadow-sm">
       <AddMemberDialog
         isOpen={isAddMemberDialogOpen}
         onOpenChange={setIsAddMemberDialogOpen}
@@ -651,7 +651,7 @@ export function MembersTable() {
         </div>
       </div>
 
-      <div className="rounded-md border overflow-x-auto"> 
+      <div className="rounded-md overflow-x-auto"> 
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
@@ -685,7 +685,7 @@ export function MembersTable() {
               table.getRowModel().rows.map((row) => (
                 <TableRow key={row.id} data-state={row.getIsSelected() && 'selected'}>
                   {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>
+                    <TableCell key={cell.id} style={{verticalAlign: 'middle', padding: '12px 16px', lineHeight: 1.5}}>
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </TableCell>
                   ))}
