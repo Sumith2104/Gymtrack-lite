@@ -21,7 +21,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useToast } from '@/hooks/use-toast';
 import type { FormattedCheckIn } from '@/lib/types';
 import { cn } from '@/lib/utils';
-import { findMemberForCheckInAction, recordCheckInAction, sendCheckInEmailAction } from '@/app/actions/kiosk-actions';
+import { findMemberForCheckInAction, recordCheckInAction } from '@/app/actions/kiosk-actions';
 import { QrScannerDialog } from './qr-scanner-dialog';
 
 const checkinSchema = z.object({
@@ -96,11 +96,6 @@ export function CheckinForm({ className, onSuccessfulCheckin }: CheckinFormProps
 
     const actualCheckInTime = recordResponse.checkInTime;
 
-    // Fire-and-forget the email action. The UI doesn't need to wait for this.
-    if (member.email && currentKioskGymName) {
-      sendCheckInEmailAction(member, actualCheckInTime, currentKioskGymName);
-    }
-
     const formattedCheckinForDisplay: FormattedCheckIn = {
       checkInRecordId: recordResponse.checkInRecordId,
       memberTableId: member.id,
@@ -141,7 +136,7 @@ export function CheckinForm({ className, onSuccessfulCheckin }: CheckinFormProps
       <Card className={cn("w-full shadow-xl bg-card rounded-lg", className)}>
         <CardHeader>
           <CardTitle className="text-xl font-semibold text-foreground/90">Check-in Form</CardTitle>
-          <CardDescription className="text-muted-foreground">Use your Member ID or QR code.</CardDescription>
+          <CardDescription className="text-muted-foreground">Use the member's ID or QR code.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <Form {...form}>
@@ -154,7 +149,7 @@ export function CheckinForm({ className, onSuccessfulCheckin }: CheckinFormProps
                     <FormLabel className="text-foreground/90 text-lg">Member ID</FormLabel>
                     <FormControl>
                       <Input 
-                        placeholder="Enter your Member ID" 
+                        placeholder="Enter member's ID" 
                         {...field} 
                         className="text-base h-auto py-4 px-4 bg-input text-foreground focus:ring-primary focus:ring-2 focus:border-primary" 
                       />
@@ -170,7 +165,7 @@ export function CheckinForm({ className, onSuccessfulCheckin }: CheckinFormProps
                     disabled={isProcessing || !currentGymDatabaseId}
                   >
                     {isProcessing ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <UserCheck className="mr-2 h-5 w-5" />}
-                    {isProcessing ? 'Signing In...' : 'Sign In'}
+                    {isProcessing ? 'Checking In...' : 'Check In Member'}
                   </Button>
                   <Button 
                     type="button" 

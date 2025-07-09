@@ -3,10 +3,7 @@
 
 import { createSupabaseServerActionClient } from '@/lib/supabase/server';
 import type { Member, FormattedCheckIn, CheckIn, MembershipType, MembershipStatus, EffectiveMembershipStatus } from '@/lib/types';
-import { sendEmail } from '@/lib/email-service';
-import { formatDateIST, parseValidISO } from '@/lib/date-utils'; 
 import { differenceInDays, isValid, parseISO, addHours, startOfToday, endOfToday } from 'date-fns';
-import { generateMotivationalQuote } from '@/ai/flows/generate-motivational-quote';
 
 
 function getEffectiveStatusForCheckin(member: Member): EffectiveMembershipStatus {
@@ -146,63 +143,6 @@ export async function recordCheckInAction(memberTableUuid: string, gymDatabaseId
   }
 }
 
-
-export async function sendCheckInEmailAction(
-  member: Member, 
-  checkInTimeISO: string, 
-  gymName: string
-): Promise<{ success: boolean; message: string }> {
-  if (!member.email) {
-    return { success: true, message: "No email address for member. Skipped check-in email." };
-  }
-
-  try {
-    const checkInTimeDate = parseValidISO(checkInTimeISO); 
-    if (!checkInTimeDate) {
-      return { success: false, message: "Invalid check-in time provided for email." };
-    }
-    const projectedCheckoutTime = addHours(checkInTimeDate, 2);
-
-    let quote = "Sweat now, shine later. Make every rep count!"; // Fallback quote
-    try {
-        if (member.memberId && member.name) {
-            const quoteResponse = await generateMotivationalQuote({ memberId: member.memberId, memberName: member.name });
-            if (quoteResponse.quote) {
-                quote = quoteResponse.quote;
-            }
-        }
-    } catch (aiError) {
-        // Non-critical error, log it and continue with the fallback quote
-        console.error("Failed to generate motivational quote, using fallback.", aiError);
-    }
-
-    const emailSubject = `Check-in Confirmed at ${gymName}!`;
-    const formattedCheckInTime = `${formatDateIST(checkInTimeDate, 'p')} (IST)`;
-    const formattedProjectedCheckoutTime = `${formatDateIST(projectedCheckoutTime, 'p')} (IST)`;
-    
-    const emailHtmlBody = `
-      <p style="font-size: 1.1em; color: #FFD700; font-weight: bold;">Hi ${member.name},</p>
-      <p>You've successfully checked in at ${gymName}!</p>
-      <p><strong>Check-in Time:</strong> ${formattedCheckInTime}</p>
-      <p><strong>Projected Check-out Time:</strong> ${formattedProjectedCheckoutTime}</p>
-      <p>Enjoy your workout!</p>
-      <hr style="border: none; border-top: 1px solid #444; margin: 20px 0;">
-      <p style="font-style: italic;">"${quote}"</p>
-      <br>
-      <p>Best regards,<br/>The ${gymName} Team</p>
-    `;
-
-    return await sendEmail({
-      to: member.email,
-      subject: emailSubject,
-      htmlBody: emailHtmlBody,
-      gymDatabaseId: member.gymId,
-    });
-
-  } catch (error: any) {
-    return { success: false, message: `Failed to process check-in email: ${error.message}` };
-  }
-}
 
 // Define a more specific type for the check-in payload with nested member details
 type DbCheckInWithMember = CheckIn & {

@@ -31,7 +31,7 @@ export default function KioskPage() {
             {kioskGymName ? `${kioskGymName} Check-in` : 'Member Check-in'}
           </h1>
           <p className="text-muted-foreground mt-1">
-            Enter your member ID or scan your QR code to sign in.
+            Enter the member's ID or scan their QR code to sign them in.
           </p>
           <div className="mt-3 h-1 w-24 bg-primary rounded-full"></div> {/* Removed mx-auto */}
         </div>
