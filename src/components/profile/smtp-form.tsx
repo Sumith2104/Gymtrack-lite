@@ -9,8 +9,8 @@ import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { Mail, Save } from 'lucide-react';
-import { getGymSmtpSettings, updateGymSmtpSettings } from '@/app/actions/profile-actions';
+import { Mail, Save, RefreshCw } from 'lucide-react';
+import { getGymSmtpSettings, updateGymSmtpSettings, getSuperAdminSmtpSettings } from '@/app/actions/profile-actions';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PasswordInput } from '../ui/password-input';
 
@@ -59,6 +59,26 @@ export function SmtpForm() {
         setIsLoading(false);
     }
   }, [gymDatabaseId, form, toast]);
+
+  const handleSetToDefault = async () => {
+    const response = await getSuperAdminSmtpSettings();
+    if (response.error || !response.data) {
+        toast({
+            variant: 'destructive',
+            title: 'Error fetching defaults',
+            description: response.error || 'Could not load default SMTP settings.'
+        });
+    } else {
+        form.reset({
+            app_email: response.data.app_email,
+            app_pass: '', // Password is never fetched, so it's always blank
+        });
+        toast({
+            title: 'Defaults Loaded',
+            description: 'Default SMTP settings have been loaded into the form. Please save to apply them.'
+        });
+    }
+  };
 
   async function onSubmit(data: SmtpFormValues) {
     if (!gymDatabaseId) {
@@ -123,9 +143,14 @@ export function SmtpForm() {
                 </FormItem>
               )}
             />
-            <Button type="submit" disabled={form.formState.isSubmitting}>
-                <Save className="mr-2 h-4 w-4" /> {form.formState.isSubmitting ? 'Saving...' : 'Save SMTP Settings'}
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button type="submit" disabled={form.formState.isSubmitting}>
+                  <Save className="mr-2 h-4 w-4" /> {form.formState.isSubmitting ? 'Saving...' : 'Save SMTP Settings'}
+              </Button>
+              <Button type="button" variant="outline" onClick={handleSetToDefault} disabled={form.formState.isSubmitting}>
+                  <RefreshCw className="mr-2 h-4 w-4" /> Set to Default
+              </Button>
+            </div>
           </form>
         </Form>
     </div>

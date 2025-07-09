@@ -193,6 +193,41 @@ export async function getGymSmtpSettings(gymDatabaseId: string): Promise<{ data?
   }
 }
 
+export async function getSuperAdminSmtpSettings(): Promise<{ data?: Partial<SmtpSettings>; error?: string }> {
+  const supabase = createSupabaseServiceRoleClient();
+  try {
+    const { data: superAdmin, error: adminError } = await supabase
+      .from('super_admins')
+      .select('email')
+      .limit(1)
+      .single();
+
+    if (adminError || !superAdmin) {
+      return { error: 'Super admin configuration not found.' };
+    }
+
+    const { data: gymSmtp, error: gymError } = await supabase
+      .from('gyms')
+      .select('app_host, port, app_email, from_email')
+      .eq('owner_email', superAdmin.email)
+      .single();
+
+    if (gymError || !gymSmtp) {
+      return { error: 'Default SMTP settings not found for super admin.' };
+    }
+
+    return { data: {
+        app_host: gymSmtp.app_host,
+        port: gymSmtp.port,
+        app_email: gymSmtp.app_email,
+        from_email: gymSmtp.from_email,
+        app_pass: null // Never return the password
+    }};
+  } catch (e: any) {
+    return { error: e.message || 'Failed to fetch default SMTP settings.' };
+  }
+}
+
 export async function updateGymSmtpSettings(gymDatabaseId: string, settings: Partial<SmtpSettings>): Promise<{ success: boolean; error?: string }> {
   if (!gymDatabaseId) {
     return { success: false, error: 'Gym ID not provided.' };
