@@ -10,9 +10,20 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDes
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { Mail, Save, RefreshCw } from 'lucide-react';
-import { getGymSmtpSettings, updateGymSmtpSettings, getSuperAdminSmtpSettings } from '@/app/actions/profile-actions';
+import { getGymSmtpSettings, updateGymSmtpSettings, revertToDefaultSmtpSettings } from '@/app/actions/profile-actions';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PasswordInput } from '../ui/password-input';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 const smtpFormSchema = z.object({
   app_email: z.string().email({ message: "Please enter a valid email address." }).optional().or(z.literal('')),
@@ -25,6 +36,7 @@ export function SmtpForm() {
   const { toast } = useToast();
   const [gymDatabaseId, setGymDatabaseId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
 
   const form = useForm<SmtpFormValues>({
     resolver: zodResolver(smtpFormSchema),
@@ -60,24 +72,28 @@ export function SmtpForm() {
     }
   }, [gymDatabaseId, form, toast]);
 
-  const handleSetToDefault = async () => {
-    const response = await getSuperAdminSmtpSettings();
-    if (response.error || !response.data) {
+  const handleConfirmSetToDefault = async () => {
+    if (!gymDatabaseId) return;
+
+    const response = await revertToDefaultSmtpSettings(gymDatabaseId);
+    if (response.success) {
         toast({
-            variant: 'destructive',
-            title: 'Error fetching defaults',
-            description: response.error || 'Could not load default SMTP settings.'
+            title: 'Settings Reverted',
+            description: 'Your SMTP settings have been reverted to the system default.'
+        });
+        // Update form state to reflect the change
+        form.reset({
+            app_email: response.data?.app_email || '',
+            app_pass: '', // Always clear password field
         });
     } else {
-        form.reset({
-            app_email: response.data.app_email,
-            app_pass: '', // Password is never fetched, so it's always blank
-        });
         toast({
-            title: 'Defaults Loaded',
-            description: 'Default SMTP settings have been loaded into the form. Please save to apply them.'
+            variant: 'destructive',
+            title: 'Error Reverting Settings',
+            description: response.error
         });
     }
+    setIsConfirmOpen(false);
   };
 
   async function onSubmit(data: SmtpFormValues) {
@@ -113,46 +129,62 @@ export function SmtpForm() {
   }
 
   return (
-    <div>
-       <h4 className="font-medium text-foreground flex items-center mb-2">
-          <Mail className="mr-2 h-4 w-4 text-primary" /> SMTP (Email Sending) Settings
-      </h4>
-      <p className="text-sm text-muted-foreground mb-4">Configure your own email server to send emails to members. 'From' address will be same as username. Leave fields blank to use the system default.</p>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="app_email"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>SMTP Username/Email</FormLabel>
-                  <FormControl><Input placeholder="your-email@example.com" {...field} value={field.value ?? ''} /></FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-             <FormField
-              control={form.control}
-              name="app_pass"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>SMTP App Password</FormLabel>
-                  <FormControl><PasswordInput placeholder="Enter new password to update" {...field} value={field.value ?? ''} /></FormControl>
-                  <FormDescription>Leave this field blank to keep your current password.</FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <div className="flex items-center gap-2">
-              <Button type="submit" disabled={form.formState.isSubmitting}>
-                  <Save className="mr-2 h-4 w-4" /> {form.formState.isSubmitting ? 'Saving...' : 'Save SMTP Settings'}
-              </Button>
-              <Button type="button" variant="outline" onClick={handleSetToDefault} disabled={form.formState.isSubmitting}>
-                  <RefreshCw className="mr-2 h-4 w-4" /> Set to Default
-              </Button>
-            </div>
-          </form>
-        </Form>
-    </div>
+    <AlertDialog open={isConfirmOpen} onOpenChange={setIsConfirmOpen}>
+      <div>
+        <h4 className="font-medium text-foreground flex items-center mb-2">
+            <Mail className="mr-2 h-4 w-4 text-primary" /> SMTP (Email Sending) Settings
+        </h4>
+        <p className="text-sm text-muted-foreground mb-4">Configure your own email server to send emails to members. 'From' address will be same as username. Leave fields blank to use the system default.</p>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <FormField
+                control={form.control}
+                name="app_email"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>SMTP Username/Email</FormLabel>
+                    <FormControl><Input placeholder="your-email@example.com" {...field} value={field.value ?? ''} /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="app_pass"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>SMTP App Password</FormLabel>
+                    <FormControl><PasswordInput placeholder="Enter new password to update" {...field} value={field.value ?? ''} /></FormControl>
+                    <FormDescription>Leave this field blank to keep your current password.</FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <div className="flex items-center gap-2">
+                <Button type="submit" disabled={form.formState.isSubmitting}>
+                    <Save className="mr-2 h-4 w-4" /> {form.formState.isSubmitting ? 'Saving...' : 'Save SMTP Settings'}
+                </Button>
+                <AlertDialogTrigger asChild>
+                    <Button type="button" variant="outline" disabled={form.formState.isSubmitting}>
+                        <RefreshCw className="mr-2 h-4 w-4" /> Set to Default
+                    </Button>
+                </AlertDialogTrigger>
+              </div>
+            </form>
+          </Form>
+      </div>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+          <AlertDialogDescription>
+            This will overwrite your current custom SMTP settings with the system's default values. This action cannot be undone.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogAction onClick={handleConfirmSetToDefault}>Confirm</AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }

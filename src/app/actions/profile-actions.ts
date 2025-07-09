@@ -258,6 +258,48 @@ export async function updateGymSmtpSettings(gymDatabaseId: string, settings: Par
   }
 }
 
+export async function revertToDefaultSmtpSettings(gymDatabaseId: string): Promise<{ success: boolean; error?: string; data?: { app_email: string | null } }> {
+  if (!gymDatabaseId) {
+    return { success: false, error: 'Gym ID not provided.' };
+  }
+  const supabase = createSupabaseServiceRoleClient();
+  try {
+    // 1. Get default settings from super_admins, including password
+    const { data: superAdmin, error: adminError } = await supabase
+      .from('super_admins')
+      .select('smtp_host, smtp_port, smtp_username, smtp_pass, smtp_from') // Select all fields
+      .limit(1)
+      .single();
+
+    if (adminError || !superAdmin) {
+      return { success: false, error: 'Could not load default SMTP configuration from the system.' };
+    }
+
+    // 2. Prepare update payload for the gym
+    const updatePayload = {
+      app_host: superAdmin.smtp_host,
+      port: superAdmin.smtp_port,
+      app_email: superAdmin.smtp_username,
+      app_pass: superAdmin.smtp_pass, // Directly copy the password
+      from_email: superAdmin.smtp_from,
+    };
+
+    // 3. Update the gym's settings with the default values
+    const { error: updateError } = await supabase
+      .from('gyms')
+      .update(updatePayload)
+      .eq('id', gymDatabaseId);
+
+    if (updateError) {
+      return { success: false, error: `Failed to update gym settings: ${updateError.message}` };
+    }
+
+    return { success: true, data: { app_email: updatePayload.app_email } };
+  } catch (e: any) {
+    return { success: false, error: e.message || 'An unexpected error occurred while reverting settings.' };
+  }
+}
+
 
 export async function updateOwnerEmail(gymDatabaseId: string, newEmail: string): Promise<{ success: boolean; error?: string }> {
   if (!gymDatabaseId) {
