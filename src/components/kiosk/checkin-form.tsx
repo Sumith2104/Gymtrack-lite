@@ -138,7 +138,7 @@ export function CheckinForm({ className, onSuccessfulCheckin }: CheckinFormProps
 
   return (
     <>
-      <Card className={cn("w-full shadow-xl bg-card border-border rounded-lg", className)}>
+      <Card className={cn("w-full shadow-xl bg-card rounded-lg", className)}>
         <CardHeader>
           <CardTitle className="text-xl font-semibold text-foreground/90">Check-in Form</CardTitle>
           <CardDescription className="text-muted-foreground">Use your Member ID or QR code.</CardDescription>
@@ -157,7 +157,6 @@ export function CheckinForm({ className, onSuccessfulCheckin }: CheckinFormProps
                         placeholder="Enter your Member ID" 
                         {...field} 
                         className="text-base h-auto py-4 px-4 bg-input text-foreground focus:ring-primary focus:ring-2 focus:border-primary" 
-                        autoFocus 
                       />
                     </FormControl>
                     <FormMessage />
