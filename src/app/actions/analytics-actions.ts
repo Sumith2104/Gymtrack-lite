@@ -10,7 +10,9 @@ import {
   parseISO, 
   startOfYear, 
   endOfYear, 
-  startOfToday, 
+  startOfToday,
+  startOfDay,
+  endOfDay, 
   eachDayOfInterval,
   eachMonthOfInterval,
   eachYearOfInterval,
@@ -133,10 +135,7 @@ export async function getNewMembersYearly(gymDatabaseId: string): Promise<{ data
 // --- Data Export (CSV) Logic ---
 const dataRequestSchema = z.object({
   reportType: z.string().min(1, 'Report type is required.'),
-  dateRange: z.object({
-    from: z.date(),
-    to: z.date(),
-  }),
+  date: z.date({ required_error: 'Please select a date.' }),
 });
 
 export type DataRequestFormValues = z.infer<typeof dataRequestSchema>;
@@ -179,21 +178,24 @@ export async function generateDataReportAction(
     return { error: 'Gym ID is missing. Cannot generate report.' };
   }
   
-  const { reportType, dateRange } = validationResult.data;
+  const { reportType, date } = validationResult.data;
   const supabase = createSupabaseServerActionClient();
 
   try {
     let records: any[] = [];
     let headers: string[] = [];
+    
+    const dayStart = startOfDay(date);
+    const dayEnd = endOfDay(date);
 
     switch (reportType) {
-      case 'check_in_history': {
+      case 'check_in_details': {
         const { data, error } = await supabase
           .from('check_ins')
           .select('check_in_time, check_out_time, members(name, member_id)')
           .eq('gym_id', gymDatabaseId)
-          .gte('check_in_time', dateRange.from.toISOString())
-          .lte('check_in_time', dateRange.to.toISOString())
+          .gte('check_in_time', dayStart.toISOString())
+          .lte('check_in_time', dayEnd.toISOString())
           .order('check_in_time', { ascending: false });
 
         if (error) throw new Error(`DB Error: ${error.message}`);
@@ -208,13 +210,13 @@ export async function generateDataReportAction(
         break;
       }
 
-      case 'payment_records': {
+      case 'members_joined': {
         const { data, error } = await supabase
           .from('members')
           .select('name, member_id, join_date, membership_type, plans(price)')
           .eq('gym_id', gymDatabaseId)
-          .gte('join_date', dateRange.from.toISOString())
-          .lte('join_date', dateRange.to.toISOString())
+          .gte('join_date', dayStart.toISOString())
+          .lte('join_date', dayEnd.toISOString())
           .order('join_date', { ascending: false });
         
         if (error) throw new Error(`DB Error: ${error.message}`);
