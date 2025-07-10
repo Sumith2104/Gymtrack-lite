@@ -5,8 +5,9 @@ import { useState, useEffect } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
-import { format } from 'date-fns';
+import { format, addDays } from 'date-fns';
 import { CalendarIcon, Download, Database, Users, Receipt } from 'lucide-react';
+import type { DateRange } from 'react-day-picker';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -36,16 +37,21 @@ const dataRequestSchema = z.object({
   reportType: z.string({
     required_error: 'Please select a report type.',
   }),
-  date: z.date({
-    required_error: 'A date is required.',
+  dateRange: z.object({
+    from: z.date({ required_error: 'A start date is required.' }),
+    to: z.date({ required_error: 'An end date is required.' }),
+  }).refine((data) => data.from <= data.to, {
+    message: "Start date cannot be after end date.",
+    path: ["from"],
   }),
 });
+
 
 type DataRequestFormValues = z.infer<typeof dataRequestSchema>;
 
 const reportTypes = [
   { value: 'check_in_details', label: 'Check-in Details', icon: Users },
-  { value: 'members_joined', label: 'All Members Joined', icon: Receipt },
+  { value: 'members_joined', label: 'Members Joined', icon: Receipt },
 ];
 
 export function DataRequestForm() {
@@ -59,7 +65,10 @@ export function DataRequestForm() {
   const form = useForm<DataRequestFormValues>({
     resolver: zodResolver(dataRequestSchema),
     defaultValues: {
-      date: new Date(),
+      dateRange: {
+        from: addDays(new Date(), -7),
+        to: new Date(),
+      }
     },
   });
 
@@ -147,46 +156,52 @@ export function DataRequestForm() {
                 />
 
                 <FormField
-                control={form.control}
-                name="date"
-                render={({ field }) => (
-                  <FormItem className="flex flex-col">
-                    <FormLabel>Date</FormLabel>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <FormControl>
+                  control={form.control}
+                  name="dateRange"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-col">
+                      <FormLabel>Date range</FormLabel>
+                      <Popover>
+                        <PopoverTrigger asChild>
                           <Button
-                            variant={'outline'}
+                            id="date"
+                            variant={"outline"}
                             className={cn(
-                              'w-full pl-3 text-left font-normal',
-                              !field.value && 'text-muted-foreground'
+                              "w-full justify-start text-left font-normal",
+                              !field.value && "text-muted-foreground"
                             )}
                           >
-                            {field.value ? (
-                              format(field.value, 'PPP')
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {field.value?.from ? (
+                              field.value.to ? (
+                                <>
+                                  {format(field.value.from, "LLL dd, y")} -{" "}
+                                  {format(field.value.to, "LLL dd, y")}
+                                </>
+                              ) : (
+                                format(field.value.from, "LLL dd, y")
+                              )
                             ) : (
                               <span>Pick a date</span>
                             )}
-                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
                           </Button>
-                        </FormControl>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                          mode="single"
-                          selected={field.value}
-                          onSelect={field.onChange}
-                          disabled={(date) =>
-                            date > new Date() || date < new Date('1900-01-01')
-                          }
-                          initialFocus
-                        />
-                      </PopoverContent>
-                    </Popover>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            initialFocus
+                            mode="range"
+                            defaultMonth={field.value?.from}
+                            selected={field.value}
+                            onSelect={field.onChange}
+                            numberOfMonths={2}
+                            disabled={(date) => date > new Date()}
+                          />
+                        </PopoverContent>
+                      </Popover>
+                       <FormMessage />
+                    </FormItem>
+                  )}
+                />
             </div>
 
             <div className="flex justify-end">
