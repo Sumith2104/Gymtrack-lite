@@ -19,9 +19,12 @@ import {
   endOfMonth,
   isValid
 } from 'date-fns';
-import { createSupabaseServerActionClient } from '@/lib/supabase/server';
+import { createSupabaseServerActionClient, createSupabaseServiceRoleClient } from '@/lib/supabase/server';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@/lib/database.types';
+import { sendEmail } from '@/lib/email-service';
+import { APP_NAME } from '@/lib/constants';
+import * as z from 'zod';
 
 // Helper to get gym creation date
 async function getGymCreationDate(gymDatabaseId: string, supabase: SupabaseClient<Database>): Promise<Date | null> {
@@ -130,4 +133,80 @@ export async function getNewMembersYearly(gymDatabaseId: string): Promise<{ data
 // Helper function to check date validity (already in date-utils, but good for local reference if needed)
 function isValidDate(d: any): d is Date {
   return d instanceof Date && !isNaN(d.getTime());
+}
+
+const dataRequestSchema = z.object({
+  reportType: z.string().min(1, 'Report type is required.'),
+  dateRange: z.object({
+    from: z.date(),
+    to: z.date(),
+  }),
+  description: z.string().max(500, 'Description must be 500 characters or less.').optional(),
+});
+
+export type DataRequestFormValues = z.infer<typeof dataRequestSchema>;
+
+interface DataRequestResponse {
+  success: boolean;
+  error?: string;
+}
+
+export async function requestDataReportAction(
+  formData: DataRequestFormValues,
+  gymName: string,
+  ownerEmail: string
+): Promise<DataRequestResponse> {
+  const validationResult = dataRequestSchema.safeParse(formData);
+  if (!validationResult.success) {
+    return { success: false, error: 'Validation failed. Please check your inputs.' };
+  }
+
+  const { reportType, dateRange, description } = validationResult.data;
+  
+  const supabase = createSupabaseServiceRoleClient();
+  try {
+    const { data: superAdmin, error: adminError } = await supabase
+      .from('super_admins')
+      .select('email')
+      .limit(1)
+      .single();
+
+    if (adminError || !superAdmin?.email) {
+      return { success: false, error: 'Could not find an administrator to send the request to.' };
+    }
+
+    const emailSubject = `New Data Report Request from ${gymName} via ${APP_NAME}`;
+    const emailHtmlBody = `
+      <p>A new data report request has been submitted by a gym owner.</p>
+      <p><strong>Gym Name:</strong> ${gymName}</p>
+      <p><strong>Owner Email:</strong> ${ownerEmail}</p>
+      <hr>
+      <h3>Request Details:</h3>
+      <ul>
+        <li><strong>Report Type:</strong> ${reportType}</li>
+        <li><strong>Start Date:</strong> ${format(dateRange.from, 'PPP')}</li>
+        <li><strong>End Date:</strong> ${format(dateRange.to, 'PPP')}</li>
+        <li><strong>Owner's Description:</strong></li>
+        <p>${description || 'No additional details provided.'}</p>
+      </ul>
+      <p>Please process this request and contact the gym owner directly.</p>
+    `;
+
+    const emailResult = await sendEmail({
+      to: superAdmin.email,
+      subject: emailSubject,
+      htmlBody: emailHtmlBody,
+      gymDatabaseId: null, // Use default system emailer
+    });
+
+    if (!emailResult.success) {
+      return { success: false, error: `Failed to send request email: ${emailResult.message}` };
+    }
+
+    return { success: true };
+
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred.';
+    return { success: false, error: `Server error: ${errorMessage}` };
+  }
 }

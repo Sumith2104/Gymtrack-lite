@@ -2,7 +2,9 @@
 import { Suspense } from 'react';
 import { AnalyticsClientPage } from './analytics-client-page';
 import { Skeleton } from '@/components/ui/skeleton';
-import { BarChart3 } from 'lucide-react';
+import { BarChart3, Database } from 'lucide-react';
+import { DataRequestForm } from '@/components/analytics/data-request-form';
+import { Separator } from '@/components/ui/separator';
 
 export default function AnalyticsPage() {
   return (
@@ -20,6 +22,10 @@ export default function AnalyticsPage() {
       <Suspense fallback={<AnalyticsSkeleton />}>
         <AnalyticsClientPage />
       </Suspense>
+
+      <Separator />
+
+      <DataRequestForm />
     </div>
   );
 }
@@ -29,7 +35,9 @@ function AnalyticsSkeleton() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <Skeleton className="h-[400px] w-full rounded-lg" />
             <Skeleton className="h-[400px] w-full rounded-lg" />
-            <Skeleton className="h-[400px] w-full rounded-lg lg:col-span-2" />
+            <div className="lg:col-span-2">
+                <Skeleton className="h-[400px] w-full rounded-lg" />
+            </div>
         </div>
     )
 }
