@@ -6,7 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
 import { format, subDays } from 'date-fns';
-import { CalendarIcon, Send, Database, FileText, Users, Receipt } from 'lucide-react';
+import { CalendarIcon, Download, Database, Users, Receipt } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -25,10 +25,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { requestDataReportAction } from '@/app/actions/analytics-actions';
+import { generateDataReportAction } from '@/app/actions/analytics-actions';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
 import { Calendar } from '@/components/ui/calendar';
@@ -45,29 +44,25 @@ const dataRequestSchema = z.object({
     },
     { required_error: 'Please select a date range.' }
   ),
-  description: z.string().max(500, 'Description must be 500 characters or less.').optional(),
 });
 
 type DataRequestFormValues = z.infer<typeof dataRequestSchema>;
 
 const reportTypes = [
   { value: 'check_in_history', label: 'Member Check-in History', icon: Users },
-  { value: 'payment_records', label: 'Payment Records', icon: Receipt },
-  { value: 'custom_request', label: 'Custom Request', icon: FileText },
+  { value: 'payment_records', label: 'New Member Payments', icon: Receipt },
 ];
 
 export function DataRequestForm() {
   const { toast } = useToast();
-  const [gymName, setGymName] = useState<string | null>(null);
-  const [ownerEmail, setOwnerEmail] = useState<string | null>(null);
+  const [gymDatabaseId, setGymDatabaseId] = useState<string | null>(null);
   const [date, setDate] = useState<DateRange | undefined>({
     from: subDays(new Date(), 29),
     to: new Date(),
   });
 
   useEffect(() => {
-    setGymName(localStorage.getItem('gymName'));
-    setOwnerEmail(localStorage.getItem('gymOwnerEmail'));
+    setGymDatabaseId(localStorage.getItem('gymDatabaseId'));
   }, []);
   
   const form = useForm<DataRequestFormValues>({
@@ -77,7 +72,6 @@ export function DataRequestForm() {
         from: subDays(new Date(), 29),
         to: new Date(),
       },
-      description: '',
     },
   });
   
@@ -87,33 +81,42 @@ export function DataRequestForm() {
     }
   }, [date, form]);
 
+  const downloadCSV = (csvData: string, reportType: string) => {
+    const blob = new Blob([csvData], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    const fileName = `${reportType}_${format(new Date(), 'yyyy-MM-dd')}.csv`;
+    link.setAttribute('href', url);
+    link.setAttribute('download', fileName);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   async function onSubmit(data: DataRequestFormValues) {
-    if (!gymName || !ownerEmail) {
+    if (!gymDatabaseId) {
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: 'Could not identify gym owner. Please log in again.',
+        description: 'Could not identify gym. Please log in again.',
       });
       return;
     }
 
-    const response = await requestDataReportAction(data, gymName, ownerEmail);
+    const response = await generateDataReportAction(data, gymDatabaseId);
 
-    if (response.success) {
+    if (response.csvData) {
+      downloadCSV(response.csvData, data.reportType);
       toast({
-        title: 'Request Sent!',
-        description: 'Your data report request has been sent to the administrator.',
-      });
-      form.reset();
-      setDate({
-        from: subDays(new Date(), 29),
-        to: new Date(),
+        title: 'Download Started!',
+        description: 'Your CSV report is being downloaded.',
       });
     } else {
       toast({
         variant: 'destructive',
-        title: 'Submission Failed',
-        description: response.error || 'Could not send your request. Please try again.',
+        title: 'Download Failed',
+        description: response.error || 'Could not generate your report. Please try again.',
       });
     }
   }
@@ -123,10 +126,10 @@ export function DataRequestForm() {
       <CardHeader>
         <CardTitle className="flex items-center">
           <Database className="mr-2 h-5 w-5 text-primary" />
-          Request Custom Data Report
+          Generate Data Report
         </CardTitle>
         <CardDescription>
-          Need specific data? Fill out the form below to request a custom report from the system admin.
+          Export your gym's data as a CSV file for analysis.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -208,35 +211,13 @@ export function DataRequestForm() {
                 )} />
             </div>
 
-            <FormField
-              control={form.control}
-              name="description"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Specific Details (Optional)</FormLabel>
-                  <FormControl>
-                    <Textarea
-                      placeholder="e.g., 'Please include member phone numbers in the check-in report.'"
-                      className="resize-none"
-                      rows={4}
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormDescription>
-                    Provide any additional details or specific columns you need in the report.
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
             <div className="flex justify-end">
               <Button type="submit" disabled={form.formState.isSubmitting}>
                 {form.formState.isSubmitting ? (
-                  'Sending...'
+                  'Generating...'
                 ) : (
                   <>
-                    <Send className="mr-2 h-4 w-4" /> Submit Request
+                    <Download className="mr-2 h-4 w-4" /> Generate & Download CSV
                   </>
                 )}
               </Button>

@@ -130,83 +130,119 @@ export async function getNewMembersYearly(gymDatabaseId: string): Promise<{ data
   }
 }
 
-// Helper function to check date validity (already in date-utils, but good for local reference if needed)
-function isValidDate(d: any): d is Date {
-  return d instanceof Date && !isNaN(d.getTime());
-}
-
+// --- Data Export (CSV) Logic ---
 const dataRequestSchema = z.object({
   reportType: z.string().min(1, 'Report type is required.'),
   dateRange: z.object({
     from: z.date(),
     to: z.date(),
   }),
-  description: z.string().max(500, 'Description must be 500 characters or less.').optional(),
 });
 
 export type DataRequestFormValues = z.infer<typeof dataRequestSchema>;
 
-interface DataRequestResponse {
-  success: boolean;
+interface DataReportResponse {
+  csvData?: string;
   error?: string;
 }
 
-export async function requestDataReportAction(
+// Helper to convert JSON array to CSV string
+function convertToCSV(data: any[], headers: string[]): string {
+  if (!data || data.length === 0) {
+    return '';
+  }
+  
+  const csvRows = [
+    headers.join(','), // Header row
+    ...data.map(row => 
+      headers.map(header => {
+        let cell = row[header] === null || row[header] === undefined ? '' : String(row[header]);
+        cell = cell.includes(',') ? `"${cell}"` : cell; // Escape commas
+        return cell;
+      }).join(',')
+    )
+  ];
+  
+  return csvRows.join('\n');
+}
+
+export async function generateDataReportAction(
   formData: DataRequestFormValues,
-  gymName: string,
-  ownerEmail: string
-): Promise<DataRequestResponse> {
+  gymDatabaseId: string
+): Promise<DataReportResponse> {
   const validationResult = dataRequestSchema.safeParse(formData);
   if (!validationResult.success) {
-    return { success: false, error: 'Validation failed. Please check your inputs.' };
+    return { error: 'Validation failed. Please check your inputs.' };
   }
 
-  const { reportType, dateRange, description } = validationResult.data;
+  if (!gymDatabaseId) {
+    return { error: 'Gym ID is missing. Cannot generate report.' };
+  }
   
-  const supabase = createSupabaseServiceRoleClient();
+  const { reportType, dateRange } = validationResult.data;
+  const supabase = createSupabaseServerActionClient();
+
   try {
-    const { data: superAdmin, error: adminError } = await supabase
-      .from('super_admins')
-      .select('email')
-      .limit(1)
-      .single();
+    let records: any[] = [];
+    let headers: string[] = [];
 
-    if (adminError || !superAdmin?.email) {
-      return { success: false, error: 'Could not find an administrator to send the request to.' };
+    switch (reportType) {
+      case 'check_in_history': {
+        const { data, error } = await supabase
+          .from('check_ins')
+          .select('check_in_time, check_out_time, members(name, member_id)')
+          .eq('gym_id', gymDatabaseId)
+          .gte('check_in_time', dateRange.from.toISOString())
+          .lte('check_in_time', dateRange.to.toISOString())
+          .order('check_in_time', { ascending: false });
+
+        if (error) throw new Error(`DB Error: ${error.message}`);
+        
+        headers = ['member_name', 'member_id', 'check_in_time', 'check_out_time'];
+        records = data.map(r => ({
+          member_name: r.members?.name || 'N/A',
+          member_id: r.members?.member_id || 'N/A',
+          check_in_time: format(parseISO(r.check_in_time), 'yyyy-MM-dd HH:mm:ss'),
+          check_out_time: r.check_out_time ? format(parseISO(r.check_out_time), 'yyyy-MM-dd HH:mm:ss') : 'N/A',
+        }));
+        break;
+      }
+
+      case 'payment_records': {
+        const { data, error } = await supabase
+          .from('members')
+          .select('name, member_id, join_date, membership_type, plans(price)')
+          .eq('gym_id', gymDatabaseId)
+          .gte('join_date', dateRange.from.toISOString())
+          .lte('join_date', dateRange.to.toISOString())
+          .order('join_date', { ascending: false });
+        
+        if (error) throw new Error(`DB Error: ${error.message}`);
+        
+        headers = ['member_name', 'member_id', 'join_date', 'plan_name', 'plan_price'];
+        records = data.map(r => ({
+          member_name: r.name,
+          member_id: r.member_id,
+          join_date: r.join_date ? format(parseISO(r.join_date), 'yyyy-MM-dd') : 'N/A',
+          plan_name: r.membership_type,
+          plan_price: r.plans?.price ?? 0,
+        }));
+        break;
+      }
+      
+      default:
+        return { error: 'Invalid report type specified.' };
+    }
+    
+    if (records.length === 0) {
+      return { error: 'No data found for the selected criteria.' };
     }
 
-    const emailSubject = `New Data Report Request from ${gymName} via ${APP_NAME}`;
-    const emailHtmlBody = `
-      <p>A new data report request has been submitted by a gym owner.</p>
-      <p><strong>Gym Name:</strong> ${gymName}</p>
-      <p><strong>Owner Email:</strong> ${ownerEmail}</p>
-      <hr>
-      <h3>Request Details:</h3>
-      <ul>
-        <li><strong>Report Type:</strong> ${reportType}</li>
-        <li><strong>Start Date:</strong> ${format(dateRange.from, 'PPP')}</li>
-        <li><strong>End Date:</strong> ${format(dateRange.to, 'PPP')}</li>
-        <li><strong>Owner's Description:</strong></li>
-        <p>${description || 'No additional details provided.'}</p>
-      </ul>
-      <p>Please process this request and contact the gym owner directly.</p>
-    `;
-
-    const emailResult = await sendEmail({
-      to: superAdmin.email,
-      subject: emailSubject,
-      htmlBody: emailHtmlBody,
-      gymDatabaseId: null, // Use default system emailer
-    });
-
-    if (!emailResult.success) {
-      return { success: false, error: `Failed to send request email: ${emailResult.message}` };
-    }
-
-    return { success: true };
+    const csvData = convertToCSV(records, headers);
+    return { csvData };
 
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred.';
-    return { success: false, error: `Server error: ${errorMessage}` };
+    return { error: `Server error: ${errorMessage}` };
   }
 }
