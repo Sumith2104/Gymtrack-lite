@@ -327,6 +327,39 @@ export interface Database {
         }
         Relationships: []
       }
+      gym_requests: {
+        Row: {
+          id: string; // uuid
+          gym_name: string;
+          owner_name: string;
+          email: string;
+          phone: string;
+          city: string;
+          status: string; // e.g., 'pending', 'approved', 'rejected'
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          gym_name: string;
+          owner_name: string;
+          email: string;
+          phone: string;
+          city: string;
+          status?: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          gym_name?: string;
+          owner_name?: string;
+          email?: string;
+          phone?: string;
+          city?: string;
+          status?: string;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
     }
     Views: {
       [_ in never]: never

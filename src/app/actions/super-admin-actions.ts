@@ -32,7 +32,25 @@ export async function sendNewGymRequestEmailAction(formData: NewGymRequestValues
   const supabase = createSupabaseServiceRoleClient();
 
   try {
-    // Fetch the first super admin's email
+    // 1. Insert the request into the database
+    const { error: insertError } = await supabase
+      .from('gym_requests')
+      .insert({
+        gym_name: gymName,
+        owner_name: ownerName,
+        email: email,
+        phone: phone,
+        city: city,
+        status: 'pending',
+      });
+    
+    if (insertError) {
+        console.error('Error inserting gym request:', insertError.message);
+        return { success: false, error: 'Could not save your request in the database. Please try again.' };
+    }
+
+
+    // 2. Fetch the super admin's email to notify them
     const { data: superAdmin, error: adminError } = await supabase
       .from('super_admins')
       .select('email')
@@ -41,42 +59,40 @@ export async function sendNewGymRequestEmailAction(formData: NewGymRequestValues
 
     if (adminError || !superAdmin?.email) {
       console.error('Super admin email fetch error:', adminError?.message || 'No super admin email found');
-      return { success: false, error: 'Could not find a recipient for the request. Please contact support directly.' };
+      // The request is in the DB, so don't fail the whole operation. The admin can see it in their dashboard.
+    } else {
+        const superAdminEmail = superAdmin.email;
+
+        const emailSubject = `New Gym Request Submitted via ${APP_NAME}`;
+        const emailHtmlBody = `
+        <p>A new request to create a gym has been submitted and logged in the system.</p>
+        <p>You can review and approve it from the Super Admin dashboard.</p>
+        <br>
+        <p><strong>Request Details:</strong></p>
+        <ul>
+            <li><strong>Gym Name:</strong> ${gymName}</li>
+            <li><strong>Owner's Name:</strong> ${ownerName}</li>
+            <li><strong>Owner's Email:</strong> ${email}</li>
+            <li><strong>Owner's Phone:</strong> ${phone}</li>
+            <li><strong>City:</strong> ${city}</li>
+        </ul>
+        `;
+
+        // Sending email to super admin, using default (super admin's) SMTP settings
+        await sendEmail({
+        to: superAdminEmail,
+        subject: emailSubject,
+        htmlBody: emailHtmlBody,
+        gymDatabaseId: null, // This ensures default SMTP is used
+        });
     }
 
-    const superAdminEmail = superAdmin.email;
 
-    const emailSubject = `New Gym Creation Request via ${APP_NAME}`;
-    const emailHtmlBody = `
-      <p>A new request to create a gym has been submitted.</p>
-      <p>Here are the details:</p>
-      <ul>
-        <li><strong>Gym Name:</strong> ${gymName}</li>
-        <li><strong>Owner's Name:</strong> ${ownerName}</li>
-        <li><strong>Owner's Email:</strong> ${email}</li>
-        <li><strong>Owner's Phone:</strong> ${phone}</li>
-        <li><strong>City:</strong> ${city}</li>
-      </ul>
-      <p>Please review this request and contact the user to proceed with the gym setup process.</p>
-    `;
-
-    // Sending email to super admin, using default (super admin's) SMTP settings
-    const emailResult = await sendEmail({
-      to: superAdminEmail,
-      subject: emailSubject,
-      htmlBody: emailHtmlBody,
-      gymDatabaseId: null, // This ensures default SMTP is used
-    });
-
-    if (!emailResult.success) {
-      return { success: false, error: `Failed to send request email: ${emailResult.message}` };
-    }
-
-    // Now, send a confirmation email to the user who made the request.
+    // 3. Send a confirmation email to the user who made the request.
     const userConfirmationSubject = `Your ${APP_NAME} Request Has Been Received`;
     const userConfirmationHtmlBody = `
       <p>Hi ${ownerName},</p>
-      <p>Thank you for your interest in ${APP_NAME}. We have received your request to create a new gym account for "${gymName}".</p>
+      <p>Thank you for your interest in ${APP_NAME}. We have received and logged your request to create a new gym account for "${gymName}".</p>
       <p>Our team will review your information and get in touch with you soon to discuss the next steps.</p>
       <p>We're excited about the possibility of you joining our platform!</p>
       <br>
