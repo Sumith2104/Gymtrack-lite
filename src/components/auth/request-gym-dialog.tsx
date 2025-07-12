@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
-import { User, Phone, Mail, MapPin, Send, Building } from 'lucide-react';
+import { User, Phone, Mail, MapPin, Send, Building, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -158,7 +158,11 @@ export function RequestGymDialog() {
                 Cancel
               </Button>
               <Button type="submit" disabled={form.formState.isSubmitting}>
-                {form.formState.isSubmitting ? 'Sending...' : <><Send className="mr-2 h-4 w-4" /> Send Request</>}
+                {form.formState.isSubmitting ? (
+                  <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Sending...</>
+                ) : (
+                  <><Send className="mr-2 h-4 w-4" /> Send Request</>
+                )}
               </Button>
             </DialogFooter>
           </form>
