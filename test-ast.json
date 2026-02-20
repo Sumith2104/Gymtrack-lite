@@ -1,0 +1,109 @@
+{
+  "with": null,
+  "type": "select",
+  "options": null,
+  "distinct": {
+    "type": null
+  },
+  "columns": [
+    {
+      "type": "expr",
+      "expr": {
+        "type": "column_ref",
+        "table": "m",
+        "column": {
+          "expr": {
+            "type": "default",
+            "value": "id"
+          }
+        },
+        "collate": null
+      },
+      "as": null
+    },
+    {
+      "type": "expr",
+      "expr": {
+        "type": "column_ref",
+        "table": "m",
+        "column": {
+          "expr": {
+            "type": "default",
+            "value": "name"
+          }
+        },
+        "collate": null
+      },
+      "as": null
+    }
+  ],
+  "into": {
+    "position": null
+  },
+  "from": [
+    {
+      "db": null,
+      "table": "members",
+      "as": "m"
+    },
+    {
+      "db": null,
+      "table": "plans",
+      "as": "p",
+      "join": "LEFT JOIN",
+      "on": {
+        "type": "binary_expr",
+        "operator": "=",
+        "left": {
+          "type": "column_ref",
+          "table": "m",
+          "column": {
+            "expr": {
+              "type": "default",
+              "value": "plan_id"
+            }
+          },
+          "collate": null
+        },
+        "right": {
+          "type": "column_ref",
+          "table": "p",
+          "column": {
+            "expr": {
+              "type": "default",
+              "value": "id"
+            }
+          },
+          "collate": null
+        }
+      }
+    }
+  ],
+  "where": {
+    "type": "binary_expr",
+    "operator": "=",
+    "left": {
+      "type": "column_ref",
+      "table": "m",
+      "column": {
+        "expr": {
+          "type": "default",
+          "value": "id"
+        }
+      },
+      "collate": null
+    },
+    "right": {
+      "type": "single_quote_string",
+      "value": "actualId"
+    }
+  },
+  "groupby": null,
+  "having": null,
+  "orderby": null,
+  "limit": {
+    "seperator": "",
+    "value": []
+  },
+  "window": null
+}
