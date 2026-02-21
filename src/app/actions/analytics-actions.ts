@@ -1,6 +1,7 @@
 'use server';
 
 import type { MembershipType } from '@/lib/types';
+import { cache } from 'react';
 import {
   format,
   parseISO,
@@ -34,7 +35,7 @@ async function getGymCreationDate(gymDatabaseId: string): Promise<Date | null> {
   }
 }
 
-export async function getMembershipDistribution(gymDatabaseId: string): Promise<{ data: Array<{ type: MembershipType | string; count: number }>; error?: string }> {
+export const getMembershipDistribution = cache(async (gymDatabaseId: string): Promise<{ data: Array<{ type: MembershipType | string; count: number }>; error?: string }> => {
   if (!gymDatabaseId) return { data: [], error: 'Gym ID not provided.' };
 
   try {
@@ -64,9 +65,9 @@ export async function getMembershipDistribution(gymDatabaseId: string): Promise<
   } catch (e: any) {
     return { data: [], error: e.message || 'Failed to fetch membership distribution.' };
   }
-}
+});
 
-export async function getNewMembersYearly(gymDatabaseId: string): Promise<{ data: Array<{ year: string; count: number }>; error?: string }> {
+export const getNewMembersYearly = cache(async (gymDatabaseId: string): Promise<{ data: Array<{ year: string; count: number }>; error?: string }> => {
   if (!gymDatabaseId) return { data: [], error: 'Gym ID not provided.' };
 
   try {
@@ -119,7 +120,7 @@ export async function getNewMembersYearly(gymDatabaseId: string): Promise<{ data
   } catch (e: any) {
     return { data: [], error: e.message || 'Failed to fetch new members yearly since creation.' };
   }
-}
+});
 
 // --- Data Export (CSV) Logic ---
 const dataRequestSchema = z.object({

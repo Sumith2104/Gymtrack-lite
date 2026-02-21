@@ -33,9 +33,10 @@ type CheckinFormValues = z.infer<typeof checkinSchema>;
 interface CheckinFormProps {
   className?: string;
   onSuccessfulCheckin: (checkinEntry: FormattedCheckIn) => void;
+  onOptimisticCheckin?: (checkinEntry: FormattedCheckIn) => void;
 }
 
-export function CheckinForm({ className, onSuccessfulCheckin }: CheckinFormProps) {
+export function CheckinForm({ className, onSuccessfulCheckin, onOptimisticCheckin }: CheckinFormProps) {
   const { toast } = useToast();
   const [isProcessing, setIsProcessing] = useState(false);
   const [currentGymDatabaseId, setCurrentGymDatabaseId] = useState<string | null>(null);
@@ -60,9 +61,9 @@ export function CheckinForm({ className, onSuccessfulCheckin }: CheckinFormProps
     setIsProcessing(true);
 
     if (!currentGymDatabaseId || !currentKioskGymName) {
-        toast({ variant: "destructive", title: "Kiosk Error", description: 'Kiosk configuration error. Please contact admin (Gym ID/Name missing).' });
-        setIsProcessing(false);
-        return;
+      toast({ variant: "destructive", title: "Kiosk Error", description: 'Kiosk configuration error. Please contact admin (Gym ID/Name missing).' });
+      setIsProcessing(false);
+      return;
     }
 
     const findMemberResponse = await findMemberForCheckInAction(data.identifier, currentGymDatabaseId);
@@ -88,10 +89,24 @@ export function CheckinForm({ className, onSuccessfulCheckin }: CheckinFormProps
       setIsProcessing(false); return;
     }
 
+    if (onOptimisticCheckin) {
+      const optimisticData: FormattedCheckIn = {
+        checkInRecordId: `opt-${Date.now()}`,
+        memberTableId: member.id,
+        memberName: member.name,
+        memberId: member.memberId,
+        checkInTime: new Date(),
+        checkOutTime: null,
+        createdAt: new Date(),
+        gymName: currentKioskGymName,
+      };
+      onOptimisticCheckin(optimisticData);
+    }
+
     const recordResponse = await recordCheckInAction(member.id, currentGymDatabaseId);
     if (!recordResponse.success || !recordResponse.checkInTime) {
-        toast({ variant: "destructive", title: "Check-in Failed", description: recordResponse.error || "Failed to record check-in. You might already be checked in today." });
-        setIsProcessing(false); return;
+      toast({ variant: "destructive", title: "Check-in Failed", description: recordResponse.error || "Failed to record check-in. You might already be checked in today." });
+      setIsProcessing(false); return;
     }
 
     const actualCheckInTime = recordResponse.checkInTime;
@@ -148,10 +163,10 @@ export function CheckinForm({ className, onSuccessfulCheckin }: CheckinFormProps
                   <FormItem>
                     <FormLabel className="text-foreground/90 text-lg">Member ID</FormLabel>
                     <FormControl>
-                      <Input 
-                        placeholder="Enter member's ID" 
-                        {...field} 
-                        className="text-base h-auto py-4 px-4 bg-input text-foreground focus:ring-primary focus:ring-2 focus:border-primary" 
+                      <Input
+                        placeholder="Enter member's ID"
+                        {...field}
+                        className="text-base h-auto py-4 px-4 bg-input text-foreground focus:ring-primary focus:ring-2 focus:border-primary"
                       />
                     </FormControl>
                     <FormMessage />
@@ -159,22 +174,22 @@ export function CheckinForm({ className, onSuccessfulCheckin }: CheckinFormProps
                 )}
               />
               <div className="flex flex-col sm:flex-row gap-4">
-                  <Button 
-                    type="submit" 
-                    className="w-full text-lg py-6 bg-primary text-primary-foreground hover:bg-primary/90 sm:flex-1" 
-                    disabled={isProcessing || !currentGymDatabaseId}
-                  >
-                    {isProcessing ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <UserCheck className="mr-2 h-5 w-5" />}
-                    {isProcessing ? 'Checking In...' : 'Check In Member'}
-                  </Button>
-                  <Button 
-                    type="button" 
-                    onClick={() => setIsQrScannerOpen(true)} 
-                    className="w-full text-lg py-6 bg-primary text-primary-foreground hover:bg-primary/90 sm:flex-1" 
-                    disabled={isProcessing || !currentGymDatabaseId}
-                  >
-                    <ScanLine className="mr-2 h-5 w-5" /> Scan QR Code
-                  </Button>
+                <Button
+                  type="submit"
+                  className="w-full text-lg py-6 bg-primary text-primary-foreground hover:bg-primary/90 sm:flex-1"
+                  disabled={isProcessing || !currentGymDatabaseId}
+                >
+                  {isProcessing ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <UserCheck className="mr-2 h-5 w-5" />}
+                  {isProcessing ? 'Checking In...' : 'Check In Member'}
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => setIsQrScannerOpen(true)}
+                  className="w-full text-lg py-6 bg-primary text-primary-foreground hover:bg-primary/90 sm:flex-1"
+                  disabled={isProcessing || !currentGymDatabaseId}
+                >
+                  <ScanLine className="mr-2 h-5 w-5" /> Scan QR Code
+                </Button>
               </div>
             </form>
           </Form>

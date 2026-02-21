@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useOptimistic, startTransition } from 'react';
 import { CheckinForm } from '@/components/kiosk/checkin-form';
 import { RecentCheckinsCard } from '@/components/kiosk/recent-checkins-card';
 import type { FormattedCheckIn } from '@/lib/types';
@@ -9,6 +9,10 @@ import type { FormattedCheckIn } from '@/lib/types';
 
 export default function KioskPage() {
   const [lastCheckin, setLastCheckin] = useState<FormattedCheckIn | null>(null);
+  const [optimisticCheckin, addOptimisticCheckin] = useOptimistic<FormattedCheckIn | null, FormattedCheckIn>(
+    lastCheckin,
+    (state, newCheckin) => newCheckin
+  );
   const [kioskGymName, setKioskGymName] = useState<string | null>(null);
   const [kioskGymId, setKioskGymId] = useState<string | null>(null); // This is formatted_gym_id
 
@@ -20,6 +24,12 @@ export default function KioskPage() {
       setKioskGymId(gymId);
     }
   }, []);
+
+  const handleOptimisticCheckin = (checkinEntry: FormattedCheckIn) => {
+    startTransition(() => {
+      addOptimisticCheckin(checkinEntry);
+    });
+  };
 
   const handleSuccessfulCheckin = (checkinEntry: FormattedCheckIn) => {
     setLastCheckin(checkinEntry);
@@ -39,8 +49,8 @@ export default function KioskPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 xl:gap-8 items-start">
-        <CheckinForm onSuccessfulCheckin={handleSuccessfulCheckin} className="lg:col-span-1" />
-        <RecentCheckinsCard newCheckinEntry={lastCheckin} className="lg:col-span-1" />
+        <CheckinForm onSuccessfulCheckin={handleSuccessfulCheckin} onOptimisticCheckin={handleOptimisticCheckin} className="lg:col-span-1" />
+        <RecentCheckinsCard newCheckinEntry={optimisticCheckin} className="lg:col-span-1" />
       </div>
     </div>
   );

@@ -1,5 +1,7 @@
 'use server';
 
+import { cache } from 'react';
+
 import type { MembershipType } from '@/lib/types';
 import * as z from 'zod';
 import { flux } from '@/lib/flux/client';
@@ -27,7 +29,7 @@ interface RawMemberPlanData {
   plan_name: string;
 }
 
-export async function getGymEarningsData(gymDatabaseId: string): Promise<{ data?: EarningsData; error?: string }> {
+export const getGymEarningsData = cache(async (gymDatabaseId: string): Promise<{ data?: EarningsData; error?: string }> => {
   if (!gymDatabaseId) {
     return { error: 'Gym ID not provided.' };
   }
@@ -112,9 +114,9 @@ export async function getGymEarningsData(gymDatabaseId: string): Promise<{ data?
   } catch (e: any) {
     return { error: `Calculation error: ${e.message}` };
   }
-}
+});
 
-export async function getGymUpiId(gymDatabaseId: string): Promise<{ upiId: string | null; error?: string }> {
+export const getGymUpiId = cache(async (gymDatabaseId: string): Promise<{ upiId: string | null; error?: string }> => {
   if (!gymDatabaseId) {
     return { upiId: null, error: 'Gym ID not provided.' };
   }
@@ -129,7 +131,7 @@ export async function getGymUpiId(gymDatabaseId: string): Promise<{ upiId: strin
   } catch (e: any) {
     return { upiId: null, error: e.message || 'Failed to fetch UPI ID.' };
   }
-}
+});
 
 export async function updateGymUpiId(gymDatabaseId: string, upiId: string | null): Promise<{ success: boolean; error?: string }> {
   if (!gymDatabaseId) {
@@ -153,7 +155,7 @@ export async function updateGymUpiId(gymDatabaseId: string, upiId: string | null
   }
 }
 
-export async function getGymSmtpSettings(gymDatabaseId: string): Promise<{ data?: SmtpSettings; error?: string }> {
+export const getGymSmtpSettings = cache(async (gymDatabaseId: string): Promise<{ data?: SmtpSettings; error?: string }> => {
   if (!gymDatabaseId) {
     return { error: 'Gym ID not provided.' };
   }
@@ -172,9 +174,9 @@ export async function getGymSmtpSettings(gymDatabaseId: string): Promise<{ data?
   } catch (e: any) {
     return { error: e.message || 'Failed to fetch SMTP settings.' };
   }
-}
+});
 
-export async function getSuperAdminSmtpSettings(): Promise<{ data?: Partial<SmtpSettings>; error?: string }> {
+export const getSuperAdminSmtpSettings = cache(async (): Promise<{ data?: Partial<SmtpSettings>; error?: string }> => {
   try {
     const query = `
       SELECT smtp_host, smtp_port, smtp_username, smtp_from 
@@ -200,7 +202,7 @@ export async function getSuperAdminSmtpSettings(): Promise<{ data?: Partial<Smtp
   } catch (e: any) {
     return { error: e.message || 'Failed to fetch default SMTP settings.' };
   }
-}
+});
 
 export async function updateGymSmtpSettings(gymDatabaseId: string, settings: Partial<SmtpSettings>): Promise<{ success: boolean; error?: string }> {
   if (!gymDatabaseId) {
@@ -310,7 +312,7 @@ export interface GymSettings {
   maxCapacity: number | null;
 }
 
-export async function getGymSettings(gymDatabaseId: string): Promise<{ data?: GymSettings; error?: string }> {
+export const getGymSettings = cache(async (gymDatabaseId: string): Promise<{ data?: GymSettings; error?: string }> => {
   if (!gymDatabaseId) {
     return { error: 'Gym ID not provided.' };
   }
@@ -334,7 +336,7 @@ export async function getGymSettings(gymDatabaseId: string): Promise<{ data?: Gy
   } catch (e: any) {
     return { error: e.message || 'Failed to fetch gym settings.' };
   }
-}
+});
 
 const settingsUpdateSchema = z.object({
   sessionTimeHours: z.number().int().min(1).max(24).optional(),

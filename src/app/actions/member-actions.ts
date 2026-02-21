@@ -1,5 +1,7 @@
 'use server';
 
+import { cache } from 'react';
+
 import { addMonths, differenceInDays, isValid, parseISO, format, subMonths, startOfMonth, eachMonthOfInterval, endOfMonth } from 'date-fns';
 import type { Member, MembershipStatus, EffectiveMembershipStatus, AttendanceSummary, MonthlyCheckin } from '@/lib/types';
 import { APP_NAME } from '@/lib/constants';
@@ -703,7 +705,7 @@ export async function sendBulkCustomEmailAction(
   }
 }
 
-export async function getMemberAttendanceSummary(memberDbId: string): Promise<{ data?: AttendanceSummary; error?: string }> {
+export const getMemberAttendanceSummary = cache(async (memberDbId: string): Promise<{ data?: AttendanceSummary; error?: string }> => {
   if (!memberDbId) {
     return { error: 'Member ID is required.' };
   }
@@ -741,9 +743,9 @@ export async function getMemberAttendanceSummary(memberDbId: string): Promise<{ 
   } catch (e: any) {
     return { error: `Failed to fetch attendance summary: ${e.message}` };
   }
-}
+});
 
-export async function getMemberById(memberDbId: string): Promise<{ data?: Member; error?: string }> {
+export const getMemberById = cache(async (memberDbId: string): Promise<{ data?: Member; error?: string }> => {
   if (!memberDbId) {
     return { error: "Member Database ID is required." };
   }
@@ -779,9 +781,9 @@ export async function getMemberById(memberDbId: string): Promise<{ data?: Member
   } catch (e: any) {
     return { error: `An unexpected error occurred: ${e.message}` };
   }
-}
+});
 
-export async function getMemberCheckinHistory(memberDbId: string): Promise<{ data?: MonthlyCheckin[]; error?: string }> {
+export const getMemberCheckinHistory = cache(async (memberDbId: string): Promise<{ data?: MonthlyCheckin[]; error?: string }> => {
   if (!memberDbId) {
     return { error: 'Member ID is required.' };
   }
@@ -832,4 +834,4 @@ export async function getMemberCheckinHistory(memberDbId: string): Promise<{ dat
   } catch (e: any) {
     return { error: `Failed to fetch check-in history: ${e.message}` };
   }
-}
+});

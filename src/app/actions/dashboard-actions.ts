@@ -1,10 +1,11 @@
 
 'use server';
 
+import { cache } from 'react';
 import { flux } from '@/lib/flux/client';
 import type { DailyCheckIns } from '@/lib/types';
 
-export async function getCurrentOccupancy(gymDatabaseId: string): Promise<{ currentOccupancy: number; error?: string }> {
+export const getCurrentOccupancy = cache(async (gymDatabaseId: string): Promise<{ currentOccupancy: number; error?: string }> => {
   if (!gymDatabaseId) {
     return { currentOccupancy: 0, error: 'Gym ID not provided.' };
   }
@@ -36,9 +37,9 @@ export async function getCurrentOccupancy(gymDatabaseId: string): Promise<{ curr
     console.error("Occupancy Fetch Error:", e);
     return { currentOccupancy: 0, error: 'Failed to fetch occupancy data.' };
   }
-}
+});
 
-export async function getDailyCheckInTrends(gymDatabaseId: string): Promise<{ trends: DailyCheckIns[]; error?: string }> {
+export const getDailyCheckInTrends = cache(async (gymDatabaseId: string): Promise<{ trends: DailyCheckIns[]; error?: string }> => {
   if (!gymDatabaseId) {
     return { trends: [], error: 'Gym ID not provided.' };
   }
@@ -91,4 +92,4 @@ export async function getDailyCheckInTrends(gymDatabaseId: string): Promise<{ tr
     console.error("Trends Fetch Error:", e);
     return { trends: [], error: 'Failed to fetch check-in trends.' };
   }
-}
+});

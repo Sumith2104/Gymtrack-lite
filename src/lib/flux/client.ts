@@ -42,7 +42,7 @@ export class FluxClient {
                     query: query,
                     projectId: this.projectId
                 }),
-                cache: 'no-store'
+                next: { revalidate: 15 }
             });
 
             if (!res.ok) {

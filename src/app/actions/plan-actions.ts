@@ -1,5 +1,7 @@
 'use server';
 
+import { cache } from 'react';
+
 import type { FetchedMembershipPlan } from '@/lib/types';
 import { addPlanFormSchema, type AddPlanFormValues } from '@/lib/schemas/plan-schemas';
 import { ZodError } from 'zod';
@@ -11,7 +13,7 @@ interface GetActiveMembershipPlansResponse {
   error?: string;
 }
 
-export async function getActiveMembershipPlans(gymDatabaseId: string | null): Promise<GetActiveMembershipPlansResponse> {
+export const getActiveMembershipPlans = cache(async (gymDatabaseId: string | null): Promise<GetActiveMembershipPlansResponse> => {
   if (!gymDatabaseId) {
     return { error: 'Gym ID not provided. Cannot fetch plans.' };
   }
@@ -43,7 +45,7 @@ export async function getActiveMembershipPlans(gymDatabaseId: string | null): Pr
   } catch (e: any) {
     return { error: `Unexpected error fetching plans: ${e.message}` };
   }
-}
+});
 
 interface AddPlanResponse {
   data?: FetchedMembershipPlan;
