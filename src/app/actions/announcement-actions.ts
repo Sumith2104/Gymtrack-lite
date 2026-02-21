@@ -210,11 +210,11 @@ export async function deleteAnnouncementsAction(announcementIds: string[]): Prom
   }
 
   try {
-    // Sanitize IDs
-    const safeIds = announcementIds.map(id => `'${id.replace(/'/g, "''")}'`).join(', ');
-
-    const query = `DELETE FROM announcements WHERE id IN (${safeIds})`;
-    await flux.sql(query);
+    for (const annId of announcementIds) {
+      const safeId = annId.replace(/'/g, "''");
+      const query = `DELETE FROM announcements WHERE id = '${safeId}'`;
+      await flux.sql(query);
+    }
 
     return { success: true };
 
