@@ -1,0 +1,65 @@
+{
+  "selectResponse": {
+    "success": true,
+    "result": {
+      "rows": [
+        {
+          "id": "4c890f84-b9f0-4270-aec6-a9bb8500027f",
+          "gym_id": "a6e25ae2-6c16-4edd-8f0d-99ea7534f061",
+          "formatted_gym_id": "test",
+          "sender_id": "test",
+          "sender_type": "admin",
+          "receiver_id": "26SSUMI3210G",
+          "receiver_type": "member",
+          "content": "helllllllllo1",
+          "created_at": "2026-02-21T19:20:35.547Z",
+          "_id": "2ZOCjBl4DJUbEHixDFWu"
+        },
+        {
+          "id": "b2cb1037-f86a-42c6-a3aa-dc3df51ff59e",
+          "gym_id": "a6e25ae2-6c16-4edd-8f0d-99ea7534f061",
+          "formatted_gym_id": "test",
+          "sender_id": "test",
+          "sender_type": "admin",
+          "receiver_id": "26SSUMI3210G",
+          "receiver_type": "member",
+          "content": "hello",
+          "created_at": "2026-02-21T19:19:52.943Z",
+          "_id": "7WXK4Hz9OAoLH7AGE0Vf"
+        }
+      ],
+      "columns": [
+        "id",
+        "gym_id",
+        "formatted_gym_id",
+        "sender_id",
+        "sender_type",
+        "receiver_id",
+        "receiver_type",
+        "content",
+        "created_at",
+        "_id"
+      ]
+    },
+    "explanation": [
+      "Fetched 2 rows from 'messages' (AST Pushdown Limit: 2)"
+    ],
+    "executionInfo": {
+      "time": "3078ms",
+      "rowCount": 2
+    }
+  },
+  "insertResponse": {
+    "success": true,
+    "result": {
+      "rows": [],
+      "columns": [],
+      "message": "1 rows inserted."
+    },
+    "explanation": [],
+    "executionInfo": {
+      "time": "3087ms",
+      "rowCount": 0
+    }
+  }
+}

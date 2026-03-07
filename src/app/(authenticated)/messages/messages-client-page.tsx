@@ -34,11 +34,11 @@ const getInitials = (name: string): string => {
     const lastInitial = names[names.length - 1][0];
     return (firstInitial + lastInitial).toUpperCase();
   }
-  
+
   if (names[0].length > 1) {
     return names[0].substring(0, 2).toUpperCase();
   }
-  
+
   return names[0][0].toUpperCase();
 };
 
@@ -79,7 +79,7 @@ export function MessagesClientPage() {
     }
     if (formattedGymId) setAdminSenderFormattedGymId(formattedGymId);
     else console.warn("Admin sender ID (formatted_gym_id) not found in localStorage.");
-    
+
   }, []);
 
   useEffect(() => {
@@ -104,7 +104,7 @@ export function MessagesClientPage() {
     const memberIdToSelect = searchParams.get('memberId');
     if (memberIdToSelect && members.length > 0) {
       const member = members.find(m => m.id === memberIdToSelect);
-       if (member) {
+      if (member) {
         setSelectedMember(member);
       } else {
         // If member ID from URL is invalid, clear it.
@@ -112,7 +112,7 @@ export function MessagesClientPage() {
         router.replace('/messages', { scroll: false });
       }
     } else {
-        setSelectedMember(null);
+      setSelectedMember(null);
     }
   }, [searchParams, members, router]);
 
@@ -135,7 +135,7 @@ export function MessagesClientPage() {
 
       setIsLoadingConversation(true);
       fetchAndSetMessages().finally(() => setIsLoadingConversation(false));
-      
+
       const intervalId = setInterval(fetchAndSetMessages, 4000); // Poll every 4 seconds
 
       return () => clearInterval(intervalId);
@@ -170,7 +170,7 @@ export function MessagesClientPage() {
   };
 
   let lastProcessedDateString: string | null = null;
-  
+
   const handleCloseChat = () => {
     setSelectedMember(null);
     router.push('/messages', { scroll: false }); // Clear URL params and state
@@ -183,11 +183,11 @@ export function MessagesClientPage() {
           <CardTitle className="text-xl flex items-center"><Users className="mr-2 h-5 w-5 text-primary" /> Members</CardTitle>
           <CardDescription>Click on a member to chat.</CardDescription>
           <div className="relative pt-2">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" style={{ paddingTop: '0.5rem' }}/>
-            <Input type="search" placeholder="Search members..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-9"/>
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" style={{ paddingTop: '0.5rem' }} />
+            <Input type="search" placeholder="Search members..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-9" />
           </div>
         </CardHeader>
-        <Separator className="shrink-0"/>
+        <Separator className="shrink-0" />
         <CardContent className="p-0 flex-1 overflow-hidden min-h-0">
           <ScrollArea className="h-full">
             <div className="p-3 space-y-1">
@@ -227,8 +227,8 @@ export function MessagesClientPage() {
                 <div className="flex items-center space-x-3">
                   <Avatar className="h-10 w-10"><AvatarFallback className="bg-primary/20 text-primary font-semibold">{getInitials(selectedMember.name)}</AvatarFallback></Avatar>
                   <div>
-                      <CardTitle className="text-xl">{selectedMember.name}</CardTitle>
-                      <CardDescription>{selectedMember.memberId || 'N/A'}</CardDescription>
+                    <CardTitle className="text-xl">{selectedMember.name}</CardTitle>
+                    <CardDescription>{selectedMember.memberId || 'N/A'}</CardDescription>
                   </div>
                 </div>
                 <Button variant="ghost" size="icon" onClick={handleCloseChat} className="text-muted-foreground hover:text-destructive"><X className="h-5 w-5" /><span className="sr-only">Close chat</span></Button>
@@ -245,7 +245,8 @@ export function MessagesClientPage() {
                 </div>
               ) : (
                 conversationMessages.map(msg => {
-                  const messageDate = parseISO(msg.createdAt);
+                  const safeDateString = msg.createdAt || new Date().toISOString();
+                  const messageDate = parseISO(safeDateString);
                   const messageDateString = format(messageDate, 'yyyy-MM-dd');
                   let dateHeaderElement: JSX.Element | null = null;
 
@@ -257,25 +258,25 @@ export function MessagesClientPage() {
                     );
                     lastProcessedDateString = messageDateString;
                   }
-                  
+
                   return (
                     <React.Fragment key={msg.id}>
                       {dateHeaderElement}
                       <div className={cn("group flex w-full items-end gap-2", msg.senderId === adminSenderFormattedGymId ? "justify-end" : "justify-start")}>
                         {msg.senderId === adminSenderFormattedGymId && (
                           <p className="text-[10px] text-muted-foreground mb-1 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
-                            {format(parseISO(msg.createdAt), 'p')}
+                            {format(parseISO(msg.createdAt || new Date().toISOString()), 'p')}
                           </p>
                         )}
                         <div className={cn(
-                          "max-w-[70%] p-3 rounded-2xl shadow", 
+                          "max-w-[70%] p-3 rounded-2xl shadow",
                           msg.senderId === adminSenderFormattedGymId ? "bg-primary text-primary-foreground" : "bg-card text-card-foreground border"
                         )}>
                           <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
                         </div>
                         {msg.senderId !== adminSenderFormattedGymId && (
                           <p className="text-[10px] text-muted-foreground mb-1 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
-                            {format(parseISO(msg.createdAt), 'p')}
+                            {format(parseISO(msg.createdAt || new Date().toISOString()), 'p')}
                           </p>
                         )}
                       </div>
@@ -289,7 +290,7 @@ export function MessagesClientPage() {
               <div className="flex w-full items-center space-x-2">
                 <Input value={newMessageInput} onChange={(e) => setNewMessageInput(e.target.value)} placeholder="Type your message..." className="flex-1"
                   disabled={isSending || !adminSenderFormattedGymId || isLoadingConversation || !selectedMember?.memberId}
-                  onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey && !isSending && adminSenderFormattedGymId && !isLoadingConversation && selectedMember?.memberId) { e.preventDefault(); handleSendMessage();}}}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey && !isSending && adminSenderFormattedGymId && !isLoadingConversation && selectedMember?.memberId) { e.preventDefault(); handleSendMessage(); } }}
                 />
                 <Button onClick={handleSendMessage} disabled={isSending || !newMessageInput.trim() || !adminSenderFormattedGymId || isLoadingConversation || !selectedMember?.memberId}>
                   {isSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
@@ -302,7 +303,7 @@ export function MessagesClientPage() {
         ) : (
           <CardContent className="flex flex-col items-center justify-center h-full">
             {isLoadingMembers ? (
-               <div className="flex flex-col items-center"><Loader2 className="h-12 w-12 text-primary animate-spin mb-4" /><p className="text-muted-foreground">Loading members...</p></div>
+              <div className="flex flex-col items-center"><Loader2 className="h-12 w-12 text-primary animate-spin mb-4" /><p className="text-muted-foreground">Loading members...</p></div>
             ) : (
               <><MessageSquare className="h-20 w-20 text-muted-foreground/30 mb-4" /><p className="text-lg text-muted-foreground">Select a member to start chatting.</p><p className="text-sm text-muted-foreground/70">Your conversation will appear here.</p></>
             )}

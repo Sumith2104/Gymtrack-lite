@@ -18,9 +18,15 @@ const chartConfig = {
   },
 } satisfies ChartConfig;
 
-export function CheckinTrendsChart({ className }: { className?: string }) {
-  const [chartData, setChartData] = useState<DailyCheckIns[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+export function CheckinTrendsChart({
+  className,
+  initialTrends
+}: {
+  className?: string;
+  initialTrends?: DailyCheckIns[];
+}) {
+  const [chartData, setChartData] = useState<DailyCheckIns[]>(initialTrends ?? []);
+  const [isLoading, setIsLoading] = useState(!initialTrends);
   const [error, setError] = useState<string | null>(null);
   const [gymDbId, setGymDbId] = useState<string | null>(null);
 
@@ -45,9 +51,11 @@ export function CheckinTrendsChart({ className }: { className?: string }) {
       setGymDbId(id);
 
       if (id) {
-        setIsLoading(true);
-        setError(null);
-        fetchAndSetTrends(id).finally(() => setIsLoading(false));
+        if (!initialTrends) {
+          setIsLoading(true);
+          setError(null);
+          fetchAndSetTrends(id).finally(() => setIsLoading(false));
+        }
       } else {
         setIsLoading(false);
         const emptyDays: DailyCheckIns[] = Array(7).fill(null).map((_, i) => {

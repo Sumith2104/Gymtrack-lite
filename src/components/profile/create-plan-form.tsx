@@ -97,8 +97,8 @@ export function CreatePlanForm() {
       form.reset({
         planIdText: editingPlan.planIdText || '',
         name: editingPlan.name,
-        price: editingPlan.price,
-        durationMonths: editingPlan.durationMonths || undefined,
+        price: Number(editingPlan.price),
+        durationMonths: editingPlan.durationMonths != null ? Number(editingPlan.durationMonths) : undefined,
       });
     } else {
       form.reset({ planIdText: '', name: '', price: undefined, durationMonths: undefined });
@@ -144,7 +144,7 @@ export function CreatePlanForm() {
       setIsSubmitting(false);
       return;
     }
-    
+
     let response;
     if (editingPlan) {
       response = await updatePlanAction(editingPlan.uuid, data, currentGymDbId);
@@ -172,7 +172,7 @@ export function CreatePlanForm() {
       }
     } else {
       form.reset(); // Reset form on success only if not editing or successfully edited
-      fetchExistingPlans(); 
+      fetchExistingPlans();
     }
     setIsSubmitting(false);
   }
@@ -184,9 +184,9 @@ export function CreatePlanForm() {
           <CardTitle className="text-lg font-semibold flex items-center">
             <PackagePlus className="mr-2 h-5 w-5 text-primary" /> Manage Membership Plans
           </CardTitle>
-           <Button variant="ghost" size="icon" onClick={fetchExistingPlans} disabled={isLoadingPlans || !currentGymDbId} className="h-8 w-8">
-                <RefreshCw className={`h-4 w-4 ${isLoadingPlans ? 'animate-spin' : ''}`}/>
-            </Button>
+          <Button variant="ghost" size="icon" onClick={fetchExistingPlans} disabled={isLoadingPlans || !currentGymDbId} className="h-8 w-8">
+            <RefreshCw className={`h-4 w-4 ${isLoadingPlans ? 'animate-spin' : ''}`} />
+          </Button>
         </div>
         <CardDescription>Define new membership plans or view existing active ones for your gym.</CardDescription>
       </CardHeader>
@@ -234,9 +234,9 @@ export function CreatePlanForm() {
                     <FormItem>
                       <FormLabel>Price (₹)</FormLabel>
                       <FormControl>
-                        <Input type="number" step="0.01" placeholder="e.g., 599" {...field} 
-                               value={field.value ?? ''}
-                               onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} />
+                        <Input type="number" step="0.01" placeholder="e.g., 599" {...field}
+                          value={field.value ?? ''}
+                          onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -249,9 +249,9 @@ export function CreatePlanForm() {
                     <FormItem>
                       <FormLabel>Duration (Months)</FormLabel>
                       <FormControl>
-                        <Input type="number" placeholder="e.g., 1, 3, 12" {...field} 
-                               value={field.value ?? ''}
-                               onChange={e => field.onChange(e.target.value === '' ? undefined : parseInt(e.target.value,10))} />
+                        <Input type="number" placeholder="e.g., 1, 3, 12" {...field}
+                          value={field.value ?? ''}
+                          onChange={e => field.onChange(e.target.value === '' ? undefined : parseInt(e.target.value, 10))} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -273,7 +273,7 @@ export function CreatePlanForm() {
             </form>
           </Form>
         </div>
-        
+
         <Separator />
 
         <div>
@@ -281,15 +281,15 @@ export function CreatePlanForm() {
             <List className="mr-2 h-4 w-4 text-primary" /> Existing Active Plans ({existingPlans.length})
           </h3>
           {isLoadingPlans ? (
-             <div className="space-y-2">
-                <Skeleton className="h-10 w-full rounded-md" />
-                <Skeleton className="h-10 w-full rounded-md" />
-                <Skeleton className="h-10 w-2/3 rounded-md" />
+            <div className="space-y-2">
+              <Skeleton className="h-10 w-full rounded-md" />
+              <Skeleton className="h-10 w-full rounded-md" />
+              <Skeleton className="h-10 w-2/3 rounded-md" />
             </div>
           ) : fetchPlansError ? (
-             <div className="text-destructive flex items-center p-3 border-destructive/50 bg-destructive/10 rounded-md">
-                <AlertCircle className="h-5 w-5 mr-2"/> 
-                <p>{fetchPlansError}</p>
+            <div className="text-destructive flex items-center p-3 border-destructive/50 bg-destructive/10 rounded-md">
+              <AlertCircle className="h-5 w-5 mr-2" />
+              <p>{fetchPlansError}</p>
             </div>
           ) : existingPlans.length === 0 ? (
             <p className="text-muted-foreground text-sm p-3 rounded-md bg-muted/20">
@@ -302,7 +302,7 @@ export function CreatePlanForm() {
                   <li key={plan.uuid} className="flex justify-between items-center p-2 rounded-md hover:bg-muted/30 text-sm">
                     <div className="flex-1 min-w-0">
                       <span className="font-medium text-foreground truncate block">{plan.name}</span>
-                      <span className="text-xs text-muted-foreground truncate block">ID: {plan.planIdText || 'N/A'} | ₹{plan.price.toFixed(2)} / {plan.durationMonths} {plan.durationMonths === 1 ? 'mo' : 'mos'}</span>
+                      <span className="text-xs text-muted-foreground truncate block">ID: {plan.planIdText || 'N/A'} | ₹{Number(plan.price).toFixed(2)} / {plan.durationMonths} {plan.durationMonths === 1 ? 'mo' : 'mos'}</span>
                     </div>
                     <div className="flex gap-1 ml-2">
                       <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleEditClick(plan)} aria-label={`Edit ${plan.name}`}>

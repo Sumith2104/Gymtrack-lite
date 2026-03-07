@@ -4,12 +4,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Users, AlertCircle } from 'lucide-react'; 
+import { Users, AlertCircle } from 'lucide-react';
 import { ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { getNewMembersYearly } from '@/app/actions/analytics-actions';
 import { Skeleton } from '@/components/ui/skeleton';
 
-interface YearlyNewMembers {
+export interface YearlyNewMembers {
   year: string; // Format "yyyy"
   count: number;
 }
@@ -17,13 +17,17 @@ interface YearlyNewMembers {
 const chartConfig = {
   annualNewMembers: {
     label: "New Members",
-    color: "hsl(var(--chart-3))", 
+    color: "hsl(var(--chart-3))",
   },
 } satisfies ChartConfig;
 
-export function NewMembersYearlyChart() {
-  const [chartData, setChartData] = useState<YearlyNewMembers[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+export function NewMembersYearlyChart({
+  initialData
+}: {
+  initialData?: YearlyNewMembers[];
+}) {
+  const [chartData, setChartData] = useState<YearlyNewMembers[]>(initialData ?? []);
+  const [isLoading, setIsLoading] = useState(!initialData);
   const [error, setError] = useState<string | null>(null);
   const [gymDbId, setGymDbId] = useState<string | null>(null);
 
@@ -63,8 +67,10 @@ export function NewMembersYearlyChart() {
   }, [gymDbId]);
 
   useEffect(() => {
-    fetchChartData();
-  }, [fetchChartData]);
+    if (!initialData) {
+      fetchChartData();
+    }
+  }, [fetchChartData, initialData]);
 
   useEffect(() => {
     const handleRefetch = () => {
@@ -82,12 +88,12 @@ export function NewMembersYearlyChart() {
       <CardHeader>
         <div className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">Yearly New Members Trend (Since Creation)</CardTitle>
-           <Users className="h-5 w-5 text-primary" />
+          <Users className="h-5 w-5 text-primary" />
         </div>
         <CardDescription>Total new members acquired each year since gym creation</CardDescription>
       </CardHeader>
       <CardContent>
-         {isLoading ? (
+        {isLoading ? (
           <div className="h-[300px] w-full flex items-center justify-center">
             <Skeleton className="h-full w-full" />
           </div>
@@ -101,7 +107,7 @@ export function NewMembersYearlyChart() {
           <div className="h-[300px] w-full flex items-center justify-center text-muted-foreground">
             No new member data available for this gym.
           </div>
-        ): (
+        ) : (
           <ChartContainer config={chartConfig} className="h-[300px] w-full">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={chartData} margin={{ top: 5, right: 0, left: -25, bottom: 5 }}>
@@ -114,21 +120,21 @@ export function NewMembersYearlyChart() {
                   fontSize={12}
                   stroke="hsl(var(--muted-foreground))"
                 />
-                <YAxis 
+                <YAxis
                   tickLine={false}
                   axisLine={true}
                   tickMargin={8}
                   fontSize={12}
                   stroke="hsl(var(--muted-foreground))"
                   allowDecimals={false}
-                  domain={[0, 'dataMax + 20']} 
+                  domain={[0, 'dataMax + 20']}
                 />
                 <ChartTooltip
                   cursor={false}
                   content={<ChartTooltipContent indicator="line" hideLabel hideIndicator={false} />}
                   formatter={(value, name, props) => [`${value} new members in ${props.payload.year}`, null]}
                 />
-                <Bar dataKey="count" fill="var(--color-annualNewMembers)" radius={[4, 4, 0, 0]} barSize={chartData.length > 10 ? 15: 30} />
+                <Bar dataKey="count" fill="var(--color-annualNewMembers)" radius={[4, 4, 0, 0]} barSize={chartData.length > 10 ? 15 : 30} />
               </BarChart>
             </ResponsiveContainer>
           </ChartContainer>

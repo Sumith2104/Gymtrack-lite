@@ -1,41 +1,15 @@
+import { redirect } from 'next/navigation';
+import { getServerSession } from '@/lib/auth-service';
 
-'use client';
-
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-
-export default function AuthenticatedLayout({
+export default async function AuthenticatedLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const router = useRouter();
-  const [authStatus, setAuthStatus] = useState<'checking' | 'authenticated' | 'unauthenticated'>('checking');
+  const session = await getServerSession();
 
-  useEffect(() => {
-    const isAuthenticated = localStorage.getItem('isAuthenticated');
-    if (isAuthenticated !== 'true') {
-      setAuthStatus('unauthenticated');
-      router.replace('/login');
-    } else {
-      setAuthStatus('authenticated');
-    }
-  }, [router]);
-
-  if (authStatus === 'checking') {
-    return (
-      <div className="flex flex-1 h-full items-center justify-center bg-background">
-        <p className="text-foreground">Loading...</p>
-      </div>
-    );
-  }
-
-  if (authStatus === 'unauthenticated') {
-    return (
-      <div className="flex flex-1 h-full items-center justify-center bg-background">
-        <p className="text-foreground">Redirecting to login...</p>
-      </div>
-    );
+  if (!session.isAuthenticated) {
+    redirect('/login');
   }
 
   return (

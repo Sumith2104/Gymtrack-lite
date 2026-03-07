@@ -28,9 +28,15 @@ import {
 import { fetchAnnouncementsAction, deleteAnnouncementsAction } from '@/app/actions/announcement-actions';
 
 
-export function AnnouncementsSection({ className }: { className?: string }) {
-  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+export function AnnouncementsSection({
+  className,
+  initialAnnouncements
+}: {
+  className?: string;
+  initialAnnouncements?: Announcement[];
+}) {
+  const [announcements, setAnnouncements] = useState<Announcement[]>(initialAnnouncements ?? []);
+  const [isLoading, setIsLoading] = useState(!initialAnnouncements);
   const [error, setError] = useState<string | null>(null);
   const [currentFormattedGymId, setCurrentFormattedGymId] = useState<string | null>(null);
   const [selectedAnnouncements, setSelectedAnnouncements] = useState<string[]>([]);
@@ -45,7 +51,7 @@ export function AnnouncementsSection({ className }: { className?: string }) {
     }
     setIsLoading(true);
     setError(null);
-    const response = await fetchAnnouncementsAction(formattedGymId); 
+    const response = await fetchAnnouncementsAction(formattedGymId);
     if (response.error || !response.data) {
       setError(response.error || "Failed to load announcements.");
       setAnnouncements([]);
@@ -54,13 +60,15 @@ export function AnnouncementsSection({ className }: { className?: string }) {
     }
     setIsLoading(false);
     setSelectedAnnouncements([]);
-  }, []); 
+  }, []);
 
   useEffect(() => {
-    const formattedGymIdFromStorage = localStorage.getItem('gymId'); 
+    const formattedGymIdFromStorage = localStorage.getItem('gymId');
     setCurrentFormattedGymId(formattedGymIdFromStorage);
     if (formattedGymIdFromStorage) {
-      loadAnnouncements(formattedGymIdFromStorage);
+      if (!initialAnnouncements) {
+        loadAnnouncements(formattedGymIdFromStorage);
+      }
     } else {
       setIsLoading(false);
       setError("Formatted Gym ID not found in local storage. Please log in again.");
@@ -75,7 +83,7 @@ export function AnnouncementsSection({ className }: { className?: string }) {
       } else {
         const formattedGymIdFromStorageEvent = localStorage.getItem('gymId');
         if (formattedGymIdFromStorageEvent) {
-             loadAnnouncements(formattedGymIdFromStorageEvent);
+          loadAnnouncements(formattedGymIdFromStorageEvent);
         }
       }
     };
@@ -88,12 +96,12 @@ export function AnnouncementsSection({ className }: { className?: string }) {
 
   const sortedAnnouncements = announcements
     .sort((a, b) => {
-        const dateA = parseISO(a.createdAt);
-        const dateB = parseISO(b.createdAt);
-        if (!isValid(dateA) && isValid(dateB)) return 1;
-        if (isValid(dateA) && !isValid(dateB)) return -1;
-        if (!isValid(dateA) && !isValid(dateB)) return 0;
-        return dateB.getTime() - dateA.getTime();
+      const dateA = parseISO(a.createdAt);
+      const dateB = parseISO(b.createdAt);
+      if (!isValid(dateA) && isValid(dateB)) return 1;
+      if (isValid(dateA) && !isValid(dateB)) return -1;
+      if (!isValid(dateA) && !isValid(dateB)) return 0;
+      return dateB.getTime() - dateA.getTime();
     });
 
   const handleSelectAnnouncement = (id: string, checked: boolean) => {
@@ -109,7 +117,7 @@ export function AnnouncementsSection({ className }: { className?: string }) {
     }
     const response = await deleteAnnouncementsAction(selectedAnnouncements);
     if (response.success) {
-      toast({ title: "Announcements Deleted", description: `${selectedAnnouncements.length} announcement(s) removed.`});
+      toast({ title: "Announcements Deleted", description: `${selectedAnnouncements.length} announcement(s) removed.` });
       setAnnouncements(prev => prev.filter(ann => !selectedAnnouncements.includes(ann.id)));
       setSelectedAnnouncements([]);
     } else {
@@ -119,86 +127,86 @@ export function AnnouncementsSection({ className }: { className?: string }) {
 
   return (
     <AlertDialog>
-    <Card className={cn("shadow-lg", className)}>
-      <CardHeader>
-        <div className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <div className="flex items-center gap-2">
-             <Megaphone className="h-5 w-5 text-primary" />
-            <CardTitle className="text-base font-semibold">Announcements</CardTitle>
+      <Card className={cn("shadow-lg", className)}>
+        <CardHeader>
+          <div className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <div className="flex items-center gap-2">
+              <Megaphone className="h-5 w-5 text-primary" />
+              <CardTitle className="text-base font-semibold">Announcements</CardTitle>
+            </div>
+            {currentFormattedGymId && !isLoading && (
+              <Button variant="ghost" size="sm" onClick={() => loadAnnouncements(currentFormattedGymId)}>
+                <RefreshCw className="h-4 w-4" />
+              </Button>
+            )}
           </div>
-          {currentFormattedGymId && !isLoading && (
-            <Button variant="ghost" size="sm" onClick={() => loadAnnouncements(currentFormattedGymId)}>
-                <RefreshCw className="h-4 w-4"/>
-            </Button>
-          )}
-        </div>
-        <div className="flex flex-row items-center justify-between">
+          <div className="flex flex-row items-center justify-between">
             <CardDescription className="text-xs">Latest news for your gym. Select to manage.</CardDescription>
             {selectedAnnouncements.length > 0 && (
-                 <AlertDialogTrigger asChild>
-                    <Button variant="destructive" size="sm" className="ml-auto">
-                        <Trash2 className="mr-2 h-4 w-4" /> Delete ({selectedAnnouncements.length})
-                    </Button>
-                </AlertDialogTrigger>
+              <AlertDialogTrigger asChild>
+                <Button variant="destructive" size="sm" className="ml-auto">
+                  <Trash2 className="mr-2 h-4 w-4" /> Delete ({selectedAnnouncements.length})
+                </Button>
+              </AlertDialogTrigger>
             )}
-        </div>
-      </CardHeader>
-      <CardContent className="pt-2">
-        <ScrollArea className="h-[250px] pr-3">
-          {isLoading ? (
-            <div className="space-y-3 py-2">
-              <Skeleton className="h-8 w-3/4" /> <Skeleton className="h-4 w-1/2" />
-              <Skeleton className="h-12 w-full" /> <Separator className="my-3 bg-border/50" />
-              <Skeleton className="h-8 w-2/3" /> <Skeleton className="h-4 w-1/3" />
-              <Skeleton className="h-10 w-full" />
-            </div>
-          ) : error ? (
-            <div className="text-destructive flex flex-col items-center justify-center h-full py-8">
-                <AlertCircle className="h-8 w-8 mb-2"/>
+          </div>
+        </CardHeader>
+        <CardContent className="pt-2">
+          <ScrollArea className="h-[250px] pr-3">
+            {isLoading ? (
+              <div className="space-y-3 py-2">
+                <Skeleton className="h-8 w-3/4" /> <Skeleton className="h-4 w-1/2" />
+                <Skeleton className="h-12 w-full" /> <Separator className="my-3 bg-border/50" />
+                <Skeleton className="h-8 w-2/3" /> <Skeleton className="h-4 w-1/3" />
+                <Skeleton className="h-10 w-full" />
+              </div>
+            ) : error ? (
+              <div className="text-destructive flex flex-col items-center justify-center h-full py-8">
+                <AlertCircle className="h-8 w-8 mb-2" />
                 <p className="text-sm font-medium">Error loading announcements.</p>
                 <p className="text-xs">{error}</p>
-            </div>
-          ) : sortedAnnouncements.length === 0 ? (
-            <p className="text-muted-foreground text-center py-8 text-sm">
-              No announcements yet for {currentFormattedGymId ? "this gym" : "GymTrack Lite"}.
-            </p>
-          ) : (
-            sortedAnnouncements.map((announcement, index) => (
-              <div key={announcement.id}>
-                <div className="flex items-start gap-3 mb-3">
+              </div>
+            ) : sortedAnnouncements.length === 0 ? (
+              <p className="text-muted-foreground text-center py-8 text-sm">
+                No announcements yet for {currentFormattedGymId ? "this gym" : "GymTrack Lite"}.
+              </p>
+            ) : (
+              sortedAnnouncements.map((announcement, index) => (
+                <div key={announcement.id}>
+                  <div className="flex items-start gap-3 mb-3">
                     <Checkbox
-                        id={`ann-${announcement.id}`}
-                        checked={selectedAnnouncements.includes(announcement.id)}
-                        onCheckedChange={(checked) => handleSelectAnnouncement(announcement.id, !!checked)}
-                        className="mt-1 border-primary"
+                      id={`ann-${announcement.id}`}
+                      checked={selectedAnnouncements.includes(announcement.id)}
+                      onCheckedChange={(checked) => handleSelectAnnouncement(announcement.id, !!checked)}
+                      className="mt-1 border-primary"
                     />
                     <div className="flex-1">
-                        <label htmlFor={`ann-${announcement.id}`} className="font-semibold text-sm text-primary cursor-pointer hover:underline">{announcement.title}</label>
-                        <p className="text-xs text-muted-foreground mb-1">
-                            {formatDateIST(announcement.createdAt, 'd MMM yyyy')}
-                        </p>
-                        <p className="text-sm text-foreground/80 whitespace-pre-wrap leading-relaxed">{announcement.content}</p>
+                      <label htmlFor={`ann-${announcement.id}`} className="font-semibold text-sm text-primary cursor-pointer hover:underline">{announcement.title}</label>
+                      <p className="text-xs text-muted-foreground mb-1">
+                        {formatDateIST(announcement.createdAt, 'd MMM yyyy')}
+                      </p>
+                      <p className="text-sm text-foreground/80 whitespace-pre-wrap leading-relaxed">{announcement.content}</p>
                     </div>
+                  </div>
+                  {index < sortedAnnouncements.length - 1 && <Separator className="my-3 bg-border/50" />}
                 </div>
-                {index < sortedAnnouncements.length - 1 && <Separator className="my-3 bg-border/50" />}
-              </div>
-            ))
-          )}
-        </ScrollArea>
-      </CardContent>
-       <AlertDialogContent>
-            <AlertDialogHeader>
+              ))
+            )}
+          </ScrollArea>
+        </CardContent>
+        <AlertDialogContent>
+          <AlertDialogHeader>
             <AlertDialogTitle>Are you sure?</AlertDialogTitle>
             <AlertDialogDescription>
-                This action cannot be undone. This will permanently delete {selectedAnnouncements.length} selected announcement(s).
+              This action cannot be undone. This will permanently delete {selectedAnnouncements.length} selected announcement(s).
             </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleDeleteSelected}>Delete</AlertDialogAction>
-            </AlertDialogFooter>
+          </AlertDialogFooter>
         </AlertDialogContent>
-    </Card>
+      </Card>
     </AlertDialog>
   );
 }

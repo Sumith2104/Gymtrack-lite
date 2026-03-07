@@ -59,7 +59,7 @@ function mapDbMemberToAppMember(dbMember: any): Member {
     joinDate: dbMember.join_date,
     expiryDate: dbMember.expiry_date,
     membershipType: typeFromDbMember || planDetails?.plan_name || 'N/A',
-    planPrice: planDetails?.price ?? 0,
+    planPrice: planDetails?.price != null ? Number(planDetails.price) : 0,
     profileUrl: dbMember.profile_url,
   };
 }
@@ -167,7 +167,7 @@ export async function addMember(
       joinDate: joinDate.toISOString(),
       expiryDate: expiryDate.toISOString(),
       membershipType: planDetails.plan_name,
-      planPrice: planDetails.price,
+      planPrice: Number(planDetails.price),
       profileUrl: null
     };
 
@@ -185,7 +185,7 @@ export async function addMember(
           <li><strong style="color: #FFD700; font-weight: bold;">Name:</strong> ${newMemberAppFormat.name}</li>
           <li><strong style="color: #FFD700; font-weight: bold;">Join Date:</strong> ${newMemberAppFormat.joinDate ? formatDateIST(newMemberAppFormat.joinDate, 'PP') : 'N/A'}</li>
           <li><strong style="color: #FFD700; font-weight: bold;">Membership Type:</strong> ${newMemberAppFormat.membershipType || 'N/A'}</li>
-          <li><strong style="color: #FFD700; font-weight: bold;">Plan Price:</strong> ₹${newMemberAppFormat.planPrice?.toFixed(2) || '0.00'}</li>
+          <li><strong style="color: #FFD700; font-weight: bold;">Plan Price:</strong> ₹${Number(newMemberAppFormat.planPrice ?? 0).toFixed(2)}</li>
           <li><strong style="color: #FFD700; font-weight: bold;">Membership Expires:</strong> ${newMemberAppFormat.expiryDate ? formatDateIST(newMemberAppFormat.expiryDate, 'PP') : 'N/A'}</li>
         </ul>
         <p>You can use the QR code below for quick check-ins:</p>
@@ -517,26 +517,20 @@ export async function deleteMembersAction(memberDbIds: string[]): Promise<{ succ
     return { successCount: 0, errorCount: 0, error: "No member IDs provided for deletion." };
   }
 
-  let SCount = 0;
-  let ECount = 0;
-  let lastError: string | undefined = undefined;
+  const cleanIds = memberDbIds.map(id => `'${id.replace(/'/g, "''")}'`).join(',');
 
-  for (const memberId of memberDbIds) {
-    try {
-      const deleteCheckinsQuery = `DELETE FROM check_ins WHERE member_table_id = '${memberId}'`;
-      await flux.sql(deleteCheckinsQuery);
+  try {
+    const deleteCheckinsQuery = `DELETE FROM check_ins WHERE member_table_id IN (${cleanIds})`;
+    await flux.sql(deleteCheckinsQuery);
 
-      const deleteMemberQuery = `DELETE FROM members WHERE id = '${memberId}'`;
-      await flux.sql(deleteMemberQuery);
+    const deleteMemberQuery = `DELETE FROM members WHERE id IN (${cleanIds})`;
+    await flux.sql(deleteMemberQuery);
 
-      SCount++;
-    } catch (e: any) {
-      ECount++;
-      lastError = e.message;
-    }
+    return { successCount: memberDbIds.length, errorCount: 0, error: undefined };
+  } catch (e: any) {
+    console.error("Bulk Delete Members Error:", e);
+    return { successCount: 0, errorCount: memberDbIds.length, error: e.message || 'An unexpected error occurred during bulk deletion.' };
   }
-
-  return { successCount: SCount, errorCount: ECount, error: lastError };
 }
 
 
@@ -586,7 +580,7 @@ export async function bulkUpdateMemberStatusAction(memberDbIds: string[], newSta
       case 'expired': statusExplanation = 'Your membership has been set to <strong>Expired</strong>. Please visit the reception to renew your plan and regain access.'; break;
     }
 
-    for (const member of membersToUpdate) {
+    const emailPromises = membersToUpdate.map(async (member: any) => {
       if (member.email) {
         const gymName = member.gym_name;
         if (gymName) {
@@ -601,20 +595,22 @@ export async function bulkUpdateMemberStatusAction(memberDbIds: string[], newSta
             <p>If you have any questions, please contact us or visit the reception.</p>
             <p>Best regards,<br/>The ${gymName} Team</p>
           `;
-
-          const emailResult = await sendEmail({
-            to: member.email,
-            subject: emailSubject,
-            htmlBody: emailHtmlBody,
-            gymDatabaseId: member.gym_id,
-          });
-
-          if (emailResult.success) {
+          try {
+            await sendEmail({
+              to: member.email,
+              subject: emailSubject,
+              htmlBody: emailHtmlBody,
+              gymDatabaseId: member.gym_id,
+            });
             emailSentCount++;
+          } catch (err) {
+            console.error("Email send error", err);
           }
         }
       }
-    }
+    });
+
+    await Promise.all(emailPromises);
 
     return { successCount, errorCount, emailSentCount };
 
@@ -660,7 +656,7 @@ export async function sendBulkCustomEmailAction(
     }
     const members = result.rows;
 
-    for (const member of members) {
+    const emailPromises = members.map(async (member: any) => {
       const effectiveStatus = getEffectiveMembershipStatus({
         membershipStatus: member.membership_status as MembershipStatus,
         expiryDate: member.expiry_date,
@@ -682,22 +678,28 @@ export async function sendBulkCustomEmailAction(
 
         emailHtmlBody += `<p>Regards,<br/>The ${gymName} Team</p>`;
 
-        const emailResult = await sendEmail({
-          to: member.email,
-          subject: subject,
-          htmlBody: emailHtmlBody,
-          gymDatabaseId: gymDatabaseId,
-        });
+        try {
+          const emailResult = await sendEmail({
+            to: member.email,
+            subject: subject,
+            htmlBody: emailHtmlBody,
+            gymDatabaseId: gymDatabaseId,
+          });
 
-        if (emailResult.success) {
-          successful++;
-        } else {
+          if (emailResult.success) {
+            successful++;
+          } else {
+            failed++;
+          }
+        } catch (e) {
           failed++;
         }
       } else if (!member.email && (effectiveStatus === 'active' || effectiveStatus === 'expiring soon')) {
         noEmailAddress++;
       }
-    }
+    });
+
+    await Promise.all(emailPromises);
     return { attempted, successful, noEmailAddress, failed };
 
   } catch (e: any) {

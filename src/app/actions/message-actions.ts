@@ -1,18 +1,21 @@
 'use server';
 
+import { cache } from 'react';
+
 import type { Message, MessageSenderType, MessageReceiverType } from '@/lib/types';
 import { flux } from '@/lib/flux/client';
 import { v4 as uuidv4 } from 'uuid';
+import { getISTTimestamp } from '@/lib/utils';
 
 /**
  * Fetches the conversation history between an admin (gym) and a specific member.
  * Uses the member's human-readable memberId.
  */
-export async function fetchMessagesAction(
+export const fetchMessagesAction = cache(async (
   gymDatabaseId: string,
   adminFormattedGymId: string,
   memberIdentifier: string // This is members.member_id (human-readable ID)
-): Promise<{ data?: Message[]; error?: string }> {
+): Promise<{ data?: Message[]; error?: string }> => {
   if (!gymDatabaseId || !adminFormattedGymId || !memberIdentifier) {
     return { error: 'Gym DB ID, Admin Formatted ID, and Member Identifier are required to fetch conversation.' };
   }
@@ -53,7 +56,7 @@ export async function fetchMessagesAction(
   } catch (e: any) {
     return { error: 'Failed to fetch messages due to an unexpected error.' };
   }
-}
+});
 
 /**
  * Sends a message from an admin (gym owner) to a specific member.
@@ -71,7 +74,7 @@ export async function sendMessageAction(
 
   try {
     const newMessageId = uuidv4();
-    const createdAt = new Date().toISOString();
+    const createdAt = getISTTimestamp();
     const cleanContent = content.trim().replace(/'/g, "''");
 
     const insertQuery = `
@@ -136,7 +139,7 @@ export async function markMessagesAsReadAction(
   try {
     const updateQuery = `
       UPDATE messages 
-      SET read_at = '${new Date().toISOString()}' 
+      SET read_at = '${getISTTimestamp()}' 
       WHERE gym_id = '${gymDatabaseId}' 
       AND receiver_id = '${receiverIdentifier}' 
       AND id IN (${idList}) 

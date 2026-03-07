@@ -120,8 +120,8 @@ export function AddMemberDialog({ isOpen, onOpenChange, onMemberSaved, memberToE
         });
       }
     } else if (isOpen && !isLoadingPlans && availablePlans.length === 0) {
-        setIsEditing(false);
-        reset({ name: '', email: '', phoneNumber: '', age: undefined, selectedPlanUuid: '' });
+      setIsEditing(false);
+      reset({ name: '', email: '', phoneNumber: '', age: undefined, selectedPlanUuid: '' });
     }
   }, [memberToEdit, isOpen, reset, availablePlans, isLoadingPlans]);
 
@@ -130,25 +130,25 @@ export function AddMemberDialog({ isOpen, onOpenChange, onMemberSaved, memberToE
     const gymName = localStorage.getItem('gymName') || APP_NAME;
 
     if (!currentGymDbId || !currentFormattedGymId) {
-        toast({ variant: "destructive", title: "Configuration Error", description: "Gym ID (UUID or Formatted) not found. Please log in again."});
-        setIsSubmittingState(false);
-        return;
+      toast({ variant: "destructive", title: "Configuration Error", description: "Gym ID (UUID or Formatted) not found. Please log in again." });
+      setIsSubmittingState(false);
+      return;
     }
     if (!data.selectedPlanUuid && availablePlans.length > 0) {
-        toast({ variant: "destructive", title: "Validation Error", description: "Please select a membership plan." });
-        setIsSubmittingState(false);
-        return;
+      toast({ variant: "destructive", title: "Validation Error", description: "Please select a membership plan." });
+      setIsSubmittingState(false);
+      return;
     }
-     if (availablePlans.length === 0 && !isLoadingPlans) {
-        toast({ variant: "destructive", title: "No Plans Available", description: "Cannot add member without active membership plans for this gym." });
-        setIsSubmittingState(false);
-        return;
+    if (availablePlans.length === 0 && !isLoadingPlans) {
+      toast({ variant: "destructive", title: "No Plans Available", description: "Cannot add member without active membership plans for this gym." });
+      setIsSubmittingState(false);
+      return;
     }
 
     let response;
     if (isEditing && memberToEdit) {
       response = await editMember(data, memberToEdit.id, currentGymDbId);
-       if (response.data?.updatedMember) {
+      if (response.data?.updatedMember) {
         onMemberSaved(response.data.updatedMember);
         toast({ title: 'Member Updated', description: `${response.data.updatedMember.name} has been successfully updated.` });
         onOpenChange(false);
@@ -164,7 +164,7 @@ export function AddMemberDialog({ isOpen, onOpenChange, onMemberSaved, memberToE
     }
 
     if (response.error) {
-       toast({ variant: "destructive", title: isEditing ? 'Error Updating Member' : 'Error Adding Member', description: response.error });
+      toast({ variant: "destructive", title: isEditing ? 'Error Updating Member' : 'Error Adding Member', description: response.error });
     }
     setIsSubmittingState(false);
   }
@@ -184,38 +184,38 @@ export function AddMemberDialog({ isOpen, onOpenChange, onMemberSaved, memberToE
         <Form {...formMethods}>
           <form onSubmit={formMethods.handleSubmit(onSubmit)} className="space-y-4">
             <FormField control={formMethods.control} name="name" render={({ field }) => (
-                <FormItem><FormLabel className="text-foreground">Full Name</FormLabel><FormControl><Input className="bg-input text-foreground placeholder:text-muted-foreground border-border" placeholder="Enter member's full name" {...field} /></FormControl><FormMessage /></FormItem>
-            )}/>
+              <FormItem><FormLabel className="text-foreground">Full Name</FormLabel><FormControl><Input className="bg-input text-foreground placeholder:text-muted-foreground border-border" placeholder="Enter member's full name" {...field} /></FormControl><FormMessage /></FormItem>
+            )} />
             <FormField control={formMethods.control} name="email" render={({ field }) => (
-                <FormItem><FormLabel className="text-foreground">Email</FormLabel><FormControl><Input className="bg-input text-foreground placeholder:text-muted-foreground border-border" type="email" placeholder="Enter member's email" {...field} /></FormControl><FormMessage /></FormItem>
-            )}/>
-             <div className="grid grid-cols-2 gap-4">
-                <FormField control={formMethods.control} name="age" render={({ field }) => (
-                    <FormItem><FormLabel className="text-foreground">Age</FormLabel><FormControl><Input className="bg-input text-foreground placeholder:text-muted-foreground border-border" type="number" placeholder="e.g., 25" {...field} value={field.value ?? ''} onChange={e => field.onChange(e.target.value === '' ? undefined : parseInt(e.target.value, 10))}/></FormControl><FormMessage /></FormItem>
-                )}/>
-                <FormField control={formMethods.control} name="phoneNumber" render={({ field }) => (
-                    <FormItem><FormLabel className="text-foreground">Phone</FormLabel><FormControl><Input className="bg-input text-foreground placeholder:text-muted-foreground border-border" type="tel" placeholder="Enter phone number" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
-                )}/>
+              <FormItem><FormLabel className="text-foreground">Email</FormLabel><FormControl><Input className="bg-input text-foreground placeholder:text-muted-foreground border-border" type="email" placeholder="Enter member's email" {...field} /></FormControl><FormMessage /></FormItem>
+            )} />
+            <div className="grid grid-cols-2 gap-4">
+              <FormField control={formMethods.control} name="age" render={({ field }) => (
+                <FormItem><FormLabel className="text-foreground">Age</FormLabel><FormControl><Input className="bg-input text-foreground placeholder:text-muted-foreground border-border" type="number" placeholder="e.g., 25" {...field} value={field.value ?? ''} onChange={e => field.onChange(e.target.value === '' ? undefined : parseInt(e.target.value, 10))} /></FormControl><FormMessage /></FormItem>
+              )} />
+              <FormField control={formMethods.control} name="phoneNumber" render={({ field }) => (
+                <FormItem><FormLabel className="text-foreground">Phone</FormLabel><FormControl><Input className="bg-input text-foreground placeholder:text-muted-foreground border-border" type="tel" placeholder="Enter phone number" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
+              )} />
             </div>
             <FormField control={formMethods.control} name="selectedPlanUuid" render={({ field }) => (
-                <FormItem className="space-y-3">
-                  <FormLabel className="text-foreground">Membership Plan</FormLabel>
-                  {isLoadingPlans ? (<div className="space-y-2"><Skeleton className="h-5 w-3/4" /><Skeleton className="h-5 w-1/2" /><Skeleton className="h-5 w-2/3" /></div>
-                  ) : availablePlans.length === 0 ? (<p className="text-sm text-destructive">No active membership plans found for this gym. Please add plans first.</p>
-                  ) : (
-                    <FormControl>
-                      <RadioGroup onValueChange={field.onChange} value={field.value} className="flex flex-col space-y-1">
-                        {availablePlans.map((plan) => (
-                          <FormItem key={plan.uuid} className="flex items-center space-x-3 space-y-0 p-2 rounded-md hover:bg-muted/50 transition-colors border border-transparent hover:border-border cursor-pointer has-[input:checked]:bg-primary/10 has-[input:checked]:border-primary">
-                            <FormControl><RadioGroupItem value={plan.uuid} /></FormControl>
-                            <FormLabel className="font-normal text-foreground cursor-pointer w-full"> {plan.name} <span className="text-xs text-muted-foreground ml-2">(₹{plan.price.toFixed(2)} / {plan.durationMonths} {plan.durationMonths === 1 ? 'month' : 'months'})</span></FormLabel>
-                          </FormItem>
-                        ))}
-                      </RadioGroup>
-                    </FormControl>
-                  )}<FormMessage />
-                </FormItem>
-            )}/>
+              <FormItem className="space-y-3">
+                <FormLabel className="text-foreground">Membership Plan</FormLabel>
+                {isLoadingPlans ? (<div className="space-y-2"><Skeleton className="h-5 w-3/4" /><Skeleton className="h-5 w-1/2" /><Skeleton className="h-5 w-2/3" /></div>
+                ) : availablePlans.length === 0 ? (<p className="text-sm text-destructive">No active membership plans found for this gym. Please add plans first.</p>
+                ) : (
+                  <FormControl>
+                    <RadioGroup onValueChange={field.onChange} value={field.value} className="flex flex-col space-y-1">
+                      {availablePlans.map((plan) => (
+                        <FormItem key={plan.uuid} className="flex items-center space-x-3 space-y-0 p-2 rounded-md hover:bg-muted/50 transition-colors border border-transparent hover:border-border cursor-pointer has-[input:checked]:bg-primary/10 has-[input:checked]:border-primary">
+                          <FormControl><RadioGroupItem value={plan.uuid} /></FormControl>
+                          <FormLabel className="font-normal text-foreground cursor-pointer w-full"> {plan.name} <span className="text-xs text-muted-foreground ml-2">(₹{Number(plan.price).toFixed(2)} / {plan.durationMonths} {plan.durationMonths === 1 ? 'month' : 'months'})</span></FormLabel>
+                        </FormItem>
+                      ))}
+                    </RadioGroup>
+                  </FormControl>
+                )}<FormMessage />
+              </FormItem>
+            )} />
             <DialogFooter className="pt-6">
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)} className="border-border hover:bg-muted">Cancel</Button>
               <Button type="submit" disabled={isSubmittingState || isLoadingPlans || (availablePlans.length === 0 && !isEditing) || !currentGymDbId} className="bg-primary text-primary-foreground hover:bg-primary/90 w-full sm:w-auto">
@@ -230,4 +230,3 @@ export function AddMemberDialog({ isOpen, onOpenChange, onMemberSaved, memberToE
   );
 }
 
-    

@@ -7,6 +7,7 @@ import type { NavItem } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { APP_NAME, APP_LOGO as AppLogoIcon, NAV_LINKS_HEADER } from '@/lib/constants';
 import { cn } from '@/lib/utils';
+import { logoutAction } from '@/app/auth/actions';
 import {
   Sheet,
   SheetContent,
@@ -24,7 +25,8 @@ export function AppHeader() {
   const router = useRouter();
   const [isSheetOpen, setIsSheetOpen] = useState(false);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await logoutAction();
     localStorage.removeItem('isAuthenticated');
     localStorage.removeItem('gymId');
     localStorage.removeItem('gymOwnerEmail');

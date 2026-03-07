@@ -21,10 +21,18 @@ const chartConfig = {
   },
 } satisfies ChartConfig;
 
-export function OccupancyCard({ className }: { className?: string }) {
-  const [occupancy, setOccupancy] = useState(0);
-  const [maxCapacity, setMaxCapacity] = useState(100);
-  const [isLoading, setIsLoading] = useState(true);
+export function OccupancyCard({
+  className,
+  initialOccupancy,
+  initialMaxCapacity
+}: {
+  className?: string;
+  initialOccupancy?: number;
+  initialMaxCapacity?: number;
+}) {
+  const [occupancy, setOccupancy] = useState(initialOccupancy ?? 0);
+  const [maxCapacity, setMaxCapacity] = useState(initialMaxCapacity ?? 100);
+  const [isLoading, setIsLoading] = useState(!initialOccupancy && initialOccupancy !== 0);
   const [error, setError] = useState<string | null>(null);
   const [gymDbId, setGymDbId] = useState<string | null>(null);
 
@@ -48,9 +56,11 @@ export function OccupancyCard({ className }: { className?: string }) {
       }
 
       if (id) {
-        setIsLoading(true);
-        setError(null);
-        fetchAndSetOccupancy(id).finally(() => setIsLoading(false));
+        if (!initialOccupancy && initialOccupancy !== 0) {
+          setIsLoading(true);
+          setError(null);
+          fetchAndSetOccupancy(id).finally(() => setIsLoading(false));
+        }
       } else {
         setIsLoading(false);
         setError("Gym ID not found. Please log in again.");

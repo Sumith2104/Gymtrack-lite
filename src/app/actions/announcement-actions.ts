@@ -1,6 +1,8 @@
 
 'use server';
 
+import { cache } from 'react';
+
 import { flux } from '@/lib/flux/client';
 import type { Announcement, Member, MembershipStatus, EffectiveMembershipStatus } from '@/lib/types';
 import { sendEmail } from '@/lib/email-service';
@@ -117,13 +119,12 @@ export async function addAnnouncementAction(
       const membersToEmail = membersResult.rows || [];
 
       if (membersToEmail.length > 0) {
-        for (const member of membersToEmail) {
+        const emailPromises = membersToEmail.map(async (member: any) => {
           const effectiveStatus = getEffectiveMembershipStatusForEmail({
-            membershipStatus: member.membership_status as MembershipStatus, // Cast to DB status type
+            membershipStatus: member.membership_status as MembershipStatus,
             expiryDate: member.expiry_date,
           });
 
-          // Send email if effective status is 'active' or 'expiring soon'
           if (member.email && (effectiveStatus === 'active' || effectiveStatus === 'expiring soon')) {
             attempted++;
             const emailSubject = `New Announcement from ${gymNameForEmail}: ${newAnnouncement.title}`;
@@ -138,21 +139,24 @@ export async function addAnnouncementAction(
                 <p>Please check the dashboard for more details.</p>
                 <p>Regards,<br/>The ${gymNameForEmail} Team</p>
               `;
-            const emailResult = await sendEmail({
-              to: member.email,
-              subject: emailSubject,
-              htmlBody: emailHtmlBody,
-              gymDatabaseId: gymUuid,
-            });
-            if (emailResult.success) {
-              successful++;
-            } else {
+            try {
+              const emailResult = await sendEmail({
+                to: member.email,
+                subject: emailSubject,
+                htmlBody: emailHtmlBody,
+                gymDatabaseId: gymUuid,
+              });
+              if (emailResult.success) successful++;
+              else failed++;
+            } catch (err) {
               failed++;
             }
           } else if (!member.email && (effectiveStatus === 'active' || effectiveStatus === 'expiring soon')) {
             noEmailAddress++;
           }
-        }
+        });
+
+        await Promise.all(emailPromises);
       }
     }
 
@@ -167,7 +171,7 @@ export async function addAnnouncementAction(
   }
 }
 
-export async function fetchAnnouncementsAction(ownerFormattedGymId: string | null): Promise<{ data?: Announcement[]; error?: string }> {
+export const fetchAnnouncementsAction = cache(async (ownerFormattedGymId: string | null): Promise<{ data?: Announcement[]; error?: string }> => {
   if (!ownerFormattedGymId || typeof ownerFormattedGymId !== 'string' || ownerFormattedGymId.trim() === '') {
     return { error: "Valid Formatted Gym ID (text) is required to fetch announcements." };
   }
@@ -202,7 +206,7 @@ export async function fetchAnnouncementsAction(ownerFormattedGymId: string | nul
     console.error("Fetch Announcement Error:", e);
     return { error: 'An unexpected error occurred while fetching announcements.' };
   }
-}
+});
 
 export async function deleteAnnouncementsAction(announcementIds: string[]): Promise<{ success: boolean; error?: string }> {
   if (!announcementIds || announcementIds.length === 0) {
@@ -210,11 +214,9 @@ export async function deleteAnnouncementsAction(announcementIds: string[]): Prom
   }
 
   try {
-    for (const annId of announcementIds) {
-      const safeId = annId.replace(/'/g, "''");
-      const query = `DELETE FROM announcements WHERE id = '${safeId}'`;
-      await flux.sql(query);
-    }
+    const cleanIds = announcementIds.map(id => `'${id.replace(/'/g, "''")}'`).join(',');
+    const query = `DELETE FROM announcements WHERE id IN (${cleanIds})`;
+    await flux.sql(query);
 
     return { success: true };
 

@@ -4,22 +4,28 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Pie, PieChart, ResponsiveContainer, Cell } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Users, AlertCircle } from 'lucide-react'; 
+import { Users, AlertCircle } from 'lucide-react';
 import { ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from '@/components/ui/chart';
 import type { MembershipType } from '@/lib/types';
 import { getMembershipDistribution } from '@/app/actions/analytics-actions';
 import { Skeleton } from '@/components/ui/skeleton';
 
 
-interface MembershipDistributionData {
+export interface MembershipDistributionData {
   type: MembershipType;
   count: number;
 }
 
-export function MembershipDistributionChart() {
-  const [chartData, setChartData] = useState<MembershipDistributionData[]>([]);
-  const [chartConfig, setChartConfig] = useState<ChartConfig>({});
-  const [isLoading, setIsLoading] = useState(true);
+export function MembershipDistributionChart({
+  initialData,
+  initialConfig
+}: {
+  initialData?: MembershipDistributionData[];
+  initialConfig?: ChartConfig;
+}) {
+  const [chartData, setChartData] = useState<MembershipDistributionData[]>(initialData ?? []);
+  const [chartConfig, setChartConfig] = useState<ChartConfig>(initialConfig ?? {});
+  const [isLoading, setIsLoading] = useState(!initialData);
   const [error, setError] = useState<string | null>(null);
   const [gymDbId, setGymDbId] = useState<string | null>(null);
 
@@ -33,7 +39,7 @@ export function MembershipDistributionChart() {
   const fetchChartData = useCallback(() => {
     if (!gymDbId) {
       setIsLoading(false);
-      setChartData([]); 
+      setChartData([]);
       return;
     }
 
@@ -41,14 +47,15 @@ export function MembershipDistributionChart() {
     setError(null);
     getMembershipDistribution(gymDbId)
       .then(response => {
-        if (response.error) {
-          setError(response.error);
+        if (response.error || !response.data) {
+          setError(response.error || "Failed to load distribution data.");
           setChartData([]);
         } else {
-          setChartData(response.data);
-          
+          setChartData(response.data as any as MembershipDistributionData[]);
+
           const newChartConfig = response.data.reduce((acc, item, index) => {
-            const key = item.type.toLowerCase().replace(/\s+/g, '_') || `type_${index}`;
+            const typeStr = item.type as string;
+            const key = typeStr.toLowerCase().replace(/\s+/g, '_') || `type_${index}`;
             acc[key] = {
               label: item.type,
               color: `hsl(var(--chart-${(index % 5) + 1}))`,
@@ -59,18 +66,20 @@ export function MembershipDistributionChart() {
         }
       })
       .catch(err => {
-        
+
         setError("Failed to load membership distribution data.");
         setChartData([]);
       })
       .finally(() => {
         setIsLoading(false);
       });
-  }, [gymDbId]);
+  }, [gymDbId, initialData]); // Added initialData to dependencies to avoid stale closures if it changes
 
   useEffect(() => {
-    fetchChartData();
-  }, [fetchChartData]);
+    if (!initialData) {
+      fetchChartData();
+    }
+  }, [fetchChartData, initialData]);
 
   useEffect(() => {
     const handleRefetch = () => {
@@ -86,9 +95,9 @@ export function MembershipDistributionChart() {
   return (
     <Card className="shadow-lg">
       <CardHeader>
-         <div className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Membership Type Distribution</CardTitle>
-            <Users className="h-5 w-5 text-primary" />
+        <div className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">Membership Type Distribution</CardTitle>
+          <Users className="h-5 w-5 text-primary" />
         </div>
         <CardDescription>Breakdown of members by their plan type</CardDescription>
       </CardHeader>
@@ -118,7 +127,7 @@ export function MembershipDistributionChart() {
                 <Pie
                   data={chartData}
                   dataKey="count"
-                  nameKey="type" 
+                  nameKey="type"
                   cx="50%"
                   cy="50%"
                   outerRadius={100}
@@ -126,13 +135,13 @@ export function MembershipDistributionChart() {
                   labelLine={false}
                 >
                   {chartData.map((entry) => (
-                    <Cell 
-                      key={`cell-${entry.type}`} 
-                      fill={chartConfig[entry.type.toLowerCase().replace(/\s+/g, '_') as keyof typeof chartConfig]?.color || "hsl(var(--muted))"} 
+                    <Cell
+                      key={`cell-${entry.type}`}
+                      fill={chartConfig[entry.type.toLowerCase().replace(/\s+/g, '_') as keyof typeof chartConfig]?.color || "hsl(var(--muted))"}
                     />
                   ))}
                 </Pie>
-                 <ChartLegend content={<ChartLegendContent nameKey="type" />} />
+                <ChartLegend content={<ChartLegendContent nameKey="type" />} />
               </PieChart>
             </ResponsiveContainer>
           </ChartContainer>

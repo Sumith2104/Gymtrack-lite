@@ -1,7 +1,5 @@
 'use server';
 
-import { cache } from 'react';
-
 import type { FetchedMembershipPlan } from '@/lib/types';
 import { addPlanFormSchema, type AddPlanFormValues } from '@/lib/schemas/plan-schemas';
 import { ZodError } from 'zod';
@@ -13,7 +11,7 @@ interface GetActiveMembershipPlansResponse {
   error?: string;
 }
 
-export const getActiveMembershipPlans = cache(async (gymDatabaseId: string | null): Promise<GetActiveMembershipPlansResponse> => {
+export async function getActiveMembershipPlans(gymDatabaseId: string | null): Promise<GetActiveMembershipPlansResponse> {
   if (!gymDatabaseId) {
     return { error: 'Gym ID not provided. Cannot fetch plans.' };
   }
@@ -45,7 +43,7 @@ export const getActiveMembershipPlans = cache(async (gymDatabaseId: string | nul
   } catch (e: any) {
     return { error: `Unexpected error fetching plans: ${e.message}` };
   }
-});
+}
 
 interface AddPlanResponse {
   data?: FetchedMembershipPlan;
@@ -62,7 +60,11 @@ export async function addPlanAction(formData: AddPlanFormValues, gymDatabaseId: 
     const validationResult = addPlanFormSchema.safeParse(formData);
     if (!validationResult.success) {
       const zodError = validationResult.error as ZodError;
-      return { error: "Validation failed", fieldErrors: zodError.flatten().fieldErrors };
+      const raw = zodError.flatten().fieldErrors;
+      const fieldErrors: Record<string, string[]> = Object.fromEntries(
+        Object.entries(raw).filter((e): e is [string, string[]] => e[1] !== undefined)
+      );
+      return { error: "Validation failed", fieldErrors };
     }
 
     const { planIdText, name, price, durationMonths } = validationResult.data;
@@ -143,7 +145,11 @@ export async function updatePlanAction(
     const validationResult = addPlanFormSchema.safeParse(formData);
     if (!validationResult.success) {
       const zodError = validationResult.error as ZodError;
-      return { error: "Validation failed", fieldErrors: zodError.flatten().fieldErrors };
+      const raw = zodError.flatten().fieldErrors;
+      const fieldErrors: Record<string, string[]> = Object.fromEntries(
+        Object.entries(raw).filter((e): e is [string, string[]] => e[1] !== undefined)
+      );
+      return { error: "Validation failed", fieldErrors };
     }
 
     const { planIdText, name, price, durationMonths } = validationResult.data;

@@ -1,7 +1,11 @@
-
 import { MembersTable } from '@/components/members/members-table';
+import { getServerSession } from '@/lib/auth-service';
+import { fetchMembers } from '@/app/actions/member-actions';
 
-export default function MemberManagementPage() {
+export default async function MemberManagementPage() {
+  const session = await getServerSession();
+  const membersRes = await fetchMembers(session.gymDatabaseId || '');
+
   return (
     <div className="flex flex-col gap-6">
       <div className="mb-2">
@@ -11,7 +15,7 @@ export default function MemberManagementPage() {
         </p>
         <div className="mt-3 h-1 w-24 bg-primary rounded-full"></div>
       </div>
-      <MembersTable />
+      <MembersTable initialMembers={membersRes.data} />
     </div>
   );
 }

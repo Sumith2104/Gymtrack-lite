@@ -3,6 +3,7 @@
 
 import { flux } from '@/lib/flux/client';
 import type { Gym } from '@/lib/types';
+import { cookies } from 'next/headers';
 
 export async function verifyGymOwnerCredentials(
   email: string,
@@ -43,6 +44,15 @@ export async function verifyGymOwnerCredentials(
       return 'inactive';
     }
 
+    // Set secure HTTP-only cookies for server-side auth
+    const cookieStore = await cookies();
+    const oneWeek = 7 * 24 * 60 * 60 * 1000;
+
+    cookieStore.set('auth_authenticated', 'true', { maxAge: oneWeek, httpOnly: true, secure: process.env.NODE_ENV === 'production' });
+    cookieStore.set('auth_gym_id', data.formatted_gym_id, { maxAge: oneWeek, httpOnly: true, secure: process.env.NODE_ENV === 'production' });
+    cookieStore.set('auth_gym_db_id', data.id, { maxAge: oneWeek, httpOnly: true, secure: process.env.NODE_ENV === 'production' });
+    cookieStore.set('auth_gym_name', data.name, { maxAge: oneWeek, httpOnly: true, secure: process.env.NODE_ENV === 'production' });
+
     return {
       id: data.id,
       name: data.name,
@@ -60,4 +70,12 @@ export async function verifyGymOwnerCredentials(
     console.error("Auth Error:", e);
     return 'not_found';
   }
+}
+
+export async function logoutAction() {
+  const cookieStore = await cookies();
+  cookieStore.delete('auth_authenticated');
+  cookieStore.delete('auth_gym_id');
+  cookieStore.delete('auth_gym_db_id');
+  cookieStore.delete('auth_gym_name');
 }

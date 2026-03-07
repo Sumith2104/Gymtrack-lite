@@ -29,7 +29,7 @@ interface RawMemberPlanData {
   plan_name: string;
 }
 
-export const getGymEarningsData = cache(async (gymDatabaseId: string): Promise<{ data?: EarningsData; error?: string }> => {
+export async function getGymEarningsData(gymDatabaseId: string): Promise<{ data?: EarningsData; error?: string }> {
   if (!gymDatabaseId) {
     return { error: 'Gym ID not provided.' };
   }
@@ -48,7 +48,7 @@ export const getGymEarningsData = cache(async (gymDatabaseId: string): Promise<{
     let totalValueOfActivePlanDefinitions = 0;
     if (activePlanDefinitions) {
       activePlanDefinitions.forEach((plan: any) => {
-        totalValueOfActivePlanDefinitions += plan.price || 0;
+        totalValueOfActivePlanDefinitions += Number(plan.price) || 0;
       });
     }
 
@@ -80,8 +80,9 @@ export const getGymEarningsData = cache(async (gymDatabaseId: string): Promise<{
     const planCounts: Record<string, number> = {};
 
     membersData.forEach((member: RawMemberPlanData) => {
-      if (member.price > 0) {
-        currentMonthlyRevenueFromMembers += member.price;
+      const memberPrice = Number(member.price);
+      if (memberPrice > 0) {
+        currentMonthlyRevenueFromMembers += memberPrice;
 
         const planName = member.plan_name || 'Unknown Plan';
         planCounts[planName] = (planCounts[planName] || 0) + 1;
@@ -114,7 +115,7 @@ export const getGymEarningsData = cache(async (gymDatabaseId: string): Promise<{
   } catch (e: any) {
     return { error: `Calculation error: ${e.message}` };
   }
-});
+}
 
 export const getGymUpiId = cache(async (gymDatabaseId: string): Promise<{ upiId: string | null; error?: string }> => {
   if (!gymDatabaseId) {

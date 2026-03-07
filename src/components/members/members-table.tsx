@@ -86,12 +86,12 @@ const getEffectiveDisplayStatus = (member: Member): EffectiveMembershipStatus =>
 };
 
 
-export function MembersTable() {
-  const [data, setData] = React.useState<Member[]>([]);
+export function MembersTable({ initialMembers }: { initialMembers?: Member[] }) {
+  const [data, setData] = React.useState<Member[]>(initialMembers ?? []);
   const { toast } = useToast();
 
   const [currentGymDatabaseId, setCurrentGymDatabaseId] = React.useState<string | null>(null);
-  const [isLoadingMembers, setIsLoadingMembers] = React.useState(true);
+  const [isLoadingMembers, setIsLoadingMembers] = React.useState(!initialMembers);
   const [fetchMembersError, setFetchMembersError] = React.useState<string | null>(null);
 
   const [isAddMemberDialogOpen, setIsAddMemberDialogOpen] = React.useState(false);
@@ -127,7 +127,9 @@ export function MembersTable() {
       const gymDbId = localStorage.getItem('gymDatabaseId');
       setCurrentGymDatabaseId(gymDbId);
       if (gymDbId) {
-        loadMembers(gymDbId);
+        if (!initialMembers) {
+          loadMembers(gymDbId);
+        }
       } else {
         setIsLoadingMembers(false);
         setData([]);

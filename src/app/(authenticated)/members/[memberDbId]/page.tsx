@@ -128,7 +128,7 @@ export default async function MemberProfilePage({ params }: { params: Promise<{ 
           </CardHeader>
           <CardContent className="space-y-4">
             <InfoItem icon={Hash} label="Plan Type" value={member.membershipType} />
-            <InfoItem icon={IndianRupee} label="Plan Price" value={member.planPrice?.toFixed(2)} />
+            <InfoItem icon={IndianRupee} label="Plan Price" value={member.planPrice != null ? Number(member.planPrice).toFixed(2) : undefined} />
             <InfoItem icon={Calendar} label="Join Date" value={member.joinDate ? format(parseISO(member.joinDate), 'PPP') : 'N/A'} />
             <InfoItem icon={Calendar} label="Expiry Date" value={member.expiryDate ? format(parseISO(member.expiryDate), 'PPP') : 'N/A'} />
           </CardContent>
